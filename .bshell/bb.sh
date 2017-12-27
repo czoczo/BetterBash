@@ -47,13 +47,17 @@ PR_LLCORNER="└"
 #PR_LLCORNER="╚"
 
 GREEN='\033[00;92m'
-BLUE='\033[00;94m'
-GREY='\033[00;90;1m'
+GREENB='\033[00;92;1m'
+BLUE='\033[00;94;1m'
+GREY='\033[00;90m'
 YELLOW='\033[00;93m'
 RED='\033[00;31m'
+REDB='\033[00;31;1m'
 WHITE='\033[00;97;1m'
+WHITEB='\033[00;97;1m'
 RST='\033[0m'
 BOLD='\033[1m'
+BORDCOL='\033[00;90;1m'
 
 
 export PROMPT_COMMAND=__prompt_command
@@ -66,8 +70,8 @@ function __prompt_command() {
         RCOL="$RED"
     fi
   if [ $UID -eq "0" ]; then
-    GREY=$RED
+    BORDCOL=$REDB
   fi
-  PS1="\n$GREY\[\016\]$PR_ULCORNER\[\017\]$WHITE(\[\e[34;1m\]\u$WHITE@$GREEN\h$WHITE)$GREY$PR_HBAR$PR_HBAR$WHITE($CH$WHITE)$GREY$PR_HBAR$PR_HBAR$WHITE($GREEN\$(/bin/ls -1 | /usr/bin/wc -l | /bin/sed 's: ::g') files, \$(/bin/ls -lah | /bin/grep -m 1 total | /bin/sed 's/total //')b$WHITE)$GREY$PR_HBAR$PR_HBAR$WHITE($GREEB\j ↻$WHITE)$GREY$PR_HBAR$PR_HBAR$WHITE($YELLOW$RCOL\d, \t$WHITE)$GREY$PR_HBAR$PR_HBAR$WHITE($GREEN$RCOL$EXIT ↵$WHITE)$GREY$PR_HBAR$PR_HBAR>$GREY\n\[\016\]$PR_LLCORNER\[\017\]$PR_HBAR$WHITE(\w)$GREY$PR_HBAR> \[\e[0m\]"
+  PS1="\n$BORDCOL\[\016\]$PR_ULCORNER\[\017\]$WHITEB($BLUE\u$WHITEB@$GREENB\h$WHITEB)$BORDCOL$PR_HBAR$PR_HBAR$WHITEB($CH$WHITEB)$BORDCOL$PR_HBAR$PR_HBAR$WHITEB($GREEN\$(/bin/ls -1 | /usr/bin/wc -l | /bin/sed 's: ::g') files, \$(/bin/ls -lah | /bin/grep -m 1 total | /bin/sed 's/total //')b$WHITEB)$BORDCOL$PR_HBAR$PR_HBAR$WHITEB($GREEN\j ↻$WHITEB)$BORDCOL$PR_HBAR$PR_HBAR$WHITEB($YELLOW$RCOL\d, \t$WHITEB)$BORDCOL$PR_HBAR$PR_HBAR$WHITEB($GREEN$RCOL$EXIT ↵$WHITEB)$BORDCOL$PR_HBAR$PR_HBAR>$BORDCOL\n\[\016\]$PR_LLCORNER\[\017\]$PR_HBAR$WHITEB(\w)$BORDCOL$PR_HBAR> \[\e[0m\]"
 
 }
