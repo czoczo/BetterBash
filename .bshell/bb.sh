@@ -36,6 +36,11 @@ function hashColor {
 
 CH=$(hashColor "$(hostname)" 4)
 
+temp="$(tty)"
+#   Chop off the first five chars of tty (ie /dev/):
+cur_tty="${temp:5}"
+unset temp
+
 PR_HBAR="─"
 PR_ULCORNER="┌"
 PR_LLCORNER="└"
@@ -48,7 +53,7 @@ PR_LLCORNER="└"
 
 GREEN='\033[00;92m'
 GREENB='\033[00;92;1m'
-BLUE='\033[00;94;1m'
+BLUE='\033[00;36;1m'
 GREY='\033[00;90m'
 YELLOW='\033[00;93m'
 RED='\033[00;31m'
@@ -58,7 +63,7 @@ WHITEB='\033[00;97;1m'
 RST='\033[0m'
 BOLD='\033[1m'
 BORDCOL='\033[00;90;1m'
-
+BGPROCCOL=$GREEN
 
 export PROMPT_COMMAND=__prompt_command
 
@@ -72,6 +77,28 @@ function __prompt_command() {
   if [ $UID -eq "0" ]; then
     BORDCOL=$REDB
   fi
-  PS1="\n$BORDCOL\[\016\]$PR_ULCORNER\[\017\]$WHITEB($BLUE\u$WHITEB@$GREENB\h$WHITEB)$BORDCOL$PR_HBAR$PR_HBAR$WHITEB($CH$WHITEB)$BORDCOL$PR_HBAR$PR_HBAR$WHITEB($GREEN\$(/bin/ls -1 | /usr/bin/wc -l | /bin/sed 's: ::g') files, \$(/bin/ls -lah | /bin/grep -m 1 total | /bin/sed 's/total //')b$WHITEB)$BORDCOL$PR_HBAR$PR_HBAR$WHITEB($GREEN\j ↻$WHITEB)$BORDCOL$PR_HBAR$PR_HBAR$WHITEB($YELLOW$RCOL\d, \t$WHITEB)$BORDCOL$PR_HBAR$PR_HBAR$WHITEB($GREEN$RCOL$EXIT ↵$WHITEB)$BORDCOL$PR_HBAR$PR_HBAR>$BORDCOL\n\[\016\]$PR_LLCORNER\[\017\]$PR_HBAR$WHITEB(\w)$BORDCOL$PR_HBAR> \[\e[0m\]"
+  PROCCNT=$(jobs -p 2>/dev/null | wc -l )
+  if [ $PROCCNT -gt "0" ]; then
+    BGPROCCOL=$RED
+  else
+    BGPROCCOL=$GREEN
+  fi
+  HOSTNAM=$(hostname -s)
+  USERNAM=$(whoami)
+  LEFT="\n$BORDCOL\[\016\]$PR_ULCORNER$PR_HBAR\[\017\]$WHITEB($BLUE\u$WHITEB@$GREENB\h:$cur_tty$WHITEB)$BORDCOL$PR_HBAR$PR_HBAR$WHITEB($CH$WHITEB)$BORDCOL$PR_HBAR$PR_HBAR$WHITEB($GREEN\$(/bin/ls -1 | /usr/bin/wc -l | /bin/sed 's: ::g') files, \$(/bin/ls -lah | /bin/grep -m 1 total | /bin/sed 's/total //')b$WHITEB)$BORDCOL$PR_HBAR$PR_HBAR$WHITEB($BGPROCCOL\j ↻$WHITEB)"
+  RIGHT="$BORDCOL$PR_HBAR$PR_HBAR$WHITEB($YELLOW$RCOL\d, \t$WHITEB)$BORDCOL$PR_HBAR$PR_HBAR$WHITEB($GREEN$RCOL$EXIT ↵$WHITEB)$BORDCOL$PR_HBAR$PR_HBAR$PR_HBAR$BORDCOL\n\[\016\]$PR_LLCORNER\[\017\]$PR_HBAR$WHITEB(\w)$BORDCOL$PR_HBAR> \[\e[0m\]"
+  #WIDTH=$(tput cols)
+  L_LEN="$USERNAM$HOSTNAM$CH$(/bin/ls -1 | /usr/bin/wc -l | /bin/sed 's: ::g')$(/bin/ls -lah | /bin/grep -m 1 total | /bin/sed 's/total //')b\j"
+  R_LEN="XXX XXX XX, XX:XX:XX$EXIT"
+  L_LEN=${#L_LEN}
+  R_LEN=${#R_LEN}
+#echo "$L_LEN"
+  let WIDTH=$(tput cols)-${R_LEN}-${L_LEN}+51
+  FILL=$BORDCOL$PR_HBAR
+  for ((x = 0; x < $WIDTH; x++)); do
+    FILL="$FILL$PR_HBAR"
+  done
+
+  PS1="$LEFT$FILL$RIGHT"
 
 }
