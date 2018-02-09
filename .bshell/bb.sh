@@ -54,8 +54,10 @@ PR_LLCORNER="└"
 GREEN='\033[00;92m'
 GREENB='\033[00;92;1m'
 BLUE='\033[00;36;1m'
+MAGENTA='\033[00;35;1m'
 GREY='\033[00;90m'
 YELLOW='\033[00;93m'
+YELLOWB='\033[00;93;1m'
 RED='\033[00;31m'
 REDB='\033[00;31;1m'
 WHITE='\033[00;97;1m'
@@ -64,7 +66,7 @@ RST='\033[0m'
 BOLD='\033[1m'
 BORDCOL='\033[00;90;1m'
 BGPROCCOL=$GREEN
-
+USERCOL=$MAGENTA
 export PROMPT_COMMAND=__prompt_command
 
 function __prompt_command() {
@@ -75,18 +77,19 @@ function __prompt_command() {
         RCOL="$RED"
     fi
   if [ $UID -eq "0" ]; then
-    BORDCOL=$REDB
+     USERCOL='\033[00;41;1m'
+#    BORDCOL=$REDB
   fi
   PROCCNT=$(jobs -p 2>/dev/null | wc -l )
   if [ $PROCCNT -gt "0" ]; then
     BGPROCCOL=$RED
   else
-    BGPROCCOL=$GREEN
+    BGPROCCOL=$GREENB
   fi
   HOSTNAM=$(hostname -s)
   USERNAM=$(whoami)
-  LEFT="\n$BORDCOL\[\016\]$PR_ULCORNER$PR_HBAR\[\017\]$WHITEB($BLUE\u$WHITEB@$GREENB\h:$cur_tty$WHITEB)$BORDCOL$PR_HBAR$PR_HBAR$WHITEB($CH$WHITEB)$BORDCOL$PR_HBAR$PR_HBAR$WHITEB($GREEN\$(/bin/ls -1 | /usr/bin/wc -l | /bin/sed 's: ::g') files, \$(/bin/ls -lah | /bin/grep -m 1 total | /bin/sed 's/total //')b$WHITEB)$BORDCOL$PR_HBAR$PR_HBAR$WHITEB($BGPROCCOL\j ↻$WHITEB)"
-  RIGHT="$BORDCOL$PR_HBAR$PR_HBAR$WHITEB($YELLOW$RCOL\d, \t$WHITEB)$BORDCOL$PR_HBAR$PR_HBAR$WHITEB($GREEN$RCOL$EXIT ↵$WHITEB)$BORDCOL$PR_HBAR$PR_HBAR$PR_HBAR$BORDCOL\n\[\016\]$PR_LLCORNER\[\017\]$PR_HBAR$WHITEB(\w)$BORDCOL$PR_HBAR> \[\e[0m\]"
+  LEFT="\n$BORDCOL\[\016\]$PR_ULCORNER$PR_HBAR\[\017\]$WHITEB($USERCOL\u$WHITEB@$GREENB\h:$cur_tty$WHITEB)$BORDCOL$PR_HBAR$PR_HBAR$PR_HBAR$PR_HBAR$WHITEB($GREEN\$(/bin/ls -1 | /usr/bin/wc -l | /bin/sed 's: ::g') files, \$(/bin/ls -lah | /bin/grep -m 1 total | /bin/sed 's/total //')b$WHITEB)$BORDCOL$PR_HBAR$PR_HBAR$WHITEB($BGPROCCOL\j ↻$WHITEB)"
+  RIGHT="$BORDCOL$WHITEB($CH$WHITEB)$BORDCOL$PR_HBAR$PR_HBAR$WHITEB($YELLOWB$RCOL\d, \t$WHITEB)$BORDCOL$PR_HBAR$PR_HBAR$WHITEB($GREENB$RCOL$EXIT ↵$WHITEB)$BORDCOL$PR_HBAR$PR_HBAR$PR_HBAR$BORDCOL\n\[\016\]$PR_LLCORNER\[\017\]$PR_HBAR$WHITEB(\w)$BORDCOL$PR_HBAR> \[\e[0m\]"
   #WIDTH=$(tput cols)
   L_LEN="$USERNAM$HOSTNAM$CH$(/bin/ls -1 | /usr/bin/wc -l | /bin/sed 's: ::g')$(/bin/ls -lah | /bin/grep -m 1 total | /bin/sed 's/total //')b\j"
   R_LEN="XXX XXX XX, XX:XX:XX$EXIT"
