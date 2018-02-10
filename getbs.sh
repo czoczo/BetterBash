@@ -13,6 +13,8 @@ install () {
 esac
 }
 
+# Commented out, till zsh config refresh
+
 #command -v zsh >/dev/null 2>&1 || install
 #[[ $EUID -ne 0 ]] && sudo usermod -s /bin/zsh $USER || usermod -s /bin/zsh $USER
 #wget cz0.cz/chozsh-latest.tar.gz -q -O - | tar --owner=$UID --group=$GID --no-same-owner -xz -C ~
