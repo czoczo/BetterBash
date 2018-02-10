@@ -55,7 +55,7 @@ PR_LLCORNER="└"
 GREEN='\[\033[00;92m\]'
 GREENB='\[\033[00;92;1m\]'
 BLUE='\[\033[00;36;1m\]'
-MAGENTA='\[\033[00;35;1m\]'
+MAGENTA='\[\033[00;95;1m\]'
 GREY='\[\033[00;90m\]'
 YELLOW='\[\033[00;93m\]'
 YELLOWB='\[\033[00;93;1m\]'
@@ -81,10 +81,10 @@ export PROMPT_COMMAND=__prompt_command
 function __prompt_command() {
   local RETURN_CODE="$?"
   PS1=""
-  RCOL="$GREENB"
+  RCOL="$GREEN"
   EXIT="$PR_HBAR$PR_HBAR$PR_HBAR$PR_HBAR$PR_HBAR"
   if [[ $RETURN_CODE != 0 ]]; then
-     EXIT="$WHITEB($GREENB$RED$RETURN_CODE ↵$WHITEB)"
+     EXIT="$WHITEB($RED$RETURN_CODE ↵$WHITEB)"
      RCOL="$RED"
   fi
   USER=$(whoami)
@@ -102,8 +102,8 @@ function __prompt_command() {
   HOSTNAM=$(hostname -s)
   USERNAM=$(whoami)
   GITPROMPT=$(__git_ps1 " on$GREEN %s")
-  LEFT="\n$BORDCOL\[\016\]$PR_ULCORNER$PR_HBAR\[\017\]$WHITEB($USERCOL$USER$WHITEB@$GREENB\h:$cur_tty$WHITEB)$BORDCOL$PR_HBAR$PR_HBAR$PR_HBAR$PR_HBAR$WHITEB($GREEN\$(/bin/ls -1 | /usr/bin/wc -l | /bin/sed 's: ::g') files, \$(/bin/ls -lah | /bin/grep -m 1 total | /bin/sed 's/total //')b$WHITEB)$BORDCOL$PR_HBAR$PR_HBAR$WHITEB($BGPROCCOL\j ↻$WHITEB)"
-  RIGHT="$EXIT$BORDCOL$PR_HBAR$WHITEB($CH$WHITEB)$BORDCOL$PR_HBAR$PR_HBAR$WHITEB($YELLOWB\d$WHITEB)$BORDCOL$PR_HBAR$PR_HBAR$PR_HBAR$WHITEB($RCOL\t$WHITEB)$BORDCOL$PR_HBAR$PR_HBAR$PR_HBAR$PR_HBAR$BORDCOL\n\[\016\]$PR_LLCORNER\[\017\]$PR_HBAR$WHITEB(\w)$BORDCOL$PR_HBAR$WHITEB($GREENB\\\$$RST$GITPROMPT$WHITEB)$BORDCOL-> \[\e[0m\]"
+  LEFT="\n$BORDCOL\[\016\]$PR_ULCORNER$PR_HBAR\[\017\]$WHITEB($USERCOL$USER$WHITEB@$GREEN\h:$cur_tty$WHITEB)$BORDCOL$PR_HBAR$PR_HBAR$PR_HBAR$PR_HBAR$WHITEB($GREEN\$(/bin/ls -1 | /usr/bin/wc -l | /bin/sed 's: ::g') files, \$(/bin/ls -lah | /bin/grep -m 1 total | /bin/sed 's/total //')b$WHITEB)$BORDCOL$PR_HBAR$PR_HBAR$WHITEB($BGPROCCOL\j ↻$WHITEB)"
+  RIGHT="$EXIT$BORDCOL$PR_HBAR$WHITEB($CH$WHITEB)$BORDCOL$PR_HBAR$PR_HBAR$WHITEB($YELLOWB\d$WHITEB)$BORDCOL$PR_HBAR$PR_HBAR$PR_HBAR$WHITEB($RCOL\t$WHITEB)$BORDCOL$PR_HBAR$PR_HBAR$PR_HBAR$PR_HBAR$BORDCOL\n\[\016\]$PR_LLCORNER\[\017\]$PR_HBAR$WHITEB(\w)$BORDCOL$PR_HBAR$WHITEB($GREEN\\\$$RST$GITPROMPT$WHITEB)$BORDCOL-> \[\e[0m\]"
   #WIDTH=$(tput cols)
   L_LEN="$USERNAM$HOSTNAM$CH$(/bin/ls -1 | /usr/bin/wc -l | /bin/sed 's: ::g')$(/bin/ls -lah | /bin/grep -m 1 total | /bin/sed 's/total //')b\j"
   R_LEN="XXX XXX XX, XX:XX:XX$RETURN_CODE"
