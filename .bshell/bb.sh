@@ -1,5 +1,6 @@
 #!/bin/bash
 
+source ~/.bshell/git-prompt.sh
 
 arrchar=('\u25B2' '\u25B6' '\u25BC' '\u25C0')
 arrfg=( 31 32 33 34 35 36 90 97 )
@@ -67,36 +68,49 @@ BOLD='\033[1m'
 BORDCOL='\033[00;90;1m'
 BGPROCCOL=$GREEN
 USERCOL=$MAGENTA
+
+export GIT_PS1_SHOWCOLORHINTS=true # Option for git-prompt.sh to show branch name in color
+export GIT_PS1_SHOWDIRTYSTATE=true
+export GIT_PS1_SHOWUNTRACKEDFILES=true
+export GIT_PS1_SHOWUPSTREAM="auto"
+#export PROMPT_COMMAND='__git_ps1 "\w" "\n\\\$ "' # Git branch (relies on git-prompt.sh)
+
 export PROMPT_COMMAND=__prompt_command
 
+
 function __prompt_command() {
-  local EXIT="$?"
+  local RETURN_CODE="$?"
   PS1=""
-  RCOL=""
-    if [[ $EXIT != 0 ]]; then
-        RCOL="$RED"
-    fi
+  RCOL="$GREENB"
+  EXIT="$PR_HBAR$PR_HBAR$PR_HBAR$PR_HBAR$PR_HBAR"
+  if [[ $RETURN_CODE != 0 ]]; then
+     EXIT="$WHITEB($GREENB$RED$RETURN_CODE ↵$WHITEB)"
+     RCOL="$RED"
+  fi
+  USER=$(whoami)
   if [ $UID -eq "0" ]; then
-     USERCOL='\033[00;41;1m'
+     USERCOL='\033[00;41;97;1m'
 #    BORDCOL=$REDB
+     USER="${USER^^}"
   fi
   PROCCNT=$(jobs -p 2>/dev/null | wc -l )
   if [ $PROCCNT -gt "0" ]; then
     BGPROCCOL=$RED
   else
-    BGPROCCOL=$GREENB
+    BGPROCCOL=$MAGENTA
   fi
   HOSTNAM=$(hostname -s)
   USERNAM=$(whoami)
-  LEFT="\n$BORDCOL\[\016\]$PR_ULCORNER$PR_HBAR\[\017\]$WHITEB($USERCOL\u$WHITEB@$GREENB\h:$cur_tty$WHITEB)$BORDCOL$PR_HBAR$PR_HBAR$PR_HBAR$PR_HBAR$WHITEB($GREEN\$(/bin/ls -1 | /usr/bin/wc -l | /bin/sed 's: ::g') files, \$(/bin/ls -lah | /bin/grep -m 1 total | /bin/sed 's/total //')b$WHITEB)$BORDCOL$PR_HBAR$PR_HBAR$WHITEB($BGPROCCOL\j ↻$WHITEB)"
-  RIGHT="$BORDCOL$WHITEB($CH$WHITEB)$BORDCOL$PR_HBAR$PR_HBAR$WHITEB($YELLOWB$RCOL\d, \t$WHITEB)$BORDCOL$PR_HBAR$PR_HBAR$WHITEB($GREENB$RCOL$EXIT ↵$WHITEB)$BORDCOL$PR_HBAR$PR_HBAR$PR_HBAR$BORDCOL\n\[\016\]$PR_LLCORNER\[\017\]$PR_HBAR$WHITEB(\w)$BORDCOL$PR_HBAR> \[\e[0m\]"
+  GITPROMPT=$(__git_ps1 " on$GREEN %s")
+  LEFT="\n$BORDCOL\[\016\]$PR_ULCORNER$PR_HBAR\[\017\]$WHITEB($USERCOL$USER$WHITEB@$GREENB\h:$cur_tty$WHITEB)$BORDCOL$PR_HBAR$PR_HBAR$PR_HBAR$PR_HBAR$WHITEB($GREEN\$(/bin/ls -1 | /usr/bin/wc -l | /bin/sed 's: ::g') files, \$(/bin/ls -lah | /bin/grep -m 1 total | /bin/sed 's/total //')b$WHITEB)$BORDCOL$PR_HBAR$PR_HBAR$WHITEB($BGPROCCOL\j ↻$WHITEB)"
+  RIGHT="$EXIT$BORDCOL$PR_HBAR$WHITEB($CH$WHITEB)$BORDCOL$PR_HBAR$PR_HBAR$WHITEB($YELLOWB\d$WHITEB)$BORDCOL$PR_HBAR$PR_HBAR$PR_HBAR$WHITEB($RCOL\t$WHITEB)$BORDCOL$PR_HBAR$PR_HBAR$PR_HBAR$PR_HBAR$BORDCOL\n\[\016\]$PR_LLCORNER\[\017\]$PR_HBAR$WHITEB(\w)$BORDCOL$PR_HBAR$WHITEB($GREENB\\\$$RST$GITPROMPT$WHITEB)$BORDCOL-> \[\e[0m\]"
   #WIDTH=$(tput cols)
   L_LEN="$USERNAM$HOSTNAM$CH$(/bin/ls -1 | /usr/bin/wc -l | /bin/sed 's: ::g')$(/bin/ls -lah | /bin/grep -m 1 total | /bin/sed 's/total //')b\j"
-  R_LEN="XXX XXX XX, XX:XX:XX$EXIT"
+  R_LEN="XXX XXX XX, XX:XX:XX$RETURN_CODE"
   L_LEN=${#L_LEN}
   R_LEN=${#R_LEN}
 #echo "$L_LEN"
-  let WIDTH=$(tput cols)-${R_LEN}-${L_LEN}+51
+  let WIDTH=$(tput cols)-${R_LEN}-${L_LEN}+49
   FILL=$BORDCOL$PR_HBAR
   for ((x = 0; x < $WIDTH; x++)); do
     FILL="$FILL$PR_HBAR"
