@@ -1,5 +1,6 @@
 # Better Bash
 install:
 ```
-curl https://cz0.cz/getbb.sh | sh
+wget https://cz0.cz/getbb.sh
+chmod +x getbs.sh && ./getbs.sh
 ```
