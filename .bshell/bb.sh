@@ -11,7 +11,7 @@ function getChar {
   colfg=$(( n % 8 )) && n=$(( n / 8 ))
   colbg=$(( n % 8 ))
   [[ "$1" -eq 1 && ( "$char" -eq 1 || "$char" -eq 3 ) ]] && char=$(( (char + 2) % 4 )) # mirror horizontal arrows
-  echo -en "\e[1;${arrfg[$colfg]};${arrbg[$colbg]}m${arrchar[$char]}"
+  echo -en "\[\033[1;${arrfg[$colfg]};${arrbg[$colbg]}m${arrchar[$char]}\]"
 }
 
 function hashColor {
@@ -20,7 +20,7 @@ function hashColor {
   n=$(echo "$n" | tr -d - )	# get absolute value
   count="$2"
   i=0
-  echo -en '\e[1;97m'
+  echo -en '\[\033[1;97m\]'
   while [ "$i" -lt "$count" ]; do
     i=$(( i+1 ))
     charstep[$i]=$n
@@ -31,8 +31,8 @@ function hashColor {
     getChar 1
     i=$(( i-1 ))
   done
-  echo -en '\e[0m'
-  echo -e '\e[1;97m'
+  echo -en '\[\033[0m\]'
+  echo -e '\[\033[1;97m\]'
 }
 
 CH=$(hashColor "$(hostname)" 4)
@@ -42,15 +42,9 @@ temp="$(tty)"
 cur_tty="${temp:5}"
 unset temp
 
-PR_HBAR="─"
+HBAR="─"
 PR_ULCORNER="┌"
 PR_LLCORNER="└"
-#PR_HBAR="━"
-#PR_ULCORNER="┏"
-#PR_LLCORNER="┗"
-#PR_HBAR="═"
-#PR_ULCORNER="╔"
-#PR_LLCORNER="╚"
 
 GREEN='\[\033[00;92m\]'
 GREENB='\[\033[00;92;1m\]'
@@ -69,51 +63,54 @@ BORDCOL='\[\033[00;90;1m\]'
 BGPROCCOL=$GREEN
 USERCOL=$MAGENTA
 
-export GIT_PS1_SHOWCOLORHINTS=true # Option for git-prompt.sh to show branch name in color
+export GIT_PS1_SHOWCOLORHINTS=true
 export GIT_PS1_SHOWDIRTYSTATE=true
 export GIT_PS1_SHOWUNTRACKEDFILES=true
 export GIT_PS1_SHOWUPSTREAM="auto"
-#export PROMPT_COMMAND='__git_ps1 "\w" "\n\\\$ "' # Git branch (relies on git-prompt.sh)
 
 export PROMPT_COMMAND=__prompt_command
-
 
 function __prompt_command() {
   local RETURN_CODE="$?"
   PS1=""
+  # Handling returne code
   RCOL="$GREEN"
-  EXIT="$PR_HBAR$PR_HBAR$PR_HBAR$PR_HBAR$PR_HBAR"
+  EXIT="$HBAR$HBAR$HBAR$HBAR$HBAR"
   if [[ $RETURN_CODE != 0 ]]; then
      EXIT="$WHITEB($RED$RETURN_CODE ↵$WHITEB)"
      RCOL="$RED"
   fi
+
   USER=$(whoami)
   if [ $UID -eq "0" ]; then
      USERCOL='\033[00;41;97;1m'
-#    BORDCOL=$REDB
      USER="${USER^^}"
   fi
+
+  # Handle background process counter
   PROCCNT=$(jobs -p 2>/dev/null | wc -l )
   if [ $PROCCNT -gt "0" ]; then
     BGPROCCOL=$RED
   else
     BGPROCCOL=$MAGENTA
   fi
+
   HOSTNAM=$(hostname -s)
-  USERNAM=$(whoami)
+  
   GITPROMPT=$(__git_ps1 " on$GREEN %s")
-  LEFT="\n$BORDCOL\[\016\]$PR_ULCORNER$PR_HBAR\[\017\]$WHITEB($USERCOL$USER$WHITEB@$GREEN\h:$cur_tty$WHITEB)$BORDCOL$PR_HBAR$PR_HBAR$WHITEB($CH$WHITEB)$BORDCOL$PR_HBAR$PR_HBAR$WHITEB($GREEN\$(/bin/ls -1 | /usr/bin/wc -l | /bin/sed 's: ::g') files, \$(/bin/ls -lah | /bin/grep -m 1 total | /bin/sed 's/total //')b$WHITEB)$BORDCOL$PR_HBAR$PR_HBAR$WHITEB($BGPROCCOL\j ↻$WHITEB)"
-  RIGHT="$EXIT$BORDCOL$PR_HBAR$PR_HBAR$PR_HBAR$WHITEB($YELLOWB\d$WHITEB)$BORDCOL$PR_HBAR$PR_HBAR$PR_HBAR$WHITEB($RCOL\t$WHITEB)$BORDCOL$PR_HBAR$PR_HBAR$PR_HBAR$PR_HBAR$BORDCOL\n\[\016\]$PR_LLCORNER\[\017\]$PR_HBAR$WHITEB(\w)$BORDCOL$PR_HBAR$WHITEB($GREEN\\\$$RST$GITPROMPT$WHITEB)$BORDCOL-> \[\e[0m\]"
-  #WIDTH=$(tput cols)
-  L_LEN="$USERNAM$HOSTNAM$CH$(/bin/ls -1 | /usr/bin/wc -l | /bin/sed 's: ::g')$(/bin/ls -lah | /bin/grep -m 1 total | /bin/sed 's/total //')b\j"
+
+  LEFT="\n$BORDCOL\[\016\]$PR_ULCORNER$HBAR\[\017\]$WHITEB($USERCOL$USER$WHITEB@$GREEN\h:$cur_tty$WHITEB)$BORDCOL$HBAR$HBAR$WHITEB($CH$WHITEB)$BORDCOL$HBAR$HBAR$WHITEB($GREEN\$(/bin/ls -1 | /usr/bin/wc -l | /bin/sed 's: ::g') files, \$(/bin/ls -lah | /bin/grep -m 1 total | /bin/sed 's/total //')b$WHITEB)$BORDCOL$HBAR$HBAR$WHITEB($BGPROCCOL\j ↻$WHITEB)"
+
+  RIGHT="$EXIT$BORDCOL$HBAR$HBAR$HBAR$WHITEB($YELLOWB\d$WHITEB)$BORDCOL$HBAR$HBAR$HBAR$WHITEB($RCOL\t$WHITEB)$BORDCOL$HBAR$HBAR$HBAR$HBAR$BORDCOL\n\[\016\]$PR_LLCORNER\[\017\]$HBAR$WHITEB(\w)$BORDCOL$HBAR$WHITEB($GREEN\\\$$RST$GITPROMPT$WHITEB)$BORDCOL-> \[\e[0m\]"
+
+  L_LEN="$USER$HOSTNAM$CH$(/bin/ls -1 | /usr/bin/wc -l | /bin/sed 's: ::g')$(/bin/ls -lah | /bin/grep -m 1 total | /bin/sed 's/total //')b\j"
   R_LEN="XXX XXX XX, XX:XX:XX$RETURN_CODE"
   L_LEN=${#L_LEN}
   R_LEN=${#R_LEN}
-#echo "$L_LEN"
-  let WIDTH=$(tput cols)-${R_LEN}-${L_LEN}+49
-  FILL=$BORDCOL$PR_HBAR
+  let WIDTH=$(tput cols)-${R_LEN}-${L_LEN}+95
+  FILL=$BORDCOL$HBAR
   for ((x = 0; x < $WIDTH; x++)); do
-    FILL="$FILL$PR_HBAR"
+    FILL="$FILL$HBAR"
   done
 
   PS1="$LEFT$FILL$RIGHT"
