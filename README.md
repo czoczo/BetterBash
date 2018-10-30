@@ -5,4 +5,5 @@
 ```
 wget https://cz0.cz/getbb.sh
 bash getbb.sh
+source .bashrc
 ```
