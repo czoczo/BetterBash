@@ -5,11 +5,10 @@
 ```
 wget https://cz0.cz/getbb.sh
 bash getbb.sh
-source .bashrc
 ```
 or just:
 ```
-curl https://cz0.cz/getbb.sh | sh && source .bashrc
+curl https://cz0.cz/getbb.sh | sh
 ```
 (but only if you really, really, really trust me)
 
