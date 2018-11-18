@@ -77,8 +77,8 @@ function __prompt_command() {
   RCOL="$GREEN"
   EXIT="$HBAR$HBAR$HBAR$HBAR$HBAR"
   if [[ $RETURN_CODE != 0 ]]; then
-     EXIT="$WHITEB($REDB$RETURN_CODE ↵$WHITEB)"
-     RCOL="$REDB"
+     EXIT="$WHITEB($RED$RETURN_CODE ↵$WHITEB)"
+     RCOL="$RED"
   fi
 
   USER=$(whoami)
@@ -90,7 +90,7 @@ function __prompt_command() {
   # Handle background process counter
   PROCCNT=$(jobs -p 2>/dev/null | wc -l )
   if [ $PROCCNT -gt "0" ]; then
-    BGPROCCOL='\033[1;95;5m'
+    BGPROCCOL=$RED
   else
     BGPROCCOL=$MAGENTA
   fi
@@ -107,7 +107,7 @@ function __prompt_command() {
   R_LEN="XXX XXX XX, XX:XX:XX$RETURN_CODE"
   L_LEN=${#L_LEN}
   R_LEN=${#R_LEN}
-  let WIDTH=$(tput cols)-${R_LEN}-${L_LEN}+93
+  let WIDTH=$(tput cols)-${R_LEN}-${L_LEN}+94
   FILL=$BORDCOL$HBAR
   for ((x = 0; x < $WIDTH; x++)); do
     FILL="$FILL$HBAR"
