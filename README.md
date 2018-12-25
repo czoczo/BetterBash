@@ -17,9 +17,9 @@ or just:
 ```
 curl https://cz0.cz/getbb.sh | sh && source ~/.bashrc
 ```
-(but only if you really, really, really trust me)
+(but only if you really, really, _really_ trust me)
 
 
 
 
-(in fact, no one except me should... One of the reasons it's a bad habit: https://www.idontplaydarts.com/2016/04/detecting-curl-pipe-bash-server-side/ )
+(in fact, no one really should... one of the many reasones being https://www.idontplaydarts.com/2016/04/detecting-curl-pipe-bash-server-side/ )
