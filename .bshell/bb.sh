@@ -35,7 +35,7 @@ function hashColor {
   echo -e '\[\033[1;97m\]'
 }
 
-CH=$(hashColor "$(hostname)" 4)
+CH=$(hashColor "$(cat /etc/hostname)" 4)
 
 temp="$(tty)"
 #   Chop off the first five chars of tty (ie /dev/):
@@ -60,7 +60,6 @@ WHITEB='\[\033[00;97;1m\]'
 RST='\[\033[0m\]'
 BOLD='\[\033[1m\]'
 BORDCOL='\[\033[00;90;1m\]'
-BGPROCCOL=$GREEN
 USERCOL=$MAGENTA
 
 export GIT_PS1_SHOWCOLORHINTS=true
@@ -89,25 +88,24 @@ function __prompt_command() {
 
   # Handle background process counter
   PROCCNT=$(jobs -p 2>/dev/null | wc -l )
-  if [ $PROCCNT -gt "0" ]; then
-    BGPROCCOL='\033[1;95;5m'
-  else
-    BGPROCCOL=$MAGENTA
+  if [ "$PROCCNT" -ne "0" ]; then
+    #BGPROCCOL='\033[1;95;5m'
+    BGPROCCOL="$BORDCOL$HBAR$HBAR$WHITEB($MAGENTA\j ↻$WHITEB)"
   fi
 
-  HOSTNAM=$(hostname -s)
-  
+  HOSTNAM="$(cat /etc/hostname)"
+
   GITPROMPT=$(__git_ps1 " on$GREEN %s")
 
-  LEFT="\n$BORDCOL\[\016\]$PR_ULCORNER$HBAR\[\017\]$WHITEB($USERCOL$USER$WHITEB@$GREEN\h:$cur_tty$WHITEB)$BORDCOL$HBAR$HBAR$WHITEB($CH$WHITEB)$BORDCOL$HBAR$HBAR$WHITEB($GREEN\$(/bin/ls -1 | /usr/bin/wc -l | /bin/sed 's: ::g') files, \$(/bin/ls -lah | /bin/grep -m 1 total | /bin/sed 's/total //')b$WHITEB)$BORDCOL$HBAR$HBAR$WHITEB($BGPROCCOL\j ↻$WHITEB)"
+  LEFT="\n$BORDCOL\[\016\]$PR_ULCORNER$HBAR\[\017\]$WHITEB($USERCOL$USER$WHITEB@$GREEN\h:$cur_tty$WHITEB)$BORDCOL$HBAR$HBAR$WHITEB($CH$WHITEB)$BGPROCCOL"
 
   RIGHT="$EXIT$BORDCOL$HBAR$HBAR$HBAR$WHITEB($YELLOWB\d$WHITEB)$BORDCOL$HBAR$HBAR$HBAR$WHITEB($RCOL\t$WHITEB)$BORDCOL$HBAR$HBAR$HBAR$HBAR$BORDCOL\n\[\016\]$PR_LLCORNER\[\017\]$HBAR$WHITEB(\w)$BORDCOL$HBAR$WHITEB($GREEN\\\$$RST$GITPROMPT$WHITEB)$BORDCOL-> \[\e[0m\]"
 
-  L_LEN="$USER$HOSTNAM$CH$(/bin/ls -1 | /usr/bin/wc -l | /bin/sed 's: ::g')$(/bin/ls -lah | /bin/grep -m 1 total | /bin/sed 's/total //')b\j"
+  L_LEN="$USER$HOSTNAM$CH\j"
   R_LEN="XXX XXX XX, XX:XX:XX$RETURN_CODE"
   L_LEN=${#L_LEN}
   R_LEN=${#R_LEN}
-  let WIDTH=$(tput cols)-${R_LEN}-${L_LEN}+93
+  let WIDTH=$(tput cols)-${R_LEN}-${L_LEN}+109
   FILL=$BORDCOL$HBAR
   for ((x = 0; x < $WIDTH; x++)); do
     FILL="$FILL$HBAR"
