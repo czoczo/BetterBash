@@ -4,7 +4,7 @@ Description? Pictures say more than words!
 ![alt text](https://cz0.cz/static/untracked/images/bb_example.png "Example of BetterBash at work")
 ## quick install:
 ```
-URL='https://cz0.cz/git/czoczo/BetterBash/raw/branch/master/.bshell' && \
+URL='https://git.cz0.cz/czoczo/BetterBash/raw/branch/master/.bshell' && \
 DIR=~/.bshell && \
 CMD='[ -f ~/.bshell/bb.sh ] && . ~/.bshell/bb.sh' && \
 mkdir -p $DIR && \
