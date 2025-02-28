@@ -15,5 +15,5 @@ source ~/.bashrc
 ```
 or just:
 ```
-curl https://git.cz0.cz/getbb.sh | sh && source ~/.bashrc
+curl https://git.cz0.cz/getbb | sh && source ~/.bashrc
 ```
