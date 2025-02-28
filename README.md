@@ -4,8 +4,8 @@
 ## Features
 - Username (highlighted if root) and hostname.
 - Unique avatar based on hostname (a bit like automatic avatars on StackOverflow), reduces the risk of terminal confusion.
-- Line separating commands output.
 - Number of background processes.
+- Line separating commands output.
 - Exit code if other than zero.
 - Date and time.
 - Current directory.
