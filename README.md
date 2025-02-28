@@ -1,8 +1,16 @@
 # Better Bash
-Description? Pictures say more than words! 
 ## screenshot:
-![alt text](https://cz0.cz/static/untracked/images/bb_example.png "Example of BetterBash at work")
-## quick install:
+![alt text](https://git.cz0.cz/czoczo/BetterBash/raw/branch/master/screenshot.png "BetterBash screenshot")
+## Features
+- Username (highlighted if root) and hostname.
+- Unique avatar based on hostname (a bit like automatic avatars on StackOverflow), reduces the risk of terminal confusion.
+- Line separating commands output.
+- Number of background processes.
+- Exit code if other than zero.
+- Date and time.
+- Current directory.
+- Git status (if current directory inside git repository)
+## Quick install:
 ```
 URL='https://git.cz0.cz/czoczo/BetterBash/raw/branch/master/.bshell' && \
 DIR=~/.bshell && \
@@ -15,5 +23,5 @@ source ~/.bashrc
 ```
 or just:
 ```
-curl https://git.cz0.cz/getbb | sh && source ~/.bashrc
+curl https://git.cz0.cz/getbb | sh && . ~/.bashrc
 ```

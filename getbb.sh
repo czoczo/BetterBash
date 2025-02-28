@@ -4,6 +4,5 @@ CMD='[ -f ~/.bshell/bb.sh ] && . ~/.bshell/bb.sh' && \
 mkdir -p $DIR && \
 wget $URL/bb.sh -O $DIR/bb.sh && \
 wget $URL/git-prompt.sh -O $DIR/git-prompt.sh && \
-grep -q "$CMD" ~/.bashrc || echo "$CMD" >> ~/.bashrc && \
-source ~/.bashrc
+grep -q "$CMD" ~/.bashrc || echo "$CMD" >> ~/.bashrc
 
