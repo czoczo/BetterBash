@@ -1,6 +1,6 @@
 #!/bin/bash
 
-source ~/.bshell/git-prompt.sh
+source ~/.bb/git-prompt.sh
 
 arrchar=('\u25B2' '\u25B6' '\u25BC' '\u25C0')
 arrfg=( 31 32 33 34 35 36 90 97 )
