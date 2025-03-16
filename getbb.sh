@@ -10,5 +10,5 @@ CMD="[ -f $DIR/bb.sh ] && . $DIR/bb.sh" && \
 mkdir -p $DIR && \
 get_file /prompt/bb.sh > $DIR/bb.sh && \
 get_file /prompt/git-prompt.sh > $DIR/git-prompt.sh && \
-get_file /.inputrc >> ~/.bb/.inputrc && \
+get_file /.inputrc >> ~/.inputrc && \
 grep -q "$CMD" ~/.bashrc || echo "$CMD" >> ~/.bashrc
