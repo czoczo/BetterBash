@@ -6,7 +6,7 @@ get_file() {
 }
 
 DIR=~/.bb && \
-CMD="[ -f $DIR/bb.sh ] && . $DIR/bb.sh" && \
+CMD="# BetterBash\n[ -f $DIR/bb.sh ] && . $DIR/bb.sh" && \
 mkdir -p $DIR && \
 get_file /prompt/bb.sh > $DIR/bb.sh && \
 get_file /prompt/git-prompt.sh > $DIR/git-prompt.sh && \
