@@ -7,6 +7,12 @@ get_file() {
   | sed '1,/^\r$/d'
 }
 
+handle_inputrc() {
+  [ -f ~/.inputrc ] && touch ~/.inputrc
+  grep -q "BetterBash" ~/.inputrc || get_file /.inputrc >> ~/.inputrc && \
+  bind -f ~/.inputrc
+}
+
 DIR=~/.bb
 CMD=$(cat <<-END
 # BetterBash
@@ -17,6 +23,5 @@ END
 mkdir -p $DIR && \
 get_file /prompt/bb.sh > $DIR/bb.sh && \
 get_file /prompt/git-prompt.sh > $DIR/git-prompt.sh && \
-grep -q "BetterBash" ~/.inputrc || get_file /.inputrc >> ~/.inputrc && \
-bind -f ~/.inputrc && \
+handle_inputrc && \
 grep -q "BetterBash" ~/.bashrc || echo "$CMD" >> ~/.bashrc
