@@ -8,7 +8,7 @@ get_file() {
 }
 
 handle_inputrc() {
-  [ -f ~/.inputrc ] && touch ~/.inputrc
+  [ ! -f ~/.inputrc ] && touch ~/.inputrc
   grep -q "BetterBash" ~/.inputrc || get_file /.inputrc >> ~/.inputrc && \
   bind -f ~/.inputrc
 }
