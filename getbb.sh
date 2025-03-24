@@ -9,14 +9,14 @@ get_file() {
 
 handle_inputrc() {
   [ ! -f ~/.inputrc ] && touch ~/.inputrc
-  grep -q "BetterBash" ~/.inputrc || get_file /.inputrc >> ~/.inputrc && \
-  bind -f ~/.inputrc
+  grep -q "BetterBash" ~/.inputrc || get_file /.inputrc >> ~/.inputrc
 }
 
 DIR=~/.bb
 CMD=$(cat <<-END
 # BetterBash
 [ -f $DIR/bb.sh ] && . $DIR/bb.sh
+bind -f ~/.inputrc
 END
 )
 
