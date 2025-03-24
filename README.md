@@ -14,11 +14,11 @@
 ## Install:
 with curl
 ```
-curl https://cz0.cz/getbb | bash && . ~/.bashrc
+curl -s https://cz0.cz/getbb | bash && . ~/.bashrc
 ```
 with wget
 ```
-curl https://cz0.cz/getbb | bash && . ~/.bashrc
+wget -q -O - https://cz0.cz/getbb | bash && . ~/.bashrc
 ```
 with openssl (no dependencies needed)
 ```
@@ -27,13 +27,15 @@ echo -e "GET /getbb HTTP/1.1\r\nHost: cz0.cz\r\nConnection: close\r\n\r\n" \
 | sed '1,/^\r$/d' | bash && . ~/.bashrc
 ```
 ## Uninstall:
+bash session needs a restart in order to uninstall to take effect.
+
 with curl
 ```
-curl https://cz0.cz/removebb | bash
+curl -s https://cz0.cz/removebb | bash
 ```
 with wget
 ```
-curl https://cz0.cz/removebb | bash
+wget -q -O - https://cz0.cz/removebb | bash
 ```
 with openssl (no dependencies needed)
 ```
