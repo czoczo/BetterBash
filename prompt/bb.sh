@@ -2,15 +2,27 @@
 
 source ~/.bb/git-prompt.sh
 
-arrchar=('\u25B2' '\u25B6' '\u25BC' '\u25C0')
+#arrchar=('\u25B2' '\u25B6' '\u25BC' '\u25C0')
+arrchar=('\u25B2' '\u25B6' '\u25BC' '\u25C0' '\u25C6' '\u25CF' '\u25E2' '\u25E3' '\u25E4' '\u25E5' '\u25A0' '\u25AC' '\u25AE')
 arrfg=( 31 32 33 34 35 36 90 97 )
 arrbg=( 41 42 43 44 45 46 100 107 )
 
 function getChar {
-  char=$(( n % 4 )) && n=$(( n / 4 ))
+  #char=$(( n % 4 )) && n=$(( n / 4 ))
+  char=$(( n % 13 )) && n=$(( n / 13 ))
   colfg=$(( n % 8 )) && n=$(( n / 8 ))
   colbg=$(( n % 8 ))
-  [[ "$1" -eq 1 && ( "$char" -eq 1 || "$char" -eq 3 ) ]] && char=$(( (char + 2) % 4 )) # mirror horizontal arrows
+  # mirror horizontal arrows
+  if [[ "$1" -eq 1 ]]; then
+    case $char in
+      1) char=3 ;;
+      3) char=1 ;;
+      6) char=7 ;;
+      7) char=6 ;;
+      8) char=9 ;;
+      9) char=8 ;;
+    esac
+  fi
   #echo -en "\[\033[1;${arrfg[$colfg]};${arrbg[$colbg]}m${arrchar[$char]}\]"
   echo -en "\[\033[1;${arrfg[$colfg]}m${arrchar[$char]}\]"
 }
