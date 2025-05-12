@@ -114,7 +114,7 @@ function __prompt_command() {
   R_LEN="XXX XXX XX, XX:XX:XX$RETURN_CODE"
   L_LEN=${#L_LEN}
   R_LEN=${#R_LEN}
-  let WIDTH=$(tput cols)-${R_LEN}-${L_LEN}+109
+  let WIDTH=$(tput cols)-${R_LEN}-${L_LEN}+85
   FILL=$BORDCOL$HBAR
   for ((x = 0; x < $WIDTH; x++)); do
     FILL="$FILL$HBAR"
