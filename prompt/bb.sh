@@ -97,10 +97,13 @@ function __prompt_command() {
 
   # Handle background process counter
   PROCCNT=$(jobs -p 2>/dev/null | wc -l )
+    PROC_WIDTH=0
   if [ "$PROCCNT" -ne "0" ]; then
     #BGPROCCOL='\033[1;95;5m'
     BGPROCCOL="$BORDCOL$HBAR$HBAR$WHITEB(${SECONDARY_COLOR}\j ↻$WHITEB)"
   fi
+
+  [ -n "${BGPROCCOL}" ] && PROC_WIDTH=7
 
   HOSTNAM="$(cat /etc/hostname)"
 
@@ -110,11 +113,11 @@ function __prompt_command() {
 
   RIGHT="$EXIT$BORDCOL$HBAR$HBAR$HBAR$WHITEB($TIME_COLOR\d$WHITEB)$BORDCOL$HBAR$HBAR$HBAR$WHITEB($RCOL\t$WHITEB)$BORDCOL$HBAR$HBAR$HBAR$HBAR\n$BORDCOL\[\016\]$PR_LLCORNER\[\017\]$BORDCOL$HBAR$WHITEB(${PATH_COLOR}\w${WHITE})$BORDCOL$HBAR$WHITEB(${PRIMARY_COLOR}\\\$$RST$GITPROMPT$WHITEB)$BORDCOL-> \[\e[0m\]"
 
-  L_LEN="$USER$HOSTNAM$CH\j"
+  L_LEN="$USER$HOSTNAM$CH"
   R_LEN="XXX XXX XX, XX:XX:XX$RETURN_CODE"
   L_LEN=${#L_LEN}
   R_LEN=${#R_LEN}
-  let WIDTH=$(tput cols)-${R_LEN}-${L_LEN}+85
+  let WIDTH=$(tput cols)-${R_LEN}-${L_LEN}-${PROC_WIDTH}+83
   FILL=$BORDCOL$HBAR
   for ((x = 0; x < $WIDTH; x++)); do
     FILL="$FILL$HBAR"
