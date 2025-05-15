@@ -3,13 +3,13 @@
 source ~/.bb/git-prompt.sh
 
 #arrchar=('\u25B2' '\u25B6' '\u25BC' '\u25C0')
-arrchar=('\u25B2' '\u25B6' '\u25BC' '\u25C0' '\u25C6' '\u25CF' '\u25E2' '\u25E3' '\u25E4' '\u25E5' '\u25AC' '\u25AE')
+arrchar=('\u25B2' '\u25B6' '\u25BC' '\u25C0' '\u25C6' '\u25CF' '\u25E2' '\u25E3' '\u25E4' '\u25E5' '\u25AC' '\u25AE' '\u25A0')
 arrfg=( 31 32 33 34 35 36 90 97 )
 arrbg=( 41 42 43 44 45 46 100 107 )
 
 function getChar {
   #char=$(( n % 4 )) && n=$(( n / 4 ))
-  char=$(( n % 12 )) && n=$(( n / 12 ))
+  char=$(( n % 13 )) && n=$(( n / 13 ))
   colfg=$(( n % 8 )) && n=$(( n / 8 ))
   colbg=$(( n % 8 ))
   # mirror horizontal arrows
