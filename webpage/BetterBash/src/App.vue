@@ -138,7 +138,7 @@ const colors = ref({
   PRIMARY_COLOR: '\\[\\033[00;92m\\]',
   SECONDARY_COLOR: '\\[\\033[00;95;1m\\]',
   ROOT_COLOR: '\\033[00;41;97;1m',
-  TIME_COLOR: '\\[\\033[00;93;1m\\]',
+  TIME_COLOR: '\\[\\033[00;33;1m\\]',
   ERR_COLOR: '\\[\\033[00;31;1m\\]',
   WHITEB: '\\[\\033[00;97;1m\\]',
   RST: '\\[\\033[0m\\]',
@@ -213,6 +213,7 @@ h1 {
   background-color: #2d2d2d;
   padding: 15px;
   border-radius: 8px;
+  font-family: Consolas, Monaco, 'Lucida Console', monospace; /* Apply terminal font */
 }
 label {
   margin-bottom: 8px;
@@ -224,16 +225,19 @@ select {
   color: #fff;
   border: 1px solid #555;
   border-radius: 4px;
+  font-family: Consolas, Monaco, 'Lucida Console', monospace; /* Apply terminal font */
 }
 .terminal {
   background-color: #000;
   padding: 20px;
   border-radius: 8px;
   min-height: 180px;
-  font-family: 'Courier New', monospace;
+  font-family: Consolas, Monaco, 'Lucida Console', monospace; /* Apply terminal font */
   overflow-x: auto;
   margin-top: 20px;
   white-space: pre-wrap;
+  line-height: 0.7; /* Ensure tight line height for the border */
+  font-size: 18px;
 }
 .ps1-line {
   margin-bottom: 5px;
