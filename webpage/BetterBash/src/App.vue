@@ -22,8 +22,7 @@
               :key="name"
               :value="color.code"
             >
-              {{ name }} ({{ color.code }})
-            </option>
+              {{ name }} </option>
           </select>
         </div>
       </div>
@@ -35,12 +34,17 @@
             :class="getColorClass(colors.SECONDARY_COLOR)"
             >user</span
           ><span :class="getColorClass(colors.WHITEB)">@</span
-          ><span :class="getColorClass(colors.PRIMARY_COLOR)">hostname</span
-          ><span :class="getColorClass(colors.WHITEB)">:pts/5)</span
+          ><span :class="getColorClass(colors.PRIMARY_COLOR)">hostname:pts/5</span
+          ><span :class="getColorClass(colors.WHITEB)">)</span
           ><span :class="getColorClass(colors.BORDCOL)">──</span
           ><span :class="getColorClass(colors.WHITEB)">(</span><span
             :class="getColorClass(colors.PRIMARY_COLOR)"
-            >◢▼◢◆◆◣▼◣</span
+            >▶▬▲◀▶▲▬◀</span
+          ><span :class="getColorClass(colors.WHITEB)">)</span
+          ><span :class="getColorClass(colors.BORDCOL)">──</span
+          ><span :class="getColorClass(colors.WHITEB)">(</span><span
+            :class="getColorClass(colors.SECONDARY_COLOR)"
+            >1 ↻</span
           ><span :class="getColorClass(colors.WHITEB)">)</span
           ><span :class="getColorClass(colors.BORDCOL)"
             >───────────────────────</span
@@ -59,13 +63,63 @@
           <span :class="getColorClass(colors.BORDCOL)">└─</span
           ><span :class="getColorClass(colors.WHITEB)">(</span><span
             :class="getColorClass(colors.PATH_COLOR)"
-            >~</span
-          ><span :class="getColorClass(colors.WHITEB)">)─</span
-          ><span :class="getColorClass(colors.BORDCOL)">(</span><span
+            >~)</span
+          ><span :class="getColorClass(colors.BORDCOL)">─</span
+          ><span :class="getColorClass(colors.WHITEB)">(</span><span
             :class="getColorClass(colors.PRIMARY_COLOR)"
             >$</span
-          ><span :class="getColorClass(colors.WHITEB)">)-></span>
+          ><span :class="getColorClass(colors.WHITEB)">)</span
+          ><span :class="getColorClass(colors.BORDCOL)">-&gt;</span>
         </div>
+
+        <div class="ps1-line">&nbsp;</div>
+
+        <div class="ps1-line">
+          <span :class="getColorClass(colors.BORDCOL)">┌─</span
+          ><span :class="getColorClass(colors.WHITEB)">(</span><span
+            :class="getColorClass(colors.SECONDARY_COLOR)"
+            >user</span
+          ><span :class="getColorClass(colors.WHITEB)">@</span
+          ><span :class="getColorClass(colors.PRIMARY_COLOR)">hostname:pts/5</span
+          ><span :class="getColorClass(colors.WHITEB)">)</span
+          ><span :class="getColorClass(colors.BORDCOL)">──</span
+          ><span :class="getColorClass(colors.WHITEB)">(</span><span
+            :class="getColorClass(colors.PRIMARY_COLOR)"
+            >▶▬▲◀▶▲▬◀</span
+          ><span :class="getColorClass(colors.WHITEB)">)</span
+          ><span :class="getColorClass(colors.BORDCOL)">──</span
+          ><span :class="getColorClass(colors.WHITEB)">(</span><span
+            :class="getColorClass(colors.SECONDARY_COLOR)"
+            >1 ↻</span
+          ><span :class="getColorClass(colors.WHITEB)">)</span
+          ><span :class="getColorClass(colors.BORDCOL)"
+            >───────────────────────</span
+          ><span :class="getColorClass(colors.WHITEB)">(</span><span
+            :class="getColorClass(colors.TIME_COLOR)"
+            >Wed May 14</span
+          ><span :class="getColorClass(colors.WHITEB)">)</span
+          ><span :class="getColorClass(colors.BORDCOL)">───</span
+          ><span :class="getColorClass(colors.WHITEB)">(</span><span
+            :class="getColorClass(colors.PRIMARY_COLOR)"
+            >00:40:00</span
+          ><span :class="getColorClass(colors.WHITEB)">)</span
+          ><span :class="getColorClass(colors.BORDCOL)">────</span>
+        </div>
+
+
+        <div class="ps1-line">
+          <span :class="getColorClass(colors.BORDCOL)">└─</span
+          ><span :class="getColorClass(colors.WHITEB)">(</span><span
+            :class="getColorClass(colors.PATH_COLOR)"
+            >~)</span
+          ><span :class="getColorClass(colors.BORDCOL)">─</span
+          ><span :class="getColorClass(colors.WHITEB)">(</span><span
+            :class="getColorClass(colors.PRIMARY_COLOR)"
+            >$</span
+          ><span :class="getColorClass(colors.WHITEB)">)</span
+          ><span :class="getColorClass(colors.BORDCOL)">-&gt;</span>
+        </div>
+
       </div>
 
       <div class="info-section">
@@ -128,7 +182,6 @@ const colorLabels = {
   ERR_COLOR: 'Error Color',
   WHITEB: 'White Bold',
   RST: 'Reset',
-  BOLD: 'Bold',
   BORDCOL: 'Border Color',
   PATH_COLOR: 'Path Color',
 };
@@ -142,7 +195,6 @@ const colors = ref({
   ERR_COLOR: '\\[\\033[00;31;1m\\]',
   WHITEB: '\\[\\033[00;97;1m\\]',
   RST: '\\[\\033[0m\\]',
-  BOLD: '\\[\\033[1m\\]',
   BORDCOL: '\\[\\033[00;90;1m\\]',
   PATH_COLOR: '\\[\\033[00;97;1m\\]',
 });
@@ -213,7 +265,7 @@ h1 {
   background-color: #2d2d2d;
   padding: 15px;
   border-radius: 8px;
-  font-family: Consolas, Monaco, 'Lucida Console', monospace; /* Apply terminal font */
+  font-family: Consolas, Monaco, 'Lucida Console', monospace;
 }
 label {
   margin-bottom: 8px;
@@ -225,14 +277,14 @@ select {
   color: #fff;
   border: 1px solid #555;
   border-radius: 4px;
-  font-family: Consolas, Monaco, 'Lucida Console', monospace; /* Apply terminal font */
+  font-family: Consolas, Monaco, 'Lucida Console', monospace;
 }
 .terminal {
   background-color: #000;
   padding: 20px;
   border-radius: 8px;
   min-height: 180px;
-  font-family: Consolas, Monaco, 'Lucida Console', monospace; /* Apply terminal font */
+  font-family: Consolas, Monaco, 'Lucida Console', monospace;
   overflow-x: auto;
   margin-top: 20px;
   white-space: pre-wrap;
@@ -351,10 +403,6 @@ select {
 }
 .text-red-on-white {
   color: #ffffff;
-  background-color: #cc0000;
-  font-weight: bold;
-}
-.text-reset {
-  color: inherit;
+  background-color: #cc0;
 }
 </style>
