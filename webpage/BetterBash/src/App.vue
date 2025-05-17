@@ -68,7 +68,7 @@
           ><span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">)</span
           ><span :class="getColorClassFromBash(generatedColors.BORDCOL)">───</span
           ><span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">(</span
-          ><span :class="getColorClassFromBash(generatedColors.PRIMARY_COLOR)">00:40:00</span
+          ><span :class="getColorClassFromBash(generatedColors.PRIMARY_COLOR)">00:40:03</span
           ><span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">)</span
           ><span :class="getColorClassFromBash(generatedColors.BORDCOL)">────</span>
         </div>
@@ -109,7 +109,7 @@
           ><span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">)</span
           ><span :class="getColorClassFromBash(generatedColors.BORDCOL)">───────────────────────────</span
           ><span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">(</span
-          ><span :class="getColorClassFromBash(generatedColors.ERR_COLOR)">128 ↵</span
+          ><span :class="getColorClassFromBash(generatedColors.ERR_COLOR)">127 ↵</span
           ><span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">)</span
           ><span :class="getColorClassFromBash(generatedColors.BORDCOL)">──</span
           ><span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">(</span
@@ -117,7 +117,7 @@
           ><span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">)</span
           ><span :class="getColorClassFromBash(generatedColors.BORDCOL)">───</span
           ><span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">(</span
-          ><span :class="getColorClassFromBash(generatedColors.ERR_COLOR)">00:40:00</span
+          ><span :class="getColorClassFromBash(generatedColors.ERR_COLOR)">00:40:12</span
           ><span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">)</span
           ><span :class="getColorClassFromBash(generatedColors.BORDCOL)">────</span>
         </div>
@@ -200,16 +200,15 @@ const colorLabels = {
   SEPARATOR_COLOR: 'Separator Color',
   BORDCOL: 'Border Color',
   PATH_COLOR: 'Path Color',
-  RST: 'Reset Color (e.g. "on", "=")',
 };
 
 // --- Hardcoded order for URL encoding/decoding stability ---
 const ENCODING_ORDERED_COLOR_KEYS = [
   'PRIMARY_COLOR', 'SECONDARY_COLOR', 'ROOT_COLOR', 'TIME_COLOR',
-  'ERR_COLOR', 'SEPARATOR_COLOR', 'BORDCOL', 'PATH_COLOR', 'RST'
+  'ERR_COLOR', 'SEPARATOR_COLOR', 'BORDCOL', 'PATH_COLOR'
 ];
-if (ENCODING_ORDERED_COLOR_KEYS.length !== 9) {
-    console.error("Encoding logic assumes 9 color keys. Please update bit packing if this changes.");
+if (ENCODING_ORDERED_COLOR_KEYS.length !== 8) {
+    console.error("Encoding logic assumes 8 color keys. Please update bit packing if this changes.");
 }
 
 
