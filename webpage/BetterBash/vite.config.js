@@ -10,6 +10,9 @@ export default defineConfig({
     vue(),
     vueDevTools(),
   ],
+  server: {
+    allowedHosts: ['devcode.dom.cz0.cz']
+	},
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url))

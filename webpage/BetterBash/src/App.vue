@@ -1,6 +1,6 @@
 <template>
   <div class="container">
-    <h1>Bash PS1 Prompt Customizer</h1>
+    <h1>Better Bash Customizer</h1>
 
     <div class="customizer">
       <div class="color-controls">
@@ -30,93 +30,110 @@
       <div class="terminal">
         <div class="ps1-line">
           <span :class="getColorClass(colors.BORDCOL)">┌─</span
-          ><span :class="getColorClass(colors.WHITEB)">(</span><span
+          ><span :class="getColorClass(colors.SEPARATOR_COLOR)">(</span><span
             :class="getColorClass(colors.SECONDARY_COLOR)"
             >user</span
-          ><span :class="getColorClass(colors.WHITEB)">@</span
-          ><span :class="getColorClass(colors.PRIMARY_COLOR)">hostname:pts/5</span
-          ><span :class="getColorClass(colors.WHITEB)">)</span
+          ><span :class="getColorClass(colors.SEPARATOR_COLOR)">@</span
+          ><span :class="getColorClass(colors.PRIMARY_COLOR)">myhost:pts/5</span
+          ><span :class="getColorClass(colors.SEPARATOR_COLOR)">)</span
           ><span :class="getColorClass(colors.BORDCOL)">──</span
-          ><span :class="getColorClass(colors.WHITEB)">(</span><span
-            :class="getColorClass(colors.PRIMARY_COLOR)"
-            >▶▬▲◀▶▲▬◀</span
-          ><span :class="getColorClass(colors.WHITEB)">)</span
+          ><span :class="getColorClass(colors.SEPARATOR_COLOR)">(</span
+          ><span class="text-yellow">▶</span
+          ><span class="text-bright-black">▬</span
+          ><span class="text-bright-white">▲</span
+          ><span class="text-cyan">◀▶</span
+          ><span class="text-bright-white">▲</span
+          ><span class="text-bright-black">▬</span
+          ><span class="text-yellow">◀</span
+          ><span :class="getColorClass(colors.SEPARATOR_COLOR)">)</span
           ><span :class="getColorClass(colors.BORDCOL)">──</span
-          ><span :class="getColorClass(colors.WHITEB)">(</span><span
+          ><span :class="getColorClass(colors.SEPARATOR_COLOR)">(</span><span
             :class="getColorClass(colors.SECONDARY_COLOR)"
             >1 ↻</span
-          ><span :class="getColorClass(colors.WHITEB)">)</span
+          ><span :class="getColorClass(colors.SEPARATOR_COLOR)">)</span
           ><span :class="getColorClass(colors.BORDCOL)"
-            >───────────────────────</span
-          ><span :class="getColorClass(colors.WHITEB)">(</span><span
+            >─────────────────────────────</span
+          ><span :class="getColorClass(colors.SEPARATOR_COLOR)">(</span><span
             :class="getColorClass(colors.TIME_COLOR)"
             >Wed May 14</span
-          ><span :class="getColorClass(colors.WHITEB)">)</span
+          ><span :class="getColorClass(colors.SEPARATOR_COLOR)">)</span
           ><span :class="getColorClass(colors.BORDCOL)">───</span
-          ><span :class="getColorClass(colors.WHITEB)">(</span><span
+          ><span :class="getColorClass(colors.SEPARATOR_COLOR)">(</span><span
             :class="getColorClass(colors.PRIMARY_COLOR)"
             >00:40:00</span
-          ><span :class="getColorClass(colors.WHITEB)">)</span
+          ><span :class="getColorClass(colors.SEPARATOR_COLOR)">)</span
           ><span :class="getColorClass(colors.BORDCOL)">────</span>
         </div>
         <div class="ps1-line">
           <span :class="getColorClass(colors.BORDCOL)">└─</span
-          ><span :class="getColorClass(colors.WHITEB)">(</span><span
+          ><span :class="getColorClass(colors.SEPARATOR_COLOR)">(</span><span
             :class="getColorClass(colors.PATH_COLOR)"
-            >~)</span
+            >~/repo</span
+          ><span :class="getColorClass(colors.SEPARATOR_COLOR)">)</span
           ><span :class="getColorClass(colors.BORDCOL)">─</span
-          ><span :class="getColorClass(colors.WHITEB)">(</span><span
+          ><span :class="getColorClass(colors.SEPARATOR_COLOR)">(</span><span
             :class="getColorClass(colors.PRIMARY_COLOR)"
             >$</span
-          ><span :class="getColorClass(colors.WHITEB)">)</span
+          ><span :class="getColorClass(colors.RST)"> on </span><span
+            :class="getColorClass(colors.PRIMARY_COLOR)"
+            >master</span
+          ><span :class="getColorClass(colors.RST)">=</span
+          ><span :class="getColorClass(colors.SEPARATOR_COLOR)">)</span
           ><span :class="getColorClass(colors.BORDCOL)">-&gt;</span>
         </div>
 
         <div class="ps1-line">&nbsp;</div>
+        <div class="ps1-line">&nbsp;</div>
 
         <div class="ps1-line">
           <span :class="getColorClass(colors.BORDCOL)">┌─</span
-          ><span :class="getColorClass(colors.WHITEB)">(</span><span
-            :class="getColorClass(colors.SECONDARY_COLOR)"
-            >user</span
-          ><span :class="getColorClass(colors.WHITEB)">@</span
-          ><span :class="getColorClass(colors.PRIMARY_COLOR)">hostname:pts/5</span
-          ><span :class="getColorClass(colors.WHITEB)">)</span
+          ><span :class="getColorClass(colors.SEPARATOR_COLOR)">(</span><span
+            :class="getColorClass(colors.ROOT_COLOR)"
+            >ROOT</span
+          ><span :class="getColorClass(colors.SEPARATOR_COLOR)">@</span
+          ><span :class="getColorClass(colors.PRIMARY_COLOR)">myhost:pts/5</span
+          ><span :class="getColorClass(colors.SEPARATOR_COLOR)">)</span
           ><span :class="getColorClass(colors.BORDCOL)">──</span
-          ><span :class="getColorClass(colors.WHITEB)">(</span><span
-            :class="getColorClass(colors.PRIMARY_COLOR)"
-            >▶▬▲◀▶▲▬◀</span
-          ><span :class="getColorClass(colors.WHITEB)">)</span
-          ><span :class="getColorClass(colors.BORDCOL)">──</span
-          ><span :class="getColorClass(colors.WHITEB)">(</span><span
-            :class="getColorClass(colors.SECONDARY_COLOR)"
-            >1 ↻</span
-          ><span :class="getColorClass(colors.WHITEB)">)</span
+          ><span :class="getColorClass(colors.SEPARATOR_COLOR)">(</span
+          ><span class="text-yellow">▶</span
+          ><span class="text-bright-black">▬</span
+          ><span class="text-bright-white">▲</span
+          ><span class="text-cyan">◀▶</span
+          ><span class="text-bright-white">▲</span
+          ><span class="text-bright-black">▬</span
+          ><span class="text-yellow">◀</span
+          ><span :class="getColorClass(colors.SEPARATOR_COLOR)">)</span
           ><span :class="getColorClass(colors.BORDCOL)"
-            >───────────────────────</span
-          ><span :class="getColorClass(colors.WHITEB)">(</span><span
+            >───────────────────────────</span
+          ><span :class="getColorClass(colors.SEPARATOR_COLOR)">(</span><span
+            :class="getColorClass(colors.ERR_COLOR)"
+            >128 ↵</span
+          ><span :class="getColorClass(colors.SEPARATOR_COLOR)">)</span
+          ><span :class="getColorClass(colors.BORDCOL)">──</span
+          ><span :class="getColorClass(colors.SEPARATOR_COLOR)">(</span><span
             :class="getColorClass(colors.TIME_COLOR)"
             >Wed May 14</span
-          ><span :class="getColorClass(colors.WHITEB)">)</span
+          ><span :class="getColorClass(colors.SEPARATOR_COLOR)">)</span
           ><span :class="getColorClass(colors.BORDCOL)">───</span
-          ><span :class="getColorClass(colors.WHITEB)">(</span><span
-            :class="getColorClass(colors.PRIMARY_COLOR)"
+          ><span :class="getColorClass(colors.SEPARATOR_COLOR)">(</span><span
+            :class="getColorClass(colors.ERR_COLOR)"
             >00:40:00</span
-          ><span :class="getColorClass(colors.WHITEB)">)</span
+          ><span :class="getColorClass(colors.SEPARATOR_COLOR)">)</span
           ><span :class="getColorClass(colors.BORDCOL)">────</span>
         </div>
 
 
         <div class="ps1-line">
           <span :class="getColorClass(colors.BORDCOL)">└─</span
-          ><span :class="getColorClass(colors.WHITEB)">(</span><span
+          ><span :class="getColorClass(colors.SEPARATOR_COLOR)">(</span><span
             :class="getColorClass(colors.PATH_COLOR)"
-            >~)</span
+            >~</span
+          ><span :class="getColorClass(colors.SEPARATOR_COLOR)">)</span
           ><span :class="getColorClass(colors.BORDCOL)">─</span
-          ><span :class="getColorClass(colors.WHITEB)">(</span><span
+          ><span :class="getColorClass(colors.SEPARATOR_COLOR)">(</span><span
             :class="getColorClass(colors.PRIMARY_COLOR)"
             >$</span
-          ><span :class="getColorClass(colors.WHITEB)">)</span
+          ><span :class="getColorClass(colors.SEPARATOR_COLOR)">)</span
           ><span :class="getColorClass(colors.BORDCOL)">-&gt;</span>
         </div>
 
@@ -169,8 +186,6 @@ const terminalColors = {
   'Bold Bright Magenta': { code: '\\[\\033[00;95;1m\\]', hex: '#d070d0', cssClass: 'text-bold-bright-magenta' },
   'Bold Bright Black': { code: '\\[\\033[00;90;1m\\]', hex: '#7c7c7c', cssClass: 'text-bold-bright-black' },
   'Bold Bright White': { code: '\\[\\033[00;97;1m\\]', hex: '#ffffff', cssClass: 'text-bold-bright-white' },
-  'Red on White': { code: '\\033[00;41;97;1m', hex: '#ff0000', cssClass: 'text-red-on-white' },
-  Reset: { code: '\\[\\033[0m\\]', hex: '#ffffff', cssClass: 'text-reset' },
 };
 
 // Color labels for better readability
@@ -180,8 +195,7 @@ const colorLabels = {
   ROOT_COLOR: 'Root Color',
   TIME_COLOR: 'Time Color',
   ERR_COLOR: 'Error Color',
-  WHITEB: 'White Bold',
-  RST: 'Reset',
+  SEPARATOR_COLOR: 'Separator Bold',
   BORDCOL: 'Border Color',
   PATH_COLOR: 'Path Color',
 };
@@ -190,11 +204,10 @@ const colorLabels = {
 const colors = ref({
   PRIMARY_COLOR: '\\[\\033[00;92m\\]',
   SECONDARY_COLOR: '\\[\\033[00;95;1m\\]',
-  ROOT_COLOR: '\\033[00;41;97;1m',
+  ROOT_COLOR: '\\[\\033[00;31;1m\\]',
   TIME_COLOR: '\\[\\033[00;33;1m\\]',
   ERR_COLOR: '\\[\\033[00;31;1m\\]',
-  WHITEB: '\\[\\033[00;97;1m\\]',
-  RST: '\\[\\033[0m\\]',
+  SEPARATOR_COLOR: '\\[\\033[00;97;1m\\]',
   BORDCOL: '\\[\\033[00;90;1m\\]',
   PATH_COLOR: '\\[\\033[00;97;1m\\]',
 });
@@ -256,7 +269,7 @@ h1 {
 }
 .color-controls {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
   gap: 15px;
 }
 .color-select {
@@ -403,6 +416,6 @@ select {
 }
 .text-red-on-white {
   color: #ffffff;
-  background-color: #cc0;
+  background-color: #c00;
 }
 </style>
