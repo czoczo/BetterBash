@@ -32,17 +32,17 @@ var colorComponentKeys = []string{
 	"ERR_COLOR", "SEPARATOR_COLOR", "BORDCOL", "PATH_COLOR",
 }
 
-func decodeColorLogic(encodedData string) (map[string]string, string, error) {
+func decodeColorLogic(encodedData string) (map[string]string, string, bool, error) {
 	standardBase64 := strings.ReplaceAll(encodedData, "-", "+")
 	standardBase64 = strings.ReplaceAll(standardBase64, "_", "/")
 
 	decodedBytes, err := base64.RawStdEncoding.DecodeString(standardBase64)
 	if err != nil {
-		return nil, "", fmt.Errorf("Base64 decoding failed: %v. Input: '%s'", err, encodedData)
+		return nil, "", false, fmt.Errorf("Base64 decoding failed: %v. Input: '%s'", err, encodedData)
 	}
 
 	if len(decodedBytes) != 6 {
-		return nil, "", fmt.Errorf("Decoded data must be 6 bytes long, got %d bytes from input '%s'", len(decodedBytes), encodedData)
+		return nil, "", false, fmt.Errorf("Decoded data must be 6 bytes long, got %d bytes from input '%s'", len(decodedBytes), encodedData)
 	}
 
 	fiveBitValues := make([]byte, 9)
@@ -56,6 +56,9 @@ func decodeColorLogic(encodedData string) (map[string]string, string, error) {
 	fiveBitValues[6] = ((b[3] & 0x03) << 3) | (b[4] >> 5)
 	fiveBitValues[7] = b[4] & 0x1F
 	fiveBitValues[8] = b[5] >> 3
+
+	// Extract avatar bit from the first bit of the 6th byte
+	avatarEnabled := (b[5] & 0x80) != 0
 
 	colorsMap := make(map[string]string)
 	var resultList strings.Builder
@@ -81,12 +84,20 @@ func decodeColorLogic(encodedData string) (map[string]string, string, error) {
 		// Ensure each definition is on a new line, directly usable in shell script
 		resultList.WriteString(fmt.Sprintf("%s='%s'\n", colorComponentKeys[i], bashColor))
 	}
+
+	// Add the AVATAR variable
+	avatarValue := "false"
+	if avatarEnabled {
+		avatarValue = "true"
+	}
+	resultList.WriteString(fmt.Sprintf("AVATAR='%s'\n", avatarValue))
+
 	// Remove the last newline character from the block of definitions if present for cleaner insertion
-	return colorsMap, strings.TrimSuffix(resultList.String(), "\n"), nil
+	return colorsMap, strings.TrimSuffix(resultList.String(), "\n"), avatarEnabled, nil
 }
 
 func serveDecodedColorsOnlyHandler(w http.ResponseWriter, r *http.Request, encodedData string) {
-	_, formattedOutput, err := decodeColorLogic(encodedData)
+	_, formattedOutput, _, err := decodeColorLogic(encodedData)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
@@ -101,7 +112,7 @@ func serveDecodedColorsOnlyHandler(w http.ResponseWriter, r *http.Request, encod
 func serveFileWithColorsHandler(w http.ResponseWriter, r *http.Request, encodedData string, requestedFilePath string) {
 	// Note: The 'colorsMap' is not strictly needed for the new bb.sh logic,
 	// as 'formattedColorDefinitions' is used directly. But decodeColorLogic provides it.
-	_, formattedColorDefinitions, err := decodeColorLogic(encodedData)
+	_, formattedColorDefinitions, _, err := decodeColorLogic(encodedData)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Failed to decode colors: %v", err), http.StatusBadRequest)
 		return
@@ -169,7 +180,7 @@ func serveFileWithColorsHandler(w http.ResponseWriter, r *http.Request, encodedD
 		if strings.HasPrefix(firstLineOriginal, "#!") {
 			finalScript.WriteString(firstLineOriginal) // Write shebang
 			finalScript.WriteString("\n")              // Newline after shebang
-			finalScript.WriteString(formattedColorDefinitions) // This is KEY='VAL'\nKEY2='VAL2'
+			finalScript.WriteString(formattedColorDefinitions) // This is KEY='VAL'\nKEY2='VAL2'\nAVATAR='true/false'
 			finalScript.WriteString("\n")              // Ensure a newline after the injected block
 			if restOfScript != "" {
 				finalScript.WriteString(restOfScript)
