@@ -38,6 +38,14 @@
             </label>
           </div>
         </div>
+        
+        <!-- Avatar Toggle Control -->
+        <div class="color-select-group">
+          <div class="color-selector-main">
+            <label for="avatar-toggle">Show Avatar</label>
+            <input id="avatar-toggle" type="checkbox" v-model="showAvatar" @change="updatePromptDetails" />
+          </div>
+        </div>
       </div>
 
       <div class="terminal">
@@ -49,20 +57,25 @@
           ><span :class="getColorClassFromBash(generatedColors.PRIMARY_COLOR)">myhost:pts/5</span
           ><span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">)</span
           ><span :class="getColorClassFromBash(generatedColors.BORDCOL)">──</span
-          ><span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">(</span
-          ><span class="text-yellow">▶</span
-          ><span class="text-bright-black">▬</span
-          ><span class="text-bright-white">▲</span
-          ><span class="text-cyan">◀▶</span
-          ><span class="text-bright-white">▲</span
-          ><span class="text-bright-black">▬</span
-          ><span class="text-yellow">◀</span
-          ><span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">)</span
-          ><span :class="getColorClassFromBash(generatedColors.BORDCOL)">──</span
-          ><span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">(</span
+          ><template v-if="showAvatar">
+            <span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">(</span
+            ><span class="text-yellow">▶</span
+            ><span class="text-bright-black">▬</span
+            ><span class="text-bright-white">▲</span
+            ><span class="text-cyan">◀▶</span
+            ><span class="text-bright-white">▲</span
+            ><span class="text-bright-black">▬</span
+            ><span class="text-yellow">◀</span
+            ><span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">)</span
+            ><span :class="getColorClassFromBash(generatedColors.BORDCOL)">──</span
+          ></template>
+          <span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">(</span
           ><span :class="getColorClassFromBash(generatedColors.SECONDARY_COLOR)">1 ↻</span
-          ><span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">)</span
-          ><span :class="getColorClassFromBash(generatedColors.BORDCOL)">─────────────────────────────</span
+          ><span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">)</span>
+          <template v-if="!showAvatar">
+            <span :class="getColorClassFromBash(generatedColors.BORDCOL)">────────</span
+          ></template>
+          <span :class="getColorClassFromBash(generatedColors.BORDCOL)">─────────────────────────────</span
           ><span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">(</span
           ><span :class="getColorClassFromBash(generatedColors.TIME_COLOR)">Wed May 14</span
           ><span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">)</span
@@ -86,7 +99,7 @@
           ><span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">)</span
           ><span :class="getColorClassFromBash(generatedColors.BORDCOL)">-&gt;</span>
         </div>
-
+        
         <div class="ps1-line">&nbsp;</div>
         <div class="ps1-line">&nbsp;</div>
 
@@ -98,16 +111,21 @@
           ><span :class="getColorClassFromBash(generatedColors.PRIMARY_COLOR)">myhost:pts/5</span
           ><span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">)</span
           ><span :class="getColorClassFromBash(generatedColors.BORDCOL)">──</span
-          ><span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">(</span
-          ><span class="text-yellow">▶</span
-          ><span class="text-bright-black">▬</span
-          ><span class="text-bright-white">▲</span
-          ><span class="text-cyan">◀▶</span
-          ><span class="text-bright-white">▲</span
-          ><span class="text-bright-black">▬</span
-          ><span class="text-yellow">◀</span
-          ><span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">)</span
-          ><span :class="getColorClassFromBash(generatedColors.BORDCOL)">───────────────────────────</span
+          ><template v-if="showAvatar">
+            <span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">(</span
+            ><span class="text-yellow">▶</span
+            ><span class="text-bright-black">▬</span
+            ><span class="text-bright-white">▲</span
+            ><span class="text-cyan">◀▶</span
+            ><span class="text-bright-white">▲</span
+            ><span class="text-bright-black">▬</span
+            ><span class="text-yellow">◀</span
+            ><span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">)</span
+          ></template>
+          <template v-if="!showAvatar">
+            <span :class="getColorClassFromBash(generatedColors.BORDCOL)">──────</span
+          ></template>
+          <span :class="getColorClassFromBash(generatedColors.BORDCOL)">───────────────────────────</span
           ><span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">(</span
           ><span :class="getColorClassFromBash(generatedColors.ERR_COLOR)">127 ↵</span
           ><span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">)</span
@@ -132,6 +150,7 @@
           ><span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">)</span
           ><span :class="getColorClassFromBash(generatedColors.BORDCOL)">-&gt;</span>
         </div>
+
       </div>
 
       <div class="share-section">
@@ -141,56 +160,23 @@
             <button @click="copyUrlToClipboard">Copy URL</button>
         </div>
         <p v-if="copySuccess" class="copy-success-message">Copied to clipboard!</p>
-      </div>
-
-      <div class="info-section">
-        <h3>About This Customizer</h3>
-        <p>
-          This tool allows you to customize the colors of your bash PS1 prompt.
-          Select different terminal colors for each component and individually toggle
-          "light" (bright) or "bold" styles to see how they
-          look in the preview. You can share your theme using the URL generated above.
-        </p>
-        <h3>Decoding the Share URL</h3>
-        <div class="decoding-explanation">
-            <p>The string after "betterba.sh/" in the URL is an 8-character code representing your theme. Here's how it works:</p>
-            <ol>
-                <li><strong>Fixed Order:</strong> Colors are encoded for 9 components in this fixed order:
-                    Primary, Secondary, Root User, Time, Error Code, Separator, Border, Path, and Reset colors.</li>
-                <li><strong>Per-Component Encoding (5 bits):</strong>
-                    <ul>
-                        <li>Base Color (30-37) is mapped to 0-7 (3 bits).</li>
-                        <li>Light State (normal/bright) is 0 or 1 (1 bit).</li>
-                        <li>Bold State is 0 or 1 (1 bit).</li>
-                        <li>These are combined: <code>(base_color_0_7 &lt;&lt; 2) | (light_bit &lt;&lt; 1) | bold_bit</code>.</li>
-                    </ul>
-                </li>
-                <li><strong>Concatenation (45 bits):</strong> The 9 five-bit values are joined, forming a 45-bit sequence.</li>
-                <li><strong>Byte Packing (6 bytes):</strong> These 45 bits are packed into 6 bytes. The first 45 bits contain the data, and the last 3 bits of the 6th byte are zero-padded. Bits are packed MSB-first from the component data into the bytes.
-                    <ul>
-                        <li>Byte 1: <code>C1_b4 C1_b3 C1_b2 C1_b1 C1_b0 C2_b4 C2_b3 C2_b2</code></li>
-                        <li>Byte 2: <code>C2_b1 C2_b0 C3_b4 C3_b3 C3_b2 C3_b1 C3_b0 C4_b4</code></li>
-                        <li>Byte 3: <code>C4_b3 C4_b2 C4_b1 C4_b0 C5_b4 C5_b3 C5_b2 C5_b1</code></li>
-                        <li>Byte 4: <code>C5_b0 C6_b4 C6_b3 C6_b2 C6_b1 C6_b0 C7_b4 C7_b3</code></li>
-                        <li>Byte 5: <code>C7_b2 C7_b1 C7_b0 C8_b4 C8_b3 C8_b2 C8_b1 C8_b0</code></li>
-                        <li>Byte 6: <code>C9_b4 C9_b3 C9_b2 C9_b1 C9_b0  0   0   0</code></li>
-                        (<code>Cn_bx</code> is bit <code>x</code> of component <code>n</code>'s 5-bit value, <code>C1</code>=Primary, <code>C2</code>=Secondary, etc.)
-                    </ul>
-                </li>
-                <li><strong>URL-Safe Base64:</strong> The 6 bytes are encoded using Base64, then <code>+</code> is replaced with <code>-</code>, <code>/</code> with <code>_</code>, and padding <code>=</code> are removed. This produces the 8-character code.</li>
-            </ol>
-            <p>To decode, reverse the process: Base64 decode, unpack bytes into 5-bit values, then extract base color, light, and bold states for each component.</p>
+        
+        <h3>Load Theme from URL</h3>
+        <div class="share-url-container">
+            <input type="text" v-model="loadUrlInput" placeholder="Paste theme URL here..." id="loadUrlInput" />
+            <button @click="loadThemeFromUrl">Load Theme</button>
         </div>
+        <p v-if="loadError" class="load-error-message">{{ loadError }}</p>
+        <p v-if="loadSuccess" class="load-success-message">Theme loaded successfully!</p>
       </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'; // Added onMounted if needed for URL parsing later
+import { ref, computed, onMounted } from 'vue';
 
-// Color labels for UI - THE ORDER HERE IS IMPORTANT FOR `Object.keys(colorLabels)` if used
-// but we'll use a hardcoded list for encoding/decoding for stability.
+// Color labels for UI
 const colorLabels = {
   PRIMARY_COLOR: 'Primary Color',
   SECONDARY_COLOR: 'Secondary Color',
@@ -207,10 +193,9 @@ const ENCODING_ORDERED_COLOR_KEYS = [
   'PRIMARY_COLOR', 'SECONDARY_COLOR', 'ROOT_COLOR', 'TIME_COLOR',
   'ERR_COLOR', 'SEPARATOR_COLOR', 'BORDCOL', 'PATH_COLOR'
 ];
-if (ENCODING_ORDERED_COLOR_KEYS.length !== 8) {
-    console.error("Encoding logic assumes 8 color keys. Please update bit packing if this changes.");
-}
 
+// Avatar state
+const showAvatar = ref(true);
 
 // --- Base Color Definitions (30-37 range) ---
 const baseColorDefinitions = {
@@ -242,12 +227,12 @@ const boldColorSpecifics = {
     32: { hex: "#73d216", css: "text-bold-green" },
     33: { hex: "#edd400", css: "text-bold-yellow" },
     34: { hex: "#3584e4", css: "text-bold-blue" },
-    35: { hex: "#ad7fa8", css: "text-bold-magenta" }, // Often same as bright in some terminals
-    36: { hex: "#34e2e2", css: "text-bold-cyan" },   // Often same as bright
-    37: { hex: "#ffffff", css: "text-bold-white" },  // True white for bold light gray
+    35: { hex: "#ad7fa8", css: "text-bold-magenta" },
+    36: { hex: "#34e2e2", css: "text-bold-cyan" },
+    37: { hex: "#ffffff", css: "text-bold-white" },
     90: { hex: "#7c7c7c", css: "text-bold-bright-black" },
     95: { hex: "#d070d0", css: "text-bold-bright-magenta" },
-    97: { hex: "#ffffff", css: "text-bold-bright-white" }, // True white for bold white
+    97: { hex: "#ffffff", css: "text-bold-bright-white" },
 };
 
 const finalColorMappings = {};
@@ -322,10 +307,9 @@ ENCODING_ORDERED_COLOR_KEYS.forEach(key => {
   if (initialBashColorCodes[key]) {
     selectedColorAttributes.value[key] = parseInitialBashCodeToAttributes(initialBashColorCodes[key]);
   } else {
-    selectedColorAttributes.value[key] = { baseCode: 37, isLight: false, isBold: false }; // Default
+    selectedColorAttributes.value[key] = { baseCode: 37, isLight: false, isBold: false };
   }
 });
-
 
 const generatedColors = computed(() => {
   const finalCodes = {};
@@ -336,30 +320,23 @@ const generatedColors = computed(() => {
     if (attrs.isBold) {
       finalCodes[key] = `\\[\\033[1;${actualCode}m\\]`;
     } else {
-      // Ensure "normal" style is explicit if no bold, using '0' or just the color
       finalCodes[key] = `\\[\\033[0;${actualCode}m\\]`; 
     }
   }
-  // Handle RST specifically if it shouldn't have complex styling (e.g. only \[\033[0m\] or \[\033[37m\])
-  // For this general tool, we keep RST configurable like others.
-  // If RST should always be \[\033[0m\], you can override:
-  // finalCodes['RST'] = '\\[\\033[0m\\]';
   return finalCodes;
 });
 
 function parseGeneratedBashCode(bashCode) {
-  const match = bashCode.match(/\[(?:(1);)?(\d{2})m/); // Bold group, color group
+  const match = bashCode.match(/\[(?:(1);)?(\d{2})m/);
   if (match) {
     const isBold = !!match[1];
     const colorNum = parseInt(match[2]);
     return { colorNum, isBold };
   }
-  // Try matching pattern like \[\033[0;32m\] or \[\033[0;92m\]
-   const nonBoldMatch = bashCode.match(/\[0;(\d{2})m/);
-   if (nonBoldMatch) {
+  const nonBoldMatch = bashCode.match(/\[0;(\d{2})m/);
+  if (nonBoldMatch) {
     return { colorNum: parseInt(nonBoldMatch[1]), isBold: false };
   }
-  // Try matching pattern like \[\033[32m\] (implicit normal)
   const simplestMatch = bashCode.match(/\[(\d{2})m/);
   if (simplestMatch) {
     return { colorNum: parseInt(simplestMatch[1]), isBold: false };
@@ -396,7 +373,7 @@ const getColorClassFromBash = (bashCode) => {
 };
 
 const updatePromptDetails = () => {
-  // This function is called on change, can be used for debugging or future enhancements
+  // This function is called on change
 };
 
 // --- URL Sharing Logic ---
@@ -405,29 +382,26 @@ function bytesToUrlSafeBase64(bytes) {
   return base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
 }
 
-// function urlSafeBase64ToBytes(base64Str) { // For decoding if implemented
-//   let base64 = base64Str.replace(/-/g, '+').replace(/_/g, '/');
-//   const padding = base64.length % 4 === 0 ? '' : '='.repeat(4 - (base64.length % 4));
-//   const raw = atob(base64 + padding);
-//   const bytes = new Uint8Array(raw.length);
-//   for (let i = 0; i < raw.length; i++) {
-//     bytes[i] = raw.charCodeAt(i);
-//   }
-//   return bytes;
-// }
-
-function generateShareCode(selectedAttrs) {
-  const numParts = ENCODING_ORDERED_COLOR_KEYS.length;
-  if (numParts * 5 > 48) { // 45 bits for 9 parts, max 48 in 6 bytes
-      console.error("Too many parts for 6 bytes with 5 bits each");
-      return "";
+function urlSafeBase64ToBytes(base64Str) {
+  let base64 = base64Str.replace(/-/g, '+').replace(/_/g, '/');
+  const padding = base64.length % 4 === 0 ? '' : '='.repeat(4 - (base64.length % 4));
+  const raw = atob(base64 + padding);
+  const bytes = new Uint8Array(raw.length);
+  for (let i = 0; i < raw.length; i++) {
+    bytes[i] = raw.charCodeAt(i);
   }
+  return bytes;
+}
 
+function generateShareCode(selectedAttrs, avatarEnabled) {
+  const numParts = ENCODING_ORDERED_COLOR_KEYS.length;
+  const bytes = new Uint8Array(6); // 48 bits
+  
   const fiveBitValues = [];
   for (const key of ENCODING_ORDERED_COLOR_KEYS) {
     const attr = selectedAttrs[key];
-    if (!attr) { // Should not happen if selectedColorAttributes is initialized correctly
-        fiveBitValues.push(0); // Default: (0<<2)|0|0 = Black, not light, not bold
+    if (!attr) {
+        fiveBitValues.push(0);
         continue;
     }
     const shortBaseCode = attr.baseCode - 30; // 0-7
@@ -437,21 +411,61 @@ function generateShareCode(selectedAttrs) {
     fiveBitValues.push(value);
   }
 
-  const bytes = new Uint8Array(6); // 48 bits
-  // Pack 9 * 5-bit values (45 bits) into 6 bytes
+  // Pack 8 * 5-bit values (40 bits) into 6 bytes, with avatar bit at the end
   bytes[0] = (fiveBitValues[0] << 3) | (fiveBitValues[1] >> 2);
   bytes[1] = ((fiveBitValues[1] & 0x03) << 6) | (fiveBitValues[2] << 1) | (fiveBitValues[3] >> 4);
   bytes[2] = ((fiveBitValues[3] & 0x0F) << 4) | (fiveBitValues[4] >> 1);
   bytes[3] = ((fiveBitValues[4] & 0x01) << 7) | (fiveBitValues[5] << 2) | (fiveBitValues[6] >> 3);
   bytes[4] = ((fiveBitValues[6] & 0x07) << 5) | (fiveBitValues[7]);
-  bytes[5] = (fiveBitValues[8] << 3); // Last 3 bits of this byte will be 0 (padding)
+  bytes[5] = avatarEnabled ? 0x80 : 0x00; // Use first bit for avatar state
 
   return bytesToUrlSafeBase64(bytes);
 }
 
+function parseShareCode(code) {
+  try {
+    const bytes = urlSafeBase64ToBytes(code);
+    if (bytes.length !== 6) return null;
+
+    // Extract avatar state from first bit of last byte
+    const avatarEnabled = (bytes[5] & 0x80) !== 0;
+
+    // Extract 8 * 5-bit values
+    const fiveBitValues = [];
+    fiveBitValues.push(bytes[0] >> 3);
+    fiveBitValues.push(((bytes[0] & 0x07) << 2) | (bytes[1] >> 6));
+    fiveBitValues.push((bytes[1] >> 1) & 0x1F);
+    fiveBitValues.push(((bytes[1] & 0x01) << 4) | (bytes[2] >> 4));
+    fiveBitValues.push(((bytes[2] & 0x0F) << 1) | (bytes[3] >> 7));
+    fiveBitValues.push((bytes[3] >> 2) & 0x1F);
+    fiveBitValues.push(((bytes[3] & 0x03) << 3) | (bytes[4] >> 5));
+    fiveBitValues.push(bytes[4] & 0x1F);
+
+    const selectedAttrs = {};
+    for (let i = 0; i < ENCODING_ORDERED_COLOR_KEYS.length; i++) {
+      const key = ENCODING_ORDERED_COLOR_KEYS[i];
+      const value = fiveBitValues[i];
+      const shortBaseCode = value >> 2; // 0-7
+      const lightBit = (value >> 1) & 1;
+      const boldBit = value & 1;
+      
+      selectedAttrs[key] = {
+        baseCode: shortBaseCode + 30, // 30-37
+        isLight: lightBit === 1,
+        isBold: boldBit === 1
+      };
+    }
+
+    return { selectedAttrs, avatarEnabled };
+  } catch (error) {
+    console.error('Error parsing share code:', error);
+    return null;
+  }
+}
+
 const shareableUrl = computed(() => {
-  const code = generateShareCode(selectedColorAttributes.value);
-  return `https://betterba.sh/${code}`;
+  const code = generateShareCode(selectedColorAttributes.value, showAvatar.value);
+  return `${window.location.origin}${window.location.pathname}#${code}`;
 });
 
 const copySuccess = ref(false);
@@ -475,18 +489,77 @@ function selectUrlText() {
     }
 }
 
-// Optional: Logic to parse code from URL on load
-// onMounted(() => {
-//   const path = window.location.pathname;
-//   const parts = path.split('/');
-//   if (parts.length > 1 && parts[1]) { // e.g. /XyZ123Ab
-//     const code = parts[1];
-//     // const decodedAttributes = parseShareCode(code); // You'd need to implement this
-//     // if (decodedAttributes) {
-//     //   selectedColorAttributes.value = decodedAttributes;
-//     // }
-//   }
-// });
+// Load theme functionality
+const loadUrlInput = ref('');
+const loadError = ref('');
+const loadSuccess = ref(false);
+
+function loadThemeFromUrl() {
+  loadError.value = '';
+  loadSuccess.value = false;
+  
+  if (!loadUrlInput.value.trim()) {
+    loadError.value = 'Please enter a URL';
+    return;
+  }
+
+  try {
+    // Extract code from URL - handle both hash and path formats
+    let code = '';
+    const url = loadUrlInput.value.trim();
+    
+    if (url.includes('#')) {
+      code = url.split('#')[1];
+    } else if (url.includes('betterba.sh/')) {
+      const parts = url.split('betterba.sh/');
+      if (parts.length > 1) {
+        code = parts[1].split(/[?&#]/)[0];
+      }
+    } else {
+      // Assume the entire input is the code
+      code = url;
+    }
+
+    if (!code) {
+      loadError.value = 'Could not extract theme code from URL';
+      return;
+    }
+
+    const parsed = parseShareCode(code);
+    if (!parsed) {
+      loadError.value = 'Invalid theme code';
+      return;
+    }
+
+    // Apply the loaded theme
+    selectedColorAttributes.value = parsed.selectedAttrs;
+    showAvatar.value = parsed.avatarEnabled;
+    
+    loadSuccess.value = true;
+    loadUrlInput.value = '';
+    
+    setTimeout(() => {
+      loadSuccess.value = false;
+    }, 3000);
+    
+  } catch (error) {
+    console.error('Error loading theme:', error);
+    loadError.value = 'Error loading theme';
+  }
+}
+
+// Load theme from URL hash on mount
+onMounted(() => {
+  const hash = window.location.hash;
+  if (hash && hash.length > 1) {
+    const code = hash.substring(1);
+    const parsed = parseShareCode(code);
+    if (parsed) {
+      selectedColorAttributes.value = parsed.selectedAttrs;
+      showAvatar.value = parsed.avatarEnabled;
+    }
+  }
+});
 
 </script>
 
