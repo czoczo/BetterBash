@@ -48,7 +48,6 @@ function hashColor {
   echo -e '\[\033[1;97m\]'
 }
 
-CH=$(hashColor "$(cat /etc/hostname)" 4)
 
 temp="$(tty)"
 #   Chop off the first five chars of tty (ie /dev/):
@@ -59,15 +58,17 @@ HBAR="─"
 PR_ULCORNER="┌"
 PR_LLCORNER="└"
 
-PRIMARY_COLOR='\[\033[00;92m\]'
-SECONDARY_COLOR='\[\033[00;95;1m\]'
-ROOT_COLOR='\[\033[00;31;1m\]'
-TIME_COLOR='\[\033[00;93;1m\]'
-ERR_COLOR='\[\033[00;31;1m\]'
-WHITEB='\[\033[00;97;1m\]'
-RST='\[\033[0m\]'
-BORDCOL='\[\033[00;90;1m\]'
-USERCOL=$SECONDARY_COLOR
+# Defaults:
+[ -z "${PRIMARY_COLOR}" ] && PRIMARY_COLOR='\[\033[00;92m\]'
+[ -z "${SECONDARY_COLOR}" ] && SECONDARY_COLOR='\[\033[00;95;1m\]'
+[ -z "${ROOT_COLOR}" ] && ROOT_COLOR='\[\033[00;31;1m\]'
+[ -z "${TIME_COLOR}" ] && TIME_COLOR='\[\033[00;93;1m\]'
+[ -z "${ERR_COLOR}" ] && ERR_COLOR='\[\033[00;31;1m\]'
+[ -z "${WHITEB}" ] && WHITEB='\[\033[00;97;1m\]'
+[ -z "${RST=}" ] && RST='\[\033[0m\]'
+[ -z "${BORDCOL}" ] && BORDCOL='\[\033[00;90;1m\]'
+[ -z "${USERCOL}" ] && USERCOL=$SECONDARY_COLOR
+[ -z "${AVATAR}" ] && AVATAR='true'
 PATH_COLOR=$WHITEB
 
 export GIT_PS1_SHOWCOLORHINTS=true
@@ -76,6 +77,14 @@ export GIT_PS1_SHOWUNTRACKEDFILES=true
 export GIT_PS1_SHOWUPSTREAM="auto"
 
 export PROMPT_COMMAND=__prompt_command
+
+CH=''
+CHLINE=''
+
+if [ "$AVATAR" == 'true' ]; then
+  CH=$(hashColor "$(cat /etc/hostname)" 4)
+  CHLINE="$WHITEB($CH$WHITEB)"
+fi
 
 function __prompt_command() {
   local RETURN_CODE="$?"
@@ -108,7 +117,7 @@ function __prompt_command() {
 
   GITPROMPT=$(__git_ps1 " on${PRIMARY_COLOR} %s")
 
-  LEFT="\n$BORDCOL\[\016\]$PR_ULCORNER$HBAR\[\017\]$WHITEB($USERCOL$USER$WHITEB@${PRIMARY_COLOR}\h:$cur_tty$WHITEB)$BORDCOL$HBAR$HBAR$WHITEB($CH$WHITEB)$BGPROCCOL"
+  LEFT="\n$BORDCOL\[\016\]$PR_ULCORNER$HBAR\[\017\]$WHITEB($USERCOL$USER$WHITEB@${PRIMARY_COLOR}\h:$cur_tty$WHITEB)$BORDCOL$HBAR$HBAR$CHLINE$BGPROCCOL"
 
   RIGHT="$EXIT$BORDCOL$HBAR$HBAR$HBAR$WHITEB($TIME_COLOR\d$WHITEB)$BORDCOL$HBAR$HBAR$HBAR$WHITEB($RCOL\t$WHITEB)$BORDCOL$HBAR$HBAR$HBAR$HBAR\n$BORDCOL\[\016\]$PR_LLCORNER\[\017\]$BORDCOL$HBAR$WHITEB(${PATH_COLOR}\w${WHITE})$BORDCOL$HBAR$WHITEB(${PRIMARY_COLOR}\\\$$RST$GITPROMPT$WHITEB)$BORDCOL-> \[\e[0m\]"
 
@@ -117,6 +126,9 @@ function __prompt_command() {
   L_LEN=${#L_LEN}
   R_LEN=${#R_LEN}
   let WIDTH=$(tput cols)-${R_LEN}-${L_LEN}-${PROC_WIDTH}+83
+  if [ "$AVATAR" != 'true' ]; then
+    let WIDTH=${WIDTH}-116
+  fi
   FILL=$BORDCOL$HBAR
   for ((x = 0; x < $WIDTH; x++)); do
     FILL="$FILL$HBAR"
