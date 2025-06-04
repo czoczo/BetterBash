@@ -21,6 +21,7 @@ const (
 	gitRepoURL    = "https://git.cz0.cz/czoczo/BetterBash"
 	localRepoPath = "BetterBashRepo" // Cloned into a subdirectory
 	bbShellPath   = "prompt/bb.sh"
+	getBbPath   = "getbb.sh"
 )
 
 var (
@@ -147,7 +148,19 @@ func serveFileWithColorsHandler(w http.ResponseWriter, r *http.Request, encodedD
 		return
 	}
 
-	if cleanFilePath == bbShellPath {
+	if cleanFilePath == getBbPath {
+		originalContentBytes, err := os.ReadFile(fullPath)
+		if err != nil {
+			http.Error(w, fmt.Sprintf("Error reading %s: %v", getBbPath, err), http.StatusInternalServerError)
+			return
+		}
+		originalContent := string(originalContentBytes)
+		originalContent = strings.Replace(originalContent, "git.cz0.cz", r.Host, -1)
+		originalContent = strings.Replace(originalContent, "/czoczo/BetterBash/raw/branch/master", fmt.Sprintf("/%s", encodedData), -1)
+
+		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+		fmt.Fprint(w, originalContent)
+	} else if cleanFilePath == bbShellPath {
 		originalContentBytes, err := os.ReadFile(fullPath)
 		if err != nil {
 			http.Error(w, fmt.Sprintf("Error reading %s: %v", bbShellPath, err), http.StatusInternalServerError)
