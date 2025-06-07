@@ -154,6 +154,13 @@
       </div>
 
       <div class="share-section">
+        <h3>Quick install</h3>
+        <div class="share-url-container">
+            <input type="text" :value="installUrl" readonly id="installUrlInput" @click="selectUrlText" />
+            <button @click="copyCmdToClipboard">Copy command</button>
+        </div>
+        <p v-if="copyCmdSuccess" class="copy-success-message">Copied to clipboard!</p>
+        
         <h3>Share Your Theme</h3>
         <div class="share-url-container">
             <input type="text" :value="shareableUrl" readonly id="shareUrlInput" @click="selectUrlText" />
@@ -161,13 +168,13 @@
         </div>
         <p v-if="copySuccess" class="copy-success-message">Copied to clipboard!</p>
         
-        <h3>Load Theme from URL</h3>
+        <!---<h3>Load Theme from URL</h3>
         <div class="share-url-container">
             <input type="text" v-model="loadUrlInput" placeholder="Paste theme URL here..." id="loadUrlInput" />
             <button @click="loadThemeFromUrl">Load Theme</button>
         </div>
         <p v-if="loadError" class="load-error-message">{{ loadError }}</p>
-        <p v-if="loadSuccess" class="load-success-message">Theme loaded successfully!</p>
+        <p v-if="loadSuccess" class="load-success-message">Theme loaded successfully!</p>-->
       </div>
     </div>
   </div>
@@ -463,6 +470,11 @@ function parseShareCode(code) {
   }
 }
 
+const installUrl = computed(() => {
+  const code = generateShareCode(selectedColorAttributes.value, showAvatar.value);
+  return `curl -sL https://betterbash.cz0.cz/${code}/getbb.sh`;
+});
+
 const shareableUrl = computed(() => {
   const code = generateShareCode(selectedColorAttributes.value, showAvatar.value);
   return `${window.location.origin}${window.location.pathname}#${code}`;
@@ -479,6 +491,20 @@ async function copyUrlToClipboard() {
   } catch (err) {
     console.error('Failed to copy URL: ', err);
     alert('Failed to copy URL. Please copy it manually.');
+  }
+}
+
+const copyCmdSuccess = ref(false);
+async function copyCmdToClipboard() {
+  try {
+    await navigator.clipboard.writeText(installUrl.value);
+    copyCmdSuccess.value = true;
+    setTimeout(() => {
+      copyCmdSuccess.value = false;
+    }, 2000);
+  } catch (err) {
+    console.error('Failed to copy install command: ', err);
+        alert('Failed to copy install command. Please copy it manually.');
   }
 }
 
