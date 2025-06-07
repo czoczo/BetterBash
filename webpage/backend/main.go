@@ -1,19 +1,20 @@
 package main
 
 import (
-//	"bufio" // Keep for other potential uses, though not strictly needed for the new bb.sh logic if using SplitN
-	"bytes"
 	"encoding/base64"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"os"
-	"os/exec"
 	"path/filepath"
-//	"regexp" // Keep for other potential uses, though not for bb.sh color insertion
 	"strings"
 	"sync"
 	"sync/atomic"
+
+	"github.com/go-git/go-git/v5"
+	"github.com/go-git/go-git/v5/plumbing"
+	//"github.com/go-git/go-git/v5/plumbing/object"
 )
 
 const (
@@ -182,19 +183,18 @@ func serveFileWithColorsHandler(w http.ResponseWriter, r *http.Request, encodedD
 		if len(lines) > 1 {
 			restOfScript = lines[1]
 		} else if len(lines) == 1 { // Script might be a single line or empty
-		    if originalContent == firstLineOriginal { // single line script
-		        restOfScript = ""
-		    } else { // empty script, lines[0] would be ""
-		        restOfScript = ""
-		    }
+			if originalContent == firstLineOriginal { // single line script
+				restOfScript = ""
+			} else { // empty script, lines[0] would be ""
+				restOfScript = ""
+			}
 		}
 
-
 		if strings.HasPrefix(firstLineOriginal, "#!") {
-			finalScript.WriteString(firstLineOriginal) // Write shebang
-			finalScript.WriteString("\n")              // Newline after shebang
+			finalScript.WriteString(firstLineOriginal)         // Write shebang
+			finalScript.WriteString("\n")                      // Newline after shebang
 			finalScript.WriteString(formattedColorDefinitions) // This is KEY='VAL'\nKEY2='VAL2'\nAVATAR='true/false'
-			finalScript.WriteString("\n")              // Ensure a newline after the injected block
+			finalScript.WriteString("\n")                      // Ensure a newline after the injected block
 			if restOfScript != "" {
 				finalScript.WriteString(restOfScript)
 			}
@@ -224,28 +224,91 @@ func rootPathHandler(w http.ResponseWriter, r *http.Request) {
 	http.Error(w, "Please provide an encoded string in the URL path (e.g., /YourEncodedString) or a file path (e.g. /YourEncodedString/path/to/file.sh)", http.StatusBadRequest)
 }
 
-func runGitCommand(dir string, args ...string) error {
-	cmd := exec.Command("git", args...)
-	if dir != "" {
-		cmd.Dir = dir
-	}
-	var out bytes.Buffer
-	var stderr bytes.Buffer
-	cmd.Stdout = &out
-	cmd.Stderr = &stderr
-
-	log.Printf("Running git command: git %s in dir '%s'", strings.Join(args, " "), dir)
-	err := cmd.Run()
-	if out.Len() > 0 {
-		log.Printf("git stdout: %s", out.String())
-	}
-	if stderr.Len() > 0 {
-		log.Printf("git stderr: %s", stderr.String())
-	}
+// cloneRepository clones the repository using go-git
+func cloneRepository(url, path string) error {
+	log.Printf("Cloning repository from %s to %s...", url, path)
+	
+	_, err := git.PlainClone(path, false, &git.CloneOptions{
+		URL:      url,
+		Progress: io.Discard, // Suppress progress output
+	})
+	
 	if err != nil {
-		return fmt.Errorf("git %s failed: %v\nstderr: %s", strings.Join(args, " "), err, stderr.String())
+		return fmt.Errorf("failed to clone repository: %w", err)
 	}
+	
+	log.Printf("Repository cloned successfully to %s", path)
 	return nil
+}
+
+// pullRepository pulls the latest changes from the remote repository
+func pullRepository(path string) error {
+	log.Printf("Opening repository at %s", path)
+	
+	// Open the repository
+	repo, err := git.PlainOpen(path)
+	if err != nil {
+		return fmt.Errorf("failed to open repository: %w", err)
+	}
+
+	// Get the working directory
+	worktree, err := repo.Worktree()
+	if err != nil {
+		return fmt.Errorf("failed to get worktree: %w", err)
+	}
+
+	// Fetch the latest changes
+	log.Printf("Fetching latest changes...")
+	err = repo.Fetch(&git.FetchOptions{
+		RemoteName: "origin",
+		Progress:   io.Discard,
+	})
+	if err != nil && err != git.NoErrAlreadyUpToDate {
+		return fmt.Errorf("failed to fetch: %w", err)
+	}
+
+	// Get the remote reference for master branch
+	ref, err := repo.Reference(plumbing.ReferenceName("refs/remotes/origin/master"), true)
+	if err != nil {
+		return fmt.Errorf("failed to get remote reference: %w", err)
+	}
+
+	// Reset to the remote master branch (equivalent to git reset --hard origin/master)
+	log.Printf("Resetting to origin/master...")
+	err = worktree.Reset(&git.ResetOptions{
+		Commit: ref.Hash(),
+		Mode:   git.HardReset,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to reset: %w", err)
+	}
+
+	log.Printf("Repository updated successfully")
+	return nil
+}
+
+// getLatestCommitInfo returns information about the latest commit
+func getLatestCommitInfo(path string) (string, error) {
+	repo, err := git.PlainOpen(path)
+	if err != nil {
+		return "", fmt.Errorf("failed to open repository: %w", err)
+	}
+
+	ref, err := repo.Head()
+	if err != nil {
+		return "", fmt.Errorf("failed to get HEAD: %w", err)
+	}
+
+	commit, err := repo.CommitObject(ref.Hash())
+	if err != nil {
+		return "", fmt.Errorf("failed to get commit: %w", err)
+	}
+
+	return fmt.Sprintf("Latest commit: %s\nAuthor: %s\nDate: %s\nMessage: %s",
+		commit.Hash.String()[:8],
+		commit.Author.Name,
+		commit.Author.When.Format("2006-01-02 15:04:05"),
+		strings.TrimSpace(commit.Message)), nil
 }
 
 func setupRepo() error {
@@ -254,7 +317,7 @@ func setupRepo() error {
 
 	if _, err := os.Stat(localRepoPath); os.IsNotExist(err) {
 		log.Printf("Local repository not found at %s. Cloning %s...", localRepoPath, gitRepoURL)
-		if err := runGitCommand("", "clone", gitRepoURL, localRepoPath); err != nil {
+		if err := cloneRepository(gitRepoURL, localRepoPath); err != nil {
 			return fmt.Errorf("failed to clone repository: %w", err)
 		}
 		log.Printf("Repository cloned successfully into %s.", localRepoPath)
@@ -271,7 +334,7 @@ func reloadRepoHandler(w http.ResponseWriter, r *http.Request) {
 	log.Printf("Attempting to pull latest changes for repository at %s", localRepoPath)
 	if _, err := os.Stat(localRepoPath); os.IsNotExist(err) {
 		log.Printf("Local repository at %s does not exist. Cloning first.", localRepoPath)
-		if err := runGitCommand("", "clone", gitRepoURL, localRepoPath); err != nil {
+		if err := cloneRepository(gitRepoURL, localRepoPath); err != nil {
 			http.Error(w, fmt.Sprintf("Failed to clone repository during reload: %v", err), http.StatusInternalServerError)
 			return
 		}
@@ -281,15 +344,7 @@ func reloadRepoHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err := runGitCommand(localRepoPath, "fetch", "origin")
-	if err == nil {
-		err = runGitCommand(localRepoPath, "reset", "--hard", "origin/master")
-	}
-	if err != nil {
-		log.Printf("Hard reset failed (or fetch failed): %v. Attempting simple pull.", err)
-		err = runGitCommand(localRepoPath, "pull", "origin", "master")
-	}
-	
+	err := pullRepository(localRepoPath)
 	if err != nil {
 		errMsg := fmt.Sprintf("Failed to pull latest changes: %v", err)
 		log.Println(errMsg)
@@ -297,9 +352,16 @@ func reloadRepoHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Get commit info for confirmation
+	commitInfo, err := getLatestCommitInfo(localRepoPath)
+	if err != nil {
+		log.Printf("Warning: Could not get commit info: %v", err)
+		commitInfo = "Commit info unavailable"
+	}
+
 	log.Println("Repository reloaded successfully.")
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-	fmt.Fprintln(w, "Repository reloaded successfully.")
+	fmt.Fprintf(w, "Repository reloaded successfully.\n%s\n", commitInfo)
 }
 
 func mainRouter(w http.ResponseWriter, r *http.Request) {
