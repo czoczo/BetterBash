@@ -4,7 +4,8 @@ get_file() {
   HOST="git.cz0.cz"
   echo -e "GET /czoczo/BetterBash/raw/branch/master/$1 HTTP/1.1\r\nHost: $HOST\r\nConnection: close\r\n\r\n" \
   | openssl s_client -quiet -connect $HOST:443 2>/dev/null \
-  | sed '1,/^\r$/d'
+  | sed '1,/^\r$/d' \
+  | sed -E ':a;N;$!ba;s/(\r\n)?[a-f0-9]+\r\n//g'
 }
 
 handle_inputrc() {
