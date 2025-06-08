@@ -1,6 +1,6 @@
 <template>
   <div class="container">
-    <h1>Better Bash Customizer</h1>
+    <h1>Better Bash</h1>
 
     <div class="customizer">
       <div class="color-controls">
@@ -94,7 +94,7 @@
           ><span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">(</span
           ><span :class="getColorClassFromBash(generatedColors.PRIMARY_COLOR)">$</span
           ><span :class="getColorClassFromBash(generatedColors.RST)"> on </span
-          ><span :class="getColorClassFromBash(generatedColors.PRIMARY_COLOR)">master</span
+          ><span class="text-green">master</span
           ><span :class="getColorClassFromBash(generatedColors.RST)">=</span
           ><span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">)</span
           ><span :class="getColorClassFromBash(generatedColors.BORDCOL)">-&gt;</span>
@@ -472,7 +472,7 @@ function parseShareCode(code) {
 
 const installUrl = computed(() => {
   const code = generateShareCode(selectedColorAttributes.value, showAvatar.value);
-  return `curl -sL https://betterbash.cz0.cz/${code}/getbb.sh`;
+  return `curl -sL https://betterbash.cz0.cz/${code}/getbb.sh | bash && . ~/.bashrc`;
 });
 
 const shareableUrl = computed(() => {
