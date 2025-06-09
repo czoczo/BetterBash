@@ -1,8 +1,12 @@
 <template>
   <div class="container">
-    <h1>Better Bash</h1>
-
     <div class="customizer">
+    <div class="header">
+      <img src="/logo.png" class="logo">
+      <h1>BetterBash</h1>
+      <h2>An opinionated attempt to make Bash a little better.</h2>
+    </div>
+
       <div class="color-controls">
         <div
           v-for="(label, colorKey) in colorLabels"
@@ -11,12 +15,14 @@
         >
           <div class="color-selector-main">
             <label :for="`select-${colorKey}`">
-              {{ label }}
               <div
                 class="color-preview"
                 :style="{ backgroundColor: getPreviewColorFromBash(generatedColors[colorKey]) }"
               ></div>
+              {{ label }}
             </label>
+          </div>
+          <div class="color-modifier-checkboxes">
             <select :id="`select-${colorKey}`" v-model="selectedColorAttributes[colorKey].baseCode" @change="updatePromptDetails">
               <option
                 v-for="colorOpt in baseColorOptions"
@@ -26,8 +32,6 @@
                 {{ colorOpt.name }}
               </option>            
             </select>
-          </div>
-          <div class="color-modifier-checkboxes">
             <label :for="`light-${colorKey}`">
               <input :id="`light-${colorKey}`" type="checkbox" v-model="selectedColorAttributes[colorKey].isLight" @change="updatePromptDetails" />
               Light
@@ -41,9 +45,9 @@
         
         <!-- Avatar Toggle Control -->
         <div class="color-select-group">
-          <div class="color-selector-main">
-            <label for="avatar-toggle">Show Avatar</label>
+          <div class="color-modifier-checkboxes">
             <input id="avatar-toggle" type="checkbox" v-model="showAvatar" @change="updatePromptDetails" />
+            <label for="avatar-toggle">Show Avatar</label>
           </div>
         </div>
       </div>
@@ -88,13 +92,13 @@
         <div class="ps1-line">
           <span :class="getColorClassFromBash(generatedColors.BORDCOL)">└─</span
           ><span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">(</span
-          ><span :class="getColorClassFromBash(generatedColors.PATH_COLOR)">~/repo</span
+          ><span :class="getColorClassFromBash(generatedColors.PATH_COLOR)">~/git_repo</span
           ><span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">)</span
           ><span :class="getColorClassFromBash(generatedColors.BORDCOL)">─</span
           ><span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">(</span
           ><span :class="getColorClassFromBash(generatedColors.PRIMARY_COLOR)">$</span
           ><span :class="getColorClassFromBash(generatedColors.RST)"> on </span
-          ><span class="text-green">master</span
+          ><span class="text-green">main</span
           ><span :class="getColorClassFromBash(generatedColors.RST)">=</span
           ><span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">)</span
           ><span :class="getColorClassFromBash(generatedColors.BORDCOL)">-&gt;</span>
@@ -150,38 +154,172 @@
           ><span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">)</span
           ><span :class="getColorClassFromBash(generatedColors.BORDCOL)">-&gt;</span>
         </div>
-
       </div>
 
       <div class="share-section">
         <h3>Quick install</h3>
-        <div class="share-url-container">
-            <input type="text" :value="installUrl" readonly id="installUrlInput" @click="selectUrlText" />
-            <button @click="copyCmdToClipboard">Copy command</button>
-        </div>
-        <p v-if="copyCmdSuccess" class="copy-success-message">Copied to clipboard!</p>
         
-        <h3>Share Your Theme</h3>
+        <!-- Tab navigation -->
+        <div class="tab-navigation">
+          <button 
+            class="tab-button" 
+            :class="{ active: activeTab === 'curl' }"
+            @click="activeTab = 'curl'"
+          >
+            curl
+          </button>
+          <button 
+            class="tab-button" 
+            :class="{ active: activeTab === 'wget' }"
+            @click="activeTab = 'wget'"
+          >
+            wget
+          </button>
+          <button 
+            class="tab-button" 
+            :class="{ active: activeTab === 'openssl' }"
+            @click="activeTab = 'openssl'"  
+          >
+            openssl
+          </button>
+        </div>
+
+        <!-- Tab content -->
+        <div class="tab-content">
+          <div v-show="activeTab === 'curl'" class="tab-panel">
+            <div class="share-url-container">
+              <input type="text" :value="curlInstallUrl" readonly id="installCurlCmd" @click="selectUrlText" />
+              <button @click="copyCurlCmdToClipboard">Copy command</button>
+            </div>
+          </div>
+          
+          <div v-show="activeTab === 'wget'" class="tab-panel">
+            <div class="share-url-container">
+              <input type="text" :value="wgetInstallUrl" readonly id="installWgetCmd" @click="selectUrlText" />
+              <button @click="copyWgetCmdToClipboard">Copy command</button>
+            </div>
+          </div>
+          
+          <div v-show="activeTab === 'openssl'" class="tab-panel">
+            <div class="share-url-container multiline">
+              <textarea :value="opensslInstallUrl" readonly id="installOpensslCmd" @click="selectUrlText" rows="5"></textarea>
+              <button @click="copyOpensslCmdToClipboard">Copy command</button>
+            </div>
+          </div>
+        </div>
+        
+        <p v-if="copyCmdSuccess" class="copy-success-message">Copied to clipboard!</p>
+
+        <h3>Share your theme</h3>
         <div class="share-url-container">
             <input type="text" :value="shareableUrl" readonly id="shareUrlInput" @click="selectUrlText" />
             <button @click="copyUrlToClipboard">Copy URL</button>
         </div>
         <p v-if="copySuccess" class="copy-success-message">Copied to clipboard!</p>
-        
-        <!---<h3>Load Theme from URL</h3>
-        <div class="share-url-container">
-            <input type="text" v-model="loadUrlInput" placeholder="Paste theme URL here..." id="loadUrlInput" />
-            <button @click="loadThemeFromUrl">Load Theme</button>
-        </div>
-        <p v-if="loadError" class="load-error-message">{{ loadError }}</p>
-        <p v-if="loadSuccess" class="load-success-message">Theme loaded successfully!</p>-->
       </div>
+
+      <div class="share-section">
+        <div>
+        <h3>What am I looking at?</h3>
+        <p>Mostly Bash configuration focused on usability. Pick your favorite colors and do a quick install to take advantage of the features below, or read about the <a src="https://">motivation behind the project</a>. Share your theme with others with the generated URL.</p>
+        <h3>Features:</h3>
+        </div>
+        <div>
+        <ul>
+          <li>
+            <span class="terminal-inline">
+              <span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">(</span>
+              <span :class="getColorClassFromBash(generatedColors.SECONDARY_COLOR)">user</span>
+              <span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">@</span>
+              <span :class="getColorClassFromBash(generatedColors.PRIMARY_COLOR)">myhost:pts/5</span>
+              <span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">)</span>
+            </span>
+            - Username (highlighted if root) and hostname.
+          </li>
+          <li>
+            <span class="terminal-inline">
+              <span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">(</span>
+              <span class="text-yellow">▶</span>
+              <span class="text-bright-black">▬</span>
+              <span class="text-bright-white">▲</span>
+              <span class="text-cyan">◀▶</span>
+              <span class="text-bright-white">▲</span>
+              <span class="text-bright-black">▬</span>
+              <span class="text-yellow">◀</span>
+              <span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">)</span>
+            </span>
+            - Unique avatar based on hostname (a bit like automatic avatars on StackOverflow), reduces the risk of terminal confusion.
+          </li>
+          <li>
+            <span class="terminal-inline">
+              <span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">(</span>
+              <span :class="getColorClassFromBash(generatedColors.SECONDARY_COLOR)">1 ↻</span>
+              <span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">)</span>
+            </span>
+            - Number of background processes.
+          </li>
+          <li> 
+            <span class="terminal-inline">
+              <span :class="getColorClassFromBash(generatedColors.BORDCOL)">──────</span>
+            </span>
+            - Line separating commands output.
+          </li>
+          <li>
+            <span class="terminal-inline">
+              <span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">(</span>
+              <span :class="getColorClassFromBash(generatedColors.ERR_COLOR)">127 ↵</span>
+              <span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">)</span>
+            </span>
+            - Exit code if other than zero.
+          </li>
+          <li>
+            <span class="terminal-inline">
+              <span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">(</span>
+              <span :class="getColorClassFromBash(generatedColors.TIME_COLOR)">Wed May 14</span>
+              <span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">)</span>
+              <span :class="getColorClassFromBash(generatedColors.BORDCOL)">───</span>
+              <span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">(</span>
+              <span :class="getColorClassFromBash(generatedColors.PRIMARY_COLOR)">00:40:12</span>
+              <span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">)</span>
+            </span>
+            - Date and time.
+          </li>
+          <li>
+            <span class="terminal-inline">
+              <span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">(</span>
+              <span :class="getColorClassFromBash(generatedColors.PATH_COLOR)">~/repo</span>
+              <span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">)</span>
+            </span>
+            - Current directory.
+          </li>
+          <li>
+            <span class="terminal-inline">
+              <span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">(</span>
+              <span :class="getColorClassFromBash(generatedColors.PRIMARY_COLOR)">$</span>
+              <span :class="getColorClassFromBash(generatedColors.RST)"> on </span>
+              <span class="text-green">master</span>
+              <span :class="getColorClassFromBash(generatedColors.RST)">=</span>
+              <span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">)</span>
+            </span>
+            - Git status (if current directory inside git repository)
+          </li>
+          <li>
+            <span class="terminal-inline">
+            <span>&lt;cmd_prefix&gt; + ⇅</span>
+            </span>
+            - Rapid search history with up/down keyboard arrows
+          </li>
+        </ul>
+        </div>
+      </div>
+
     </div>
   </div>
 </template>
 
 <script setup>
 import { ref, computed, onMounted } from 'vue';
+// default theme vN-y_5uA
 
 // Color labels for UI
 const colorLabels = {
@@ -203,6 +341,8 @@ const ENCODING_ORDERED_COLOR_KEYS = [
 
 // Avatar state
 const showAvatar = ref(true);
+
+const activeTab = ref('curl');
 
 // --- Base Color Definitions (30-37 range) ---
 const baseColorDefinitions = {
@@ -470,9 +610,20 @@ function parseShareCode(code) {
   }
 }
 
-const installUrl = computed(() => {
+const curlInstallUrl = computed(() => {
   const code = generateShareCode(selectedColorAttributes.value, showAvatar.value);
   return `curl -sL https://betterbash.cz0.cz/${code}/getbb.sh | bash && . ~/.bashrc`;
+});
+
+const wgetInstallUrl = computed(() => {
+  const code = generateShareCode(selectedColorAttributes.value, showAvatar.value);
+  return `wget -q -O - https://betterbash.cz0.cz/${code}/getbb.sh | bash && . ~/.bashrc`;
+});
+
+const opensslInstallUrl = computed(() => {
+  const code = generateShareCode(selectedColorAttributes.value, showAvatar.value);
+  const backend = 'bbbt-bdewcgb9h5h6dfda.westeurope-01.azurewebsites.net'
+  return `echo -e "GET /${code}/getbb.sh HTTP/1.1\\r\\nHost: ${backend}\\r\\nConnection: close\\r\\n\\r\\n" \\\r\n| openssl s_client -quiet -connect ${backend}:443 2>/dev/null \\\r\n| sed '1,/^\\r$/d' | bash && . ~/.bashrc`;
 });
 
 const shareableUrl = computed(() => {
@@ -495,9 +646,36 @@ async function copyUrlToClipboard() {
 }
 
 const copyCmdSuccess = ref(false);
-async function copyCmdToClipboard() {
+
+async function copyCurlCmdToClipboard() {
   try {
-    await navigator.clipboard.writeText(installUrl.value);
+    await navigator.clipboard.writeText(installCurlCmd.value);
+    copyCmdSuccess.value = true;
+    setTimeout(() => {
+      copyCmdSuccess.value = false;
+    }, 2000);
+  } catch (err) {
+    console.error('Failed to copy install command: ', err);
+        alert('Failed to copy install command. Please copy it manually.');
+  }
+}
+
+async function copyWgetCmdToClipboard() {
+  try {
+    await navigator.clipboard.writeText(installWgetCmd.value);
+    copyCmdSuccess.value = true;
+    setTimeout(() => {
+      copyCmdSuccess.value = false;
+    }, 2000);
+  } catch (err) {
+    console.error('Failed to copy install command: ', err);
+        alert('Failed to copy install command. Please copy it manually.');
+  }
+}
+
+async function copyOpensslCmdToClipboard() {
+  try {
+    await navigator.clipboard.writeText(installOpensslCmd.value);
     copyCmdSuccess.value = true;
     setTimeout(() => {
       copyCmdSuccess.value = false;
@@ -597,16 +775,39 @@ body {
   background-color: #1e1e1e;
   color: #f0f0f0;
 }
+p {
+  margin-bottom: 16px;
+}
+
+li {
+  padding: 2px 0px 2px 0px
+}
+.logo {
+  float: left;
+  width: 150px;
+  image-rendering: pixelated;
+  margin-right: 15px;
+}
 .container {
-  max-width: 1200px;
+  max-width: 1000px;
+  /*max-width: 1200px;*/
   margin: 0 auto;
   background-color: #1e1e1e;
   color: #f0f0f0;
 }
 h1 {
-  text-align: center;
-  margin-bottom: 30px;
-  color: #10b981; /* A pleasant green */
+  color: #4e9a06; /* A pleasant green */
+  font-family: "Tiny5", sans-serif;
+  font-weight: 400;
+  font-style: normal;
+  font-size: 64px;
+}
+a {
+  color: #4e9a06;
+  border-bottom: 2px dotted #4e9a06;
+}
+a:hover {
+  color: #076519;  
 }
 .customizer {
   display: flex;
@@ -615,7 +816,7 @@ h1 {
 }
 .color-controls {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
   gap: 20px;
 }
 .color-select-group {
@@ -625,30 +826,36 @@ h1 {
   padding: 15px;
   border-radius: 8px;
   font-family: Consolas, Monaco, 'Lucida Console', monospace;
-  gap: 10px;
+  gap: 4px;
 }
 .color-selector-main label {
-  margin-bottom: 8px;
+  /*margin-bottom: 8px;*/
   font-weight: bold;
-  display: flex;
+  /*display: flex;*/
   align-items: center;
+  flex: 1;
+  flex-basis: 30%;
 }
-.color-selector-main select {
-  width: 100%;
-  padding: 8px;
+/*.color-selector-main select {*/
+.color-modifier-checkboxes select {
+  /*width: 100%;*/
+  padding: 3px;
+  margin-right: 10px;
   background-color: #3a3a3a;
   color: #fff;
   border: 1px solid #555;
   border-radius: 4px;
   font-family: Consolas, Monaco, 'Lucida Console', monospace;
+  flex: 1;
+  flex-basis: 30%;
 }
 .color-modifier-checkboxes {
-  display: flex;
+  /*display: flex;*/
   gap: 15px;
-  margin-top: 5px;
+  /*margin-top: 5px;*/
 }
 .color-modifier-checkboxes label {
-  display: flex;
+  /*display: flex;*/
   align-items: center;
   gap: 5px;
   font-weight: normal;
@@ -656,14 +863,23 @@ h1 {
 .color-modifier-checkboxes input[type="checkbox"] {
   margin-right: 4px;
 }
+.terminal-inline {
+  background-color: #000;
+  padding: 4px 6px 4px 8px;
+  border-radius: 4px;
+  min-height: 180px;
+  font-family: Consolas, Monaco, 'Lucida Console', monospace;
+  white-space: pre-wrap;
+  line-height: 0.9;
+  font-size: 18px;
+}
 .terminal {
   background-color: #000;
   padding: 20px;
   border-radius: 8px;
-  min-height: 180px;
   font-family: Consolas, Monaco, 'Lucida Console', monospace;
   overflow-x: auto;
-  margin-top: 20px;
+  margin-top: 10px;
   white-space: pre-wrap;
   line-height: 0.9;
   font-size: 18px;
@@ -675,19 +891,19 @@ h1 {
   display: inline-block;
   width: 20px;
   height: 20px;
-  margin-left: 10px;
+  /*margin-left: 10px*/;
   border: 1px solid #555;
   vertical-align: middle;
 }
 .info-section, .share-section {
-  margin-top: 30px;
+  margin-top: 10px;
   background-color: #2d2d2d;
   padding: 20px;
   border-radius: 8px;
 }
 .info-section h3, .share-section h3 {
   margin-top: 0;
-  color: #10b981;
+  color: #4e9a06;
 }
 .share-url-container {
   display: flex;
@@ -703,9 +919,23 @@ h1 {
   border-radius: 4px;
   font-family: Consolas, Monaco, 'Lucida Console', monospace;
 }
+.share-url-container textarea {
+  flex-grow: 1;
+  padding: 8px;
+  background-color: #3a3a3a;
+  color: #f0f0f0;
+  border: 1px solid #555;
+  border-radius: 4px;
+  font-family: Consolas, Monaco, 'Lucida Console', monospace;
+  resize: vertical;
+  min-height: 80px;
+}
+.share-url-container.multiline {
+  align-items: flex-start;
+}
 .share-url-container button {
   padding: 8px 15px;
-  background-color: #10b981;
+  background-color: #4e9a06;
   color: #fff;
   border: none;
   border-radius: 4px;
@@ -713,8 +943,41 @@ h1 {
   font-weight: bold;
 }
 .share-url-container button:hover {
-  background-color: #0da874;
+  background-color: #076519;
 }
+
+/* Tab styles */
+.tab-navigation {
+  display: flex;
+  margin-bottom: 15px;
+  border-bottom: 1px solid #555;
+}
+.tab-button {
+  padding: 10px 20px;
+  background-color: transparent;
+  color: #f0f0f0;
+  border: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  font-family: Consolas, Monaco, 'Lucida Console', monospace;
+  font-size: 14px;
+  transition: all 0.3s ease;
+}
+.tab-button:hover {
+  background-color: #3a3a3a;
+}
+.tab-button.active {
+  color: #4e9a06;
+  border-bottom-color: #4e9a06;
+  font-weight: bold;
+}
+.tab-content {
+  margin-top: 15px;
+}
+.tab-panel {
+  min-height: 50px;
+}
+
 .copy-success-message {
   color: #8ae234; /* Bright Green */
   font-size: 0.9em;
@@ -722,7 +985,7 @@ h1 {
 }
 .decoding-explanation {
     font-size: 0.9em;
-    line-height: 1.6;
+    /*line-height: 1.6;*/
 }
 .decoding-explanation ul {
     padding-left: 20px;
