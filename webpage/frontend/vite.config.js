@@ -6,12 +6,13 @@ import vueDevTools from 'vite-plugin-vue-devtools'
 
 // https://vite.dev/config/
 export default defineConfig({
+  base: '/BetterBash',
   plugins: [
     vue(),
     vueDevTools(),
   ],
   server: {
-    allowedHosts: ['devcode.dom.cz0.cz']
+    allowedHosts: ['devcode.dom.cz0.cz', 'czoczo.github.io']
 	},
   resolve: {
     alias: {
