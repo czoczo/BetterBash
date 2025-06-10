@@ -49,6 +49,9 @@
             <input id="avatar-toggle" type="checkbox" v-model="showAvatar" @change="updatePromptDetails" />
             <label for="avatar-toggle">Show Avatar</label>
           </div>
+          <button @click="generateRandomTheme()" class="default-btn">
+            🎲 Random Theme
+          </button>
         </div>
       </div>
 
@@ -77,7 +80,7 @@
           ><span :class="getColorClassFromBash(generatedColors.SECONDARY_COLOR)">1 ↻</span
           ><span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">)</span>
           <template v-if="!showAvatar">
-            <span :class="getColorClassFromBash(generatedColors.BORDCOL)">────────</span
+            <span :class="getColorClassFromBash(generatedColors.BORDCOL)">────────────</span
           ></template>
           <span :class="getColorClassFromBash(generatedColors.BORDCOL)">─────────────────────────────</span
           ><span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">(</span
@@ -127,7 +130,7 @@
             ><span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">)</span
           ></template>
           <template v-if="!showAvatar">
-            <span :class="getColorClassFromBash(generatedColors.BORDCOL)">──────</span
+            <span :class="getColorClassFromBash(generatedColors.BORDCOL)">──────────</span
           ></template>
           <span :class="getColorClassFromBash(generatedColors.BORDCOL)">───────────────────────────</span
           ><span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">(</span
@@ -157,7 +160,7 @@
       </div>
 
       <div class="share-section">
-        <h3>Quick install</h3>
+        <h3>Quick install/uninstall</h3>
         
         <!-- Tab navigation -->
         <div class="tab-navigation">
@@ -189,6 +192,10 @@
           <div v-show="activeTab === 'curl'" class="tab-panel">
             <div class="share-url-container">
               <input type="text" :value="curlInstallUrl" readonly id="installCurlCmd" @click="selectUrlText" />
+              <div class="color-modifier-checkboxes">
+                <input id="uninstall-toggle" type="checkbox" v-model="uninstallFlag" />
+                <label for="uninstall-toggle">Uninstall</label>
+              </div>
               <button @click="copyCurlCmdToClipboard">Copy command</button>
             </div>
           </div>
@@ -196,6 +203,10 @@
           <div v-show="activeTab === 'wget'" class="tab-panel">
             <div class="share-url-container">
               <input type="text" :value="wgetInstallUrl" readonly id="installWgetCmd" @click="selectUrlText" />
+              <div class="color-modifier-checkboxes">
+                <input id="uninstall-toggle" type="checkbox" v-model="uninstallFlag" />
+                <label for="uninstall-toggle">Uninstall</label>
+              </div>
               <button @click="copyWgetCmdToClipboard">Copy command</button>
             </div>
           </div>
@@ -205,11 +216,18 @@
               <textarea :value="opensslInstallUrl" readonly id="installOpensslCmd" @click="selectUrlText" rows="5"></textarea>
               <button @click="copyOpensslCmdToClipboard">Copy command</button>
             </div>
+            <div class="color-modifier-checkboxes">
+              <input id="uninstall-toggle" type="checkbox" v-model="uninstallFlag" />
+              <label for="uninstall-toggle">Uninstall</label>
+            </div>
           </div>
         </div>
         
-        <p v-if="copyCmdSuccess" class="copy-success-message">Copied to clipboard!</p>
 
+        <p v-if="copyCmdSuccess" class="copy-success-message">Copied to clipboard!</p>
+      </div>
+
+      <div class="share-section">
         <h3>Share your theme</h3>
         <div class="share-url-container">
             <input type="text" :value="shareableUrl" readonly id="shareUrlInput" @click="selectUrlText" />
@@ -341,6 +359,7 @@ const ENCODING_ORDERED_COLOR_KEYS = [
 
 // Avatar state
 const showAvatar = ref(true);
+const uninstallFlag = ref(false);
 
 const activeTab = ref('curl');
 
@@ -612,18 +631,21 @@ function parseShareCode(code) {
 
 const curlInstallUrl = computed(() => {
   const code = generateShareCode(selectedColorAttributes.value, showAvatar.value);
-  return `curl -sL https://betterbash.cz0.cz/${code}/getbb.sh | bash && . ~/.bashrc`;
+  const scriptName = uninstallFlag.value ? 'removebb.sh' : 'getbb.sh';
+  return `curl -sL https://betterbash.cz0.cz/${code}/${scriptName} | bash && . ~/.bashrc`;
 });
 
 const wgetInstallUrl = computed(() => {
   const code = generateShareCode(selectedColorAttributes.value, showAvatar.value);
-  return `wget -q -O - https://betterbash.cz0.cz/${code}/getbb.sh | bash && . ~/.bashrc`;
+  const scriptName = uninstallFlag.value ? 'removebb.sh' : 'getbb.sh';
+  return `wget -q -O - https://betterbash.cz0.cz/${code}/${scriptName} | bash && . ~/.bashrc`;
 });
 
 const opensslInstallUrl = computed(() => {
   const code = generateShareCode(selectedColorAttributes.value, showAvatar.value);
+  const scriptName = uninstallFlag.value ? 'removebb.sh' : 'getbb.sh';
   const backend = 'bbbt-bdewcgb9h5h6dfda.westeurope-01.azurewebsites.net'
-  return `echo -e "GET /${code}/getbb.sh HTTP/1.1\\r\\nHost: ${backend}\\r\\nConnection: close\\r\\n\\r\\n" \\\r\n| openssl s_client -quiet -connect ${backend}:443 2>/dev/null \\\r\n| sed '1,/^\\r$/d' | bash && . ~/.bashrc`;
+  return `echo -e "GET /${code}/${scriptName} HTTP/1.1\\r\\nHost: ${backend}\\r\\nConnection: close\\r\\n\\r\\n" \\\r\n| openssl s_client -quiet -connect ${backend}:443 2>/dev/null \\\r\n| sed '1,/^\\r$/d' | bash && . ~/.bashrc`;
 });
 
 const shareableUrl = computed(() => {
@@ -752,6 +774,55 @@ function loadThemeFromUrl() {
   }
 }
 
+function generateRandomTheme() {
+  try {
+    // Generate random attributes for each color key
+    const randomAttrs = {};
+    
+    for (const key of ENCODING_ORDERED_COLOR_KEYS) {
+      let baseCode, isLight, isBold;
+      
+      do {
+        baseCode = Math.floor(Math.random() * 8) + 30; // Random base code 30-37
+        isLight = Math.random() < 0.5; // Random boolean for light
+        isBold = Math.random() < 0.5;  // Random boolean for bold
+        
+        // Continue loop if we have black (30) with light unchecked (false)
+      } while (baseCode === 30 && !isLight);
+      
+      randomAttrs[key] = {
+        baseCode,
+        isLight,
+        isBold
+      };
+    }
+    
+    // Generate random avatar setting
+    const randomAvatar = Math.random() < 0.5;
+    
+    // Generate share code from random attributes
+    const shareCode = generateShareCode(randomAttrs, randomAvatar);
+    
+    // Parse and apply the generated theme using existing logic
+    const parsed = parseShareCode(shareCode);
+    if (parsed) {
+      selectedColorAttributes.value = parsed.selectedAttrs;
+      showAvatar.value = parsed.avatarEnabled;
+      
+      // Optional: Show success feedback
+      loadSuccess.value = true;
+      setTimeout(() => {
+        loadSuccess.value = false;
+      }, 2000);
+    } else {
+      console.error('Failed to parse generated random theme');
+    }
+    
+  } catch (error) {
+    console.error('Error generating random theme:', error);
+  }
+}
+
 // Load theme from URL hash on mount
 onMounted(() => {
   const hash = window.location.hash;
@@ -812,18 +883,18 @@ a:hover {
 .customizer {
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 14px;
 }
 .color-controls {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-  gap: 20px;
+  gap: 14px;
 }
 .color-select-group {
   display: flex;
   flex-direction: column;
   background-color: #2d2d2d;
-  padding: 15px;
+  padding: 12px;
   border-radius: 8px;
   font-family: Consolas, Monaco, 'Lucida Console', monospace;
   gap: 4px;
@@ -882,7 +953,8 @@ a:hover {
   margin-top: 10px;
   white-space: pre-wrap;
   line-height: 0.9;
-  font-size: 18px;
+  /*font-size: 18px;*/
+  font-size: min(1.2vw, 19px);
 }
 .ps1-line {
   margin-bottom: 0px;
@@ -896,9 +968,9 @@ a:hover {
   vertical-align: middle;
 }
 .info-section, .share-section {
-  margin-top: 10px;
+  margin-top: 0px;
   background-color: #2d2d2d;
-  padding: 20px;
+  padding: 14px 14px 20px 14px;
   border-radius: 8px;
 }
 .info-section h3, .share-section h3 {
@@ -911,6 +983,7 @@ a:hover {
   align-items: center;
 }
 .share-url-container input[type="text"] {
+  min-width: 50px;
   flex-grow: 1;
   padding: 8px;
   background-color: #3a3a3a;
@@ -933,7 +1006,7 @@ a:hover {
 .share-url-container.multiline {
   align-items: flex-start;
 }
-.share-url-container button {
+.share-url-container button, .default-btn {
   padding: 8px 15px;
   background-color: #4e9a06;
   color: #fff;
@@ -942,7 +1015,7 @@ a:hover {
   cursor: pointer;
   font-weight: bold;
 }
-.share-url-container button:hover {
+.share-url-container button:hover, .default-btn:hover {
   background-color: #076519;
 }
 
@@ -979,9 +1052,9 @@ a:hover {
 }
 
 .copy-success-message {
+  position: absolute;
   color: #8ae234; /* Bright Green */
   font-size: 0.9em;
-  margin-top: 5px;
 }
 .decoding-explanation {
     font-size: 0.9em;
