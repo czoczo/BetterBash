@@ -6,11 +6,9 @@ WORKDIR /go/src/app
 
 COPY ./*go .
 
-RUN go mod init bbb
-
-RUN go mod tidy
-
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=${TARGETARCH} go build -o /bbb .
+RUN go mod init bbb && \
+  go mod tidy && \
+  CGO_ENABLED=0 GOOS=linux GOARCH=${TARGETARCH} go build -o /bbb .
 
 # final image
 FROM gcr.io/distroless/static-debian12:nonroot
