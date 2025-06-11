@@ -948,15 +948,17 @@ a:hover {
   background-color: #000;
   padding: 20px;
   border-radius: 8px;
-  font-family: Consolas, Monaco, 'Lucida Console', monospace;
+  font-family: "Source Code Pro", Consolas, Monaco, 'Lucida Console', monospace;
   overflow-x: auto;
   margin-top: 10px;
   white-space: pre-wrap;
   line-height: 0.9;
+  container-type: inline-size;
   /*font-size: 18px;*/
-  font-size: min(1.2vw, 19px);
 }
 .ps1-line {
+  /*font-size: min(1cqw, 19px);*/
+  font-size: 1.4cqw;
   margin-bottom: 0px;
 }
 .color-preview {
