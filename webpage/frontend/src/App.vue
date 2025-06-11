@@ -632,13 +632,13 @@ function parseShareCode(code) {
 const curlInstallUrl = computed(() => {
   const code = generateShareCode(selectedColorAttributes.value, showAvatar.value);
   const scriptName = uninstallFlag.value ? 'removebb.sh' : 'getbb.sh';
-  return `curl -sL https://betterbash.cz0.cz/${code}/${scriptName} | bash && . ~/.bashrc`;
+  return `curl -sL https://bb.cz0.cz/${code}/${scriptName} | bash && . ~/.bashrc`;
 });
 
 const wgetInstallUrl = computed(() => {
   const code = generateShareCode(selectedColorAttributes.value, showAvatar.value);
   const scriptName = uninstallFlag.value ? 'removebb.sh' : 'getbb.sh';
-  return `wget -q -O - https://betterbash.cz0.cz/${code}/${scriptName} | bash && . ~/.bashrc`;
+  return `wget -q -O - https://bb.cz0.cz/${code}/${scriptName} | bash && . ~/.bashrc`;
 });
 
 const opensslInstallUrl = computed(() => {
@@ -736,8 +736,8 @@ function loadThemeFromUrl() {
     
     if (url.includes('#')) {
       code = url.split('#')[1];
-    } else if (url.includes('betterba.sh/')) {
-      const parts = url.split('betterba.sh/');
+    } else if (url.includes('betterbash.cz0.cz/')) {
+      const parts = url.split('betterbash.cz0.cz/');
       if (parts.length > 1) {
         code = parts[1].split(/[?&#]/)[0];
       }
