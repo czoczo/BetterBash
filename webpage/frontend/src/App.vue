@@ -632,13 +632,13 @@ function parseShareCode(code) {
 const curlInstallUrl = computed(() => {
   const code = generateShareCode(selectedColorAttributes.value, showAvatar.value);
   const scriptName = uninstallFlag.value ? 'removebb.sh' : 'getbb.sh';
-  return `curl -sL https://betterbash.cz0.cz/${code}/${scriptName} | bash && . ~/.bashrc`;
+  return `curl -sL https://bb.cz0.cz/${code}/${scriptName} | bash && . ~/.bashrc`;
 });
 
 const wgetInstallUrl = computed(() => {
   const code = generateShareCode(selectedColorAttributes.value, showAvatar.value);
   const scriptName = uninstallFlag.value ? 'removebb.sh' : 'getbb.sh';
-  return `wget -q -O - https://betterbash.cz0.cz/${code}/${scriptName} | bash && . ~/.bashrc`;
+  return `wget -q -O - https://bb.cz0.cz/${code}/${scriptName} | bash && . ~/.bashrc`;
 });
 
 const opensslInstallUrl = computed(() => {
@@ -736,8 +736,8 @@ function loadThemeFromUrl() {
     
     if (url.includes('#')) {
       code = url.split('#')[1];
-    } else if (url.includes('betterba.sh/')) {
-      const parts = url.split('betterba.sh/');
+    } else if (url.includes('betterbash.cz0.cz/')) {
+      const parts = url.split('betterbash.cz0.cz/');
       if (parts.length > 1) {
         code = parts[1].split(/[?&#]/)[0];
       }
@@ -948,15 +948,17 @@ a:hover {
   background-color: #000;
   padding: 20px;
   border-radius: 8px;
-  font-family: Consolas, Monaco, 'Lucida Console', monospace;
+  font-family: "Source Code Pro", Consolas, Monaco, 'Lucida Console', monospace;
   overflow-x: auto;
   margin-top: 10px;
   white-space: pre-wrap;
   line-height: 0.9;
+  container-type: inline-size;
   /*font-size: 18px;*/
-  font-size: min(1.2vw, 19px);
 }
 .ps1-line {
+  /*font-size: min(1cqw, 19px);*/
+  font-size: 1.4cqw;
   margin-bottom: 0px;
 }
 .color-preview {
