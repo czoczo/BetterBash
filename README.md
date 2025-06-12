@@ -1,16 +1,22 @@
-# Better Bash
-## screenshot:
-![alt text](https://github.com/czoczo/BetterBash/raw/branch/master/screenshot.png "BetterBash screenshot")
+# Better Basho
+**Make your Bash a little better - fast!**
+
+![alt text](/screenshot.png?raw=true "BetterBash screenshot")
+
+> [!TIP]
+> Visit the project's web site to customize BetterBash! - https://betterbash.cz0.cz.
+
 ## Features
 - Username (highlighted if root) and hostname.
-- Unique avatar based on hostname (a bit like automatic avatars on StackOverflow), reduces the risk of terminal confusion.
-- Number of background processes.
+- Unique host avatar based on hostname. Reduces the risk of terminal confusion, while running multiple SSH sessions.
+- Shows number of background processes if more than zero.
 - Line separating commands output.
-- Exit code if other than zero.
-- Date and time.
+- Shows exit code if other than zero.
+- Date and time. Time changes color if exit code other than zero.
 - Current directory.
-- Git status (if current directory inside git repository)
-- Rapid search history with up/down keyboard arrows 
+- Git status (if current directory inside git repository).
+- Rapid search history with up/down keyboard arrows.
+
 ## Install:
 with curl
 ```

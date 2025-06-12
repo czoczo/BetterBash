@@ -1,10 +1,11 @@
 <template>
   <div class="container">
+    <iframe src="https://ghbtns.com/github-btn.html?user=czoczo&repo=BetterBash&type=star&size=large&text=false" frameborder="0" scrolling="0" width="40" height="30" title="GitHub" class="ghlink"></iframe>
     <div class="customizer">
     <div class="header">
       <img src="/logo.png" class="logo">
       <h1>BetterBash</h1>
-      <h2>An opinionated attempt to make Bash a little better.</h2>
+      <h2>Make your Bash a little better - fast!</h2>
     </div>
 
       <div class="color-controls">
@@ -239,7 +240,7 @@
       <div class="share-section">
         <div>
         <h3>What am I looking at?</h3>
-        <p>Mostly Bash configuration focused on usability. Pick your favorite colors and do a quick install to take advantage of the features below, or read about the <a src="https://">motivation behind the project</a>. Share your theme with others with the generated URL.</p>
+        <p>Mostly Bash configuration focused on usability. Pick your favorite colors and do a quick install to take advantage of the features below, or read about the <a src="https://github.com/czoczo/BetterBash/blob/main/MOTIVATION.md">motivation behind the project</a>. Share your theme with others with the generated URL.</p>
         <h3>Features:</h3>
         </div>
         <div>
@@ -266,7 +267,7 @@
               <span class="text-yellow">◀</span>
               <span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">)</span>
             </span>
-            - Unique avatar based on hostname (a bit like automatic avatars on StackOverflow), reduces the risk of terminal confusion.
+            - Unique host avatar based on hostname. Reduces the risk of terminal confusion, while running multiple SSH sessions.
           </li>
           <li>
             <span class="terminal-inline">
@@ -274,7 +275,7 @@
               <span :class="getColorClassFromBash(generatedColors.SECONDARY_COLOR)">1 ↻</span>
               <span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">)</span>
             </span>
-            - Number of background processes.
+            - Shows number of background processes if more than zero.
           </li>
           <li> 
             <span class="terminal-inline">
@@ -288,7 +289,7 @@
               <span :class="getColorClassFromBash(generatedColors.ERR_COLOR)">127 ↵</span>
               <span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">)</span>
             </span>
-            - Exit code if other than zero.
+            - Shows exit code if other than zero.
           </li>
           <li>
             <span class="terminal-inline">
@@ -300,7 +301,7 @@
               <span :class="getColorClassFromBash(generatedColors.PRIMARY_COLOR)">00:40:12</span>
               <span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">)</span>
             </span>
-            - Date and time.
+            - Date and time. Time changes color if exit code other than zero.
           </li>
           <li>
             <span class="terminal-inline">
@@ -319,7 +320,7 @@
               <span :class="getColorClassFromBash(generatedColors.RST)">=</span>
               <span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">)</span>
             </span>
-            - Git status (if current directory inside git repository)
+            - Git status (if current directory inside git repository).
           </li>
           <li>
             <span class="terminal-inline">
@@ -954,6 +955,7 @@ a:hover {
   white-space: pre-wrap;
   line-height: 0.9;
   container-type: inline-size;
+  letter-spacing: -0.05rem;
   /*font-size: 18px;*/
 }
 .ps1-line {
@@ -1074,6 +1076,13 @@ a:hover {
 
 .font-bold-style {
   font-weight: bold !important;
+}
+
+.ghlink {
+  float: right;
+  position: relative;
+  top: 8px;
+  right: 40px;
 }
 
 /* Terminal text colors (unchanged) */
