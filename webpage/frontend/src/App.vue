@@ -5,7 +5,7 @@
     <div class="header">
       <img src="/logo.png" class="logo">
       <h1>BetterBash</h1>
-      <h2>Make your Bash a little better - fast!</h2>
+      <h2>Make your Bash a little better - easy!</h2>
     </div>
 
       <div class="color-controls">

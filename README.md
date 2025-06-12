@@ -1,5 +1,5 @@
 # Better Basho
-**Make your Bash a little better - fast!**
+**Make your Bash a little better - easy!**
 
 ![alt text](/screenshot.png?raw=true "BetterBash screenshot")
 
