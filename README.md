@@ -1,4 +1,4 @@
-# Better Basho
+# Better Bash
 **Make your Bash a little better - easy!**
 
 ![alt text](/screenshot.png?raw=true "BetterBash screenshot")
