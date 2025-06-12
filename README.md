@@ -20,11 +20,11 @@
 ## Install:
 with curl
 ```
-curl -sL https://betterbash.cz0.cz/vN-y_5uA/getbb.sh | bash && . ~/.bashrc
+curl -sL https://bb.cz0.cz/vN-y_5uA/getbb.sh | bash && . ~/.bashrc
 ```
 with wget
 ```
-wget -q -O - https://betterbash.cz0.cz/vN-y_5uA/getbb.sh | bash && . ~/.bashrc
+wget -q -O - https://bb.cz0.cz/vN-y_5uA/getbb.sh | bash && . ~/.bashrc
 ```
 with openssl (no dependencies needed)
 ```
@@ -37,11 +37,11 @@ bash session needs a restart in order to uninstall to take effect.
 
 with curl
 ```
-curl -sL https://betterbash.cz0.cz/vN-y_5uA/removebb.sh | bash
+curl -sL https://bb.cz0.cz/vN-y_5uA/removebb.sh | bash
 ```
 with wget
 ```
-wget -q -O - https://betterbash.cz0.cz/vN-y_5uA/removebb.sh | bash
+wget -q -O - https://bb.cz0.cz/vN-y_5uA/removebb.sh | bash
 ```
 with openssl (no dependencies needed)
 ```
