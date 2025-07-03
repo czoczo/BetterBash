@@ -221,7 +221,8 @@ func statsReportHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func rootPathHandler(w http.ResponseWriter, r *http.Request) {
-	http.Error(w, "Please provide an encoded string in the URL path (e.g., /YourEncodedString) or a file path (e.g. /YourEncodedString/path/to/file.sh)", http.StatusBadRequest)
+	http.Redirect(w, r, "https://betterbash.cz0.cz", http.StatusFound) // 302 redirect
+	//http.Error(w, "Please provide an encoded string in the URL path (e.g., /YourEncodedString) or a file path (e.g. /YourEncodedString/path/to/file.sh)", http.StatusBadRequest)
 }
 
 // cloneRepository clones the repository using go-git
@@ -428,3 +429,4 @@ func main() {
 		log.Fatalf("❌ Failed to start server: %s\n", err)
 	}
 }
+
