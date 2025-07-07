@@ -70,7 +70,7 @@ jobs:
         uses: docker/build-push-action@f2a1d5e99d037542a71f64918e516c093c6f3fc4
         with:
           context: ./webpage/backend
-          file: Dockerfile.${{ matrix.flavour }}
+          file: ./webpage/backend/Dockerfile.${{ matrix.flavour }}
           platforms: linux/amd64
           load: true
           tags: ${{ steps.meta.outputs.tags }}
@@ -103,7 +103,7 @@ jobs:
         uses: docker/build-push-action@f2a1d5e99d037542a71f64918e516c093c6f3fc4
         with:
           context: ./webpage/backend
-          file: Dockerfile.${{ matrix.flavour }}
+          file: ./webpage/backend/Dockerfile.${{ matrix.flavour }}
           #platforms: linux/amd64,linux/arm64
           platforms: linux/amd64
           push: true
