@@ -14,6 +14,8 @@ import (
 
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	//"github.com/go-git/go-git/v5/plumbing/object"
 )
 
@@ -21,17 +23,35 @@ const (
 	gitRepoURL    = "https://git.cz0.cz/czoczo/BetterBash"
 	localRepoPath = "BetterBashRepo" // Cloned into a subdirectory
 	bbShellPath   = "prompt/bb.sh"
-	getBbPath   = "getbb.sh"
+	getBbPath     = "getbb.sh"
 )
 
 var (
 	requestCounter uint64
 	repoMutex      sync.Mutex
+	
+	// Prometheus metrics
+	httpRequestsTotal = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "http_requests_total",
+			Help: "Total number of HTTP requests by endpoint",
+		},
+		[]string{"endpoint", "method", "status_code"},
+	)
 )
 
 var colorComponentKeys = []string{
 	"PRIMARY_COLOR", "SECONDARY_COLOR", "ROOT_COLOR", "TIME_COLOR",
 	"ERR_COLOR", "SEPARATOR_COLOR", "BORDCOL", "PATH_COLOR",
+}
+
+func init() {
+	// Register Prometheus metrics
+	prometheus.MustRegister(httpRequestsTotal)
+}
+
+func recordMetrics(endpoint, method, statusCode string) {
+	httpRequestsTotal.WithLabelValues(endpoint, method, statusCode).Inc()
 }
 
 func decodeColorLogic(encodedData string) (map[string]string, string, bool, error) {
@@ -101,6 +121,7 @@ func decodeColorLogic(encodedData string) (map[string]string, string, bool, erro
 func serveDecodedColorsOnlyHandler(w http.ResponseWriter, r *http.Request, encodedData string) {
 	_, formattedOutput, _, err := decodeColorLogic(encodedData)
 	if err != nil {
+		recordMetrics("color_decode", r.Method, "400")
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
@@ -108,6 +129,7 @@ func serveDecodedColorsOnlyHandler(w http.ResponseWriter, r *http.Request, encod
 	// The formattedOutput from decodeColorLogic is already KEY='VAL'\nKEY2='VAL2'
 	// So it prints multiple lines as intended.
 	fmt.Fprintln(w, formattedOutput)
+	recordMetrics("color_decode", r.Method, "200")
 }
 
 // serveFileWithColorsHandler serves files from the repo, potentially modifying bb.sh.
@@ -116,12 +138,14 @@ func serveFileWithColorsHandler(w http.ResponseWriter, r *http.Request, encodedD
 	// as 'formattedColorDefinitions' is used directly. But decodeColorLogic provides it.
 	_, formattedColorDefinitions, _, err := decodeColorLogic(encodedData)
 	if err != nil {
+		recordMetrics("file_serve", r.Method, "400")
 		http.Error(w, fmt.Sprintf("Failed to decode colors: %v", err), http.StatusBadRequest)
 		return
 	}
 
 	cleanFilePath := filepath.Clean(requestedFilePath)
 	if strings.HasPrefix(cleanFilePath, "..") || strings.HasPrefix(cleanFilePath, "/") {
+		recordMetrics("file_serve", r.Method, "400")
 		http.Error(w, "Invalid file path.", http.StatusBadRequest)
 		return
 	}
@@ -130,20 +154,24 @@ func serveFileWithColorsHandler(w http.ResponseWriter, r *http.Request, encodedD
 	absRepoPath, _ := filepath.Abs(localRepoPath)
 	absFilePath, _ := filepath.Abs(fullPath)
 	if !strings.HasPrefix(absFilePath, absRepoPath) {
+		recordMetrics("file_serve", r.Method, "403")
 		http.Error(w, "Access to file path denied.", http.StatusForbidden)
 		return
 	}
 
 	fileInfo, err := os.Stat(fullPath)
 	if os.IsNotExist(err) {
+		recordMetrics("file_serve", r.Method, "404")
 		http.Error(w, fmt.Sprintf("File not found: %s", requestedFilePath), http.StatusNotFound)
 		return
 	}
 	if err != nil {
+		recordMetrics("file_serve", r.Method, "500")
 		http.Error(w, fmt.Sprintf("Error accessing file: %v", err), http.StatusInternalServerError)
 		return
 	}
 	if fileInfo.IsDir() {
+		recordMetrics("file_serve", r.Method, "400")
 		http.Error(w, fmt.Sprintf("Requested path is a directory: %s", requestedFilePath), http.StatusBadRequest)
 		return
 	}
@@ -151,6 +179,7 @@ func serveFileWithColorsHandler(w http.ResponseWriter, r *http.Request, encodedD
 	if cleanFilePath == getBbPath {
 		originalContentBytes, err := os.ReadFile(fullPath)
 		if err != nil {
+			recordMetrics("file_serve", r.Method, "500")
 			http.Error(w, fmt.Sprintf("Error reading %s: %v", getBbPath, err), http.StatusInternalServerError)
 			return
 		}
@@ -160,9 +189,11 @@ func serveFileWithColorsHandler(w http.ResponseWriter, r *http.Request, encodedD
 
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 		fmt.Fprint(w, originalContent)
+		recordMetrics("file_serve", r.Method, "200")
 	} else if cleanFilePath == bbShellPath {
 		originalContentBytes, err := os.ReadFile(fullPath)
 		if err != nil {
+			recordMetrics("file_serve", r.Method, "500")
 			http.Error(w, fmt.Sprintf("Error reading %s: %v", bbShellPath, err), http.StatusInternalServerError)
 			return
 		}
@@ -209,8 +240,10 @@ func serveFileWithColorsHandler(w http.ResponseWriter, r *http.Request, encodedD
 
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 		fmt.Fprint(w, finalScript.String())
+		recordMetrics("file_serve", r.Method, "200")
 	} else {
 		http.ServeFile(w, r, fullPath)
+		recordMetrics("file_serve", r.Method, "200")
 	}
 }
 
@@ -218,10 +251,12 @@ func statsReportHandler(w http.ResponseWriter, r *http.Request) {
 	count := atomic.LoadUint64(&requestCounter)
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	fmt.Fprintf(w, "%d", count)
+	recordMetrics("stats", r.Method, "200")
 }
 
 func rootPathHandler(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "https://betterbash.cz0.cz", http.StatusFound) // 302 redirect
+	recordMetrics("root", r.Method, "302")
 	//http.Error(w, "Please provide an encoded string in the URL path (e.g., /YourEncodedString) or a file path (e.g. /YourEncodedString/path/to/file.sh)", http.StatusBadRequest)
 }
 
@@ -336,12 +371,14 @@ func reloadRepoHandler(w http.ResponseWriter, r *http.Request) {
 	if _, err := os.Stat(localRepoPath); os.IsNotExist(err) {
 		log.Printf("Local repository at %s does not exist. Cloning first.", localRepoPath)
 		if err := cloneRepository(gitRepoURL, localRepoPath); err != nil {
+			recordMetrics("reload", r.Method, "500")
 			http.Error(w, fmt.Sprintf("Failed to clone repository during reload: %v", err), http.StatusInternalServerError)
 			return
 		}
 		log.Printf("Repository cloned successfully during reload.")
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 		fmt.Fprintln(w, "Repository was missing, cloned successfully.")
+		recordMetrics("reload", r.Method, "200")
 		return
 	}
 
@@ -349,6 +386,7 @@ func reloadRepoHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		errMsg := fmt.Sprintf("Failed to pull latest changes: %v", err)
 		log.Println(errMsg)
+		recordMetrics("reload", r.Method, "500")
 		http.Error(w, errMsg, http.StatusInternalServerError)
 		return
 	}
@@ -363,11 +401,16 @@ func reloadRepoHandler(w http.ResponseWriter, r *http.Request) {
 	log.Println("Repository reloaded successfully.")
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	fmt.Fprintf(w, "Repository reloaded successfully.\n%s\n", commitInfo)
+	recordMetrics("reload", r.Method, "200")
 }
 
 func mainRouter(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path == "/stats" {
 		statsReportHandler(w, r)
+		return
+	}
+	if r.URL.Path == "/metrics" {
+		promhttp.Handler().ServeHTTP(w, r)
 		return
 	}
 	atomic.AddUint64(&requestCounter, 1)
@@ -395,6 +438,7 @@ func mainRouter(w http.ResponseWriter, r *http.Request) {
 	} else if len(parts) == 2 {
 		filePath := parts[1]
 		if filePath == "" {
+			recordMetrics("file_serve", r.Method, "400")
 			http.Error(w, "File path cannot be empty if a second slash is provided.", http.StatusBadRequest)
 			return
 		}
@@ -408,7 +452,7 @@ func main() {
 	}
 
 	http.HandleFunc("/", mainRouter)
-	port := "8080"
+	port := "8081"
 	if p := os.Getenv("PORT"); p != "" {
 		port = p
 	}
@@ -423,10 +467,10 @@ func main() {
 	log.Printf("                                    Special: /<encoded_color_data>/%s for dynamic colors", bbShellPath)
 	log.Printf("  GET /reload                       - Pull latest from git master branch")
 	log.Printf("  GET /stats                        - Show request count")
+	log.Printf("  GET /metrics                      - Prometheus metrics endpoint")
 	log.Printf("  GET /                             - Show usage instructions")
 
 	if err := http.ListenAndServe(":"+port, nil); err != nil {
 		log.Fatalf("❌ Failed to start server: %s\n", err)
 	}
 }
-
