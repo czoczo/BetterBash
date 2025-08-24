@@ -240,7 +240,7 @@
       <div class="share-section">
         <div>
         <h3>What am I looking at?</h3>
-        <p>Mostly Bash configuration focused on usability. Pick your favorite colors and do a quick install to take advantage of the features below, or read about the <a src="https://github.com/czoczo/BetterBash/blob/main/MOTIVATION.md">motivation behind the project</a>. Share your theme with others with the generated URL.</p>
+        <p>Mostly Bash configuration focused on usability. Pick your favorite colors and do a quick install to take advantage of the features below, or read about the <a href="https://github.com/czoczo/BetterBash/blob/main/MOTIVATION.md">motivation behind the project</a>. Share your theme with others with the generated URL.</p>
         <h3>Features:</h3>
         </div>
         <div>
