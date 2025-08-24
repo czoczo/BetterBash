@@ -18,15 +18,22 @@
 - Rapid search history with up/down keyboard arrows.
 
 ## Install:
-with curl
+with **curl**
 ```
 curl -sL https://bb.cz0.cz/vN-y_5uA/getbb.sh | bash && . ~/.bashrc
 ```
-with wget
+with **wget**
 ```
 wget -q -O - https://bb.cz0.cz/vN-y_5uA/getbb.sh | bash && . ~/.bashrc
 ```
-with openssl (no dependencies needed)
+with **git**
+```
+tmpdir=$(mktemp -d /tmp/betterbash.XXXXXX) && \
+git clone --depth=1 --filter=blob:none --no-checkout https://github.com/czoczo/BetterBash.git "$tmpdir" 2>/dev/null && \
+git -C "$tmpdir" checkout HEAD getbb.sh 2>/dev/null && \
+bash "$tmpdir/getbb.sh"
+```
+with **openssl** (no dependencies needed)
 ```
 echo -e "GET /vN-y_5uA/getbb.sh HTTP/1.1\r\nHost: bbbt-bdewcgb9h5h6dfda.westeurope-01.azurewebsites.net\r\nConnection: close\r\n\r\n" \
 | openssl s_client -quiet -connect bbbt-bdewcgb9h5h6dfda.westeurope-01.azurewebsites.net:443 2>/dev/null \
@@ -35,15 +42,22 @@ echo -e "GET /vN-y_5uA/getbb.sh HTTP/1.1\r\nHost: bbbt-bdewcgb9h5h6dfda.westeuro
 ## Uninstall:
 bash session needs a restart in order to uninstall to take effect.
 
-with curl
+with **curl**
 ```
 curl -sL https://bb.cz0.cz/vN-y_5uA/removebb.sh | bash
 ```
-with wget
+with **wget**
 ```
 wget -q -O - https://bb.cz0.cz/vN-y_5uA/removebb.sh | bash
 ```
-with openssl (no dependencies needed)
+with **git**
+```
+tmpdir=$(mktemp -d /tmp/betterbash.XXXXXX) && \
+git clone --depth=1 --filter=blob:none --no-checkout https://github.com/czoczo/BetterBash.git "$tmpdir" 2>/dev/null && \
+git -C "$tmpdir" checkout HEAD getbb.sh 2>/dev/null && \
+bash "$tmpdir/removebb.sh"
+```
+with **openssl** (no dependencies needed)
 ```
 echo -e "GET /vN-y_5uA/removebb.sh HTTP/1.1\r\nHost: bbbt-bdewcgb9h5h6dfda.westeurope-01.azurewebsites.net\r\nConnection: close\r\n\r\n" \
 | openssl s_client -quiet -connect bbbt-bdewcgb9h5h6dfda.westeurope-01.azurewebsites.net:443 2>/dev/null \
