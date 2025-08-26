@@ -3,9 +3,7 @@
     <iframe src="https://ghbtns.com/github-btn.html?user=czoczo&repo=BetterBash&type=star&size=large&text=false" frameborder="0" scrolling="0" width="40" height="30" title="GitHub" class="ghlink"></iframe>
     <div class="customizer">
     <div class="header">
-      <img src="/logo.png" class="logo">
-      <h1>BetterBash</h1>
-      <h2>Make your Bash a little better - easy!</h2>
+      <img src="/banner.png" class="banner">
     </div>
 
       <div class="color-controls">
@@ -853,6 +851,10 @@ p {
 
 li {
   padding: 2px 0px 2px 0px
+}
+.banner {
+  float: left;
+  margin-right: 15px;
 }
 .logo {
   float: left;

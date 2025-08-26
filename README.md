@@ -1,11 +1,12 @@
-# Better Bash
-**Make your Bash a little better - easy!**
-
-![alt text](/screenshot.png?raw=true "BetterBash screenshot")
-
-> [!TIP]
-> Visit the project's web site to customize BetterBash! - https://betterbash.cz0.cz.
-
+<h1>
+    <a href="https://betterbash.cz0.cz">
+    <img src="webpage/frontend/public/banner.png">
+    </a>
+</h1>
+  
+  
+# Visit [https://betterbash.cz0.cz](https://betterbash.cz0.cz) for GUI configurator!
+  
 ## Features
 - Username (highlighted if root) and hostname.
 - Unique host avatar based on hostname. Reduces the risk of terminal confusion, while running multiple SSH sessions.
@@ -16,6 +17,9 @@
 - Current directory.
 - Git status (if current directory inside git repository).
 - Rapid search history with up/down keyboard arrows.
+
+## Preview
+![alt text](/screenshot.png?raw=true "BetterBash screenshot")
 
 ## Install:
 with **curl**
