@@ -1,10 +1,12 @@
-# Better Bash
-**Make your Bash a little better - easy!**
+<h1 align="center">
+    <a href="https://betterbash.cz0.cz">
+    <img src="webpage/frontend/public/banner.png">
+    </a>
+</h1>
+
+# Visit [https://betterbash.cz0.cz](https://betterbash.cz0.cz) for GUI configurator!
 
 ![alt text](/screenshot.png?raw=true "BetterBash screenshot")
-
-> [!TIP]
-> Visit the project's web site to customize BetterBash! - https://betterbash.cz0.cz.
 
 ## Features
 - Username (highlighted if root) and hostname.
