@@ -5,7 +5,7 @@
 </h1>
   
   
-# Visit [https://betterbash.cz0.cz](https://betterbash.cz0.cz) for GUI configurator!
+# Visit [https://betterbash.cz0.cz](https://betterbash.cz0.cz) for WebUI configurator!
   
 ## Features
 - Username (highlighted if root) and hostname.
