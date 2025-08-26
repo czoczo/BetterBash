@@ -1,13 +1,12 @@
-<h1 align="center">
+<h1>
     <a href="https://betterbash.cz0.cz">
     <img src="webpage/frontend/public/banner.png">
     </a>
 </h1>
-
+  
+  
 # Visit [https://betterbash.cz0.cz](https://betterbash.cz0.cz) for GUI configurator!
-
-![alt text](/screenshot.png?raw=true "BetterBash screenshot")
-
+  
 ## Features
 - Username (highlighted if root) and hostname.
 - Unique host avatar based on hostname. Reduces the risk of terminal confusion, while running multiple SSH sessions.
@@ -18,6 +17,8 @@
 - Current directory.
 - Git status (if current directory inside git repository).
 - Rapid search history with up/down keyboard arrows.
+
+![alt text](/screenshot.png?raw=true "BetterBash screenshot")
 
 ## Install:
 with **curl**
