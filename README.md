@@ -18,6 +18,7 @@
 - Git status (if current directory inside git repository).
 - Rapid search history with up/down keyboard arrows.
 
+## Preview
 ![alt text](/screenshot.png?raw=true "BetterBash screenshot")
 
 ## Install:
