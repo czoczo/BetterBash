@@ -16,7 +16,7 @@
 - Date and time. Time changes color if exit code other than zero.
 - Current directory.
 - Git status (if current directory inside git repository).
-- Rapid search history with up/down keyboard arrows.
+- Rapid history search with up/down arrows based on current input.
 
 ## Preview
 ![alt text](/screenshot.png?raw=true "BetterBash screenshot")
