@@ -28,7 +28,7 @@
 
 ### :star: Give a Star! 
 
-Support this research by **giving it a star**. Thanks!
+Support this project by **giving it a star**. Thanks!
 
 ## :rocket: Install:
 with **curl**
