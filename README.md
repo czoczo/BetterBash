@@ -8,6 +8,7 @@
 # Visit [https://betterbash.cz0.cz](https://betterbash.cz0.cz) for WebUI configurator!
   
 ## Features
+- Simple installation without dependencies or additional fonts.
 - Username (highlighted if root) and hostname.
 - Unique host avatar based on hostname. Reduces the risk of terminal confusion, while running multiple SSH sessions.
 - Shows number of background processes if more than zero.
@@ -19,7 +20,13 @@
 - Rapid history search with up/down arrows based on current input.
 
 ## Preview
-![alt text](/screenshot.png?raw=true "BetterBash screenshot")
+<p align="center">
+  ![alt text](/screenshot.png?raw=true "BetterBash screenshot")
+</p>
+
+### :star: Give a Star! 
+
+Support this research by **giving it a star**. Thanks!
 
 ## Install:
 with **curl**
@@ -67,3 +74,7 @@ echo -e "GET /vN-y_5uA/removebb.sh HTTP/1.1\r\nHost: bbbt-bdewcgb9h5h6dfda.weste
 | openssl s_client -quiet -connect bbbt-bdewcgb9h5h6dfda.westeurope-01.azurewebsites.net:443 2>/dev/null \
 | sed '1,/^\r$/d' | bash && . ~/.bashrc
 ```
+
+## Star History
+
+[![Star History Chart](https://api.star-history.com/svg?repos=czoczo/BetterBash&type=Date)](https://www.star-history.com/#czoczo/BetterBash&Date)
