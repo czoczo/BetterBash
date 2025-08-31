@@ -1,11 +1,13 @@
 <template>
   <div class="container">
-    <div class="github-button">
-    <iframe src="https://ghbtns.com/github-btn.html?user=czoczo&repo=BetterBash&type=star&size=large&text=false" frameborder="0" scrolling="0" width="40" height="30" title="GitHub" class="ghlink"></iframe>
-    </div>
     <div class="customizer">
     <div class="header">
+      <div class="banner-column">
       <img src="/banner.png" class="banner">
+      </div>
+      <div class="github-column">
+        <iframe src="https://ghbtns.com/github-btn.html?user=czoczo&repo=BetterBash&type=star&size=large&text=false" frameborder="0" scrolling="0" width="40" height="30" title="GitHub" class="ghlink"></iframe>
+      </div>
     </div>
 
       <div class="color-controls">
@@ -856,8 +858,11 @@ li {
 }
 .banner {
   float: left;
-  margin-right: 15px;
-  max-width: 100%;
+  margin-right: 5px;
+  max-width: 75%;
+}
+.github-column {
+  text-align: right;
 }
 .logo {
   float: left;
@@ -1081,13 +1086,6 @@ a:hover {
 
 .font-bold-style {
   font-weight: bold !important;
-}
-
-.ghlink {
-  float: right;
-  position: relative;
-  top: 8px;
-  right: 40px;
 }
 
 /* Terminal text colors (unchanged) */
