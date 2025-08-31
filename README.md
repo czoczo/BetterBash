@@ -5,9 +5,7 @@
 </h1>
   
   
-# :point_right: Visit [https://betterbash.cz0.cz](https://betterbash.cz0.cz) for WebUI configurator! :point_left:
-
-<hr>
+# :point_right: Visit [betterbash.cz0.cz](https://betterbash.cz0.cz) for WebUI configurator! :point_left:
 
 ## :sparkles: Features
 - Simple installation without dependencies or additional fonts.
