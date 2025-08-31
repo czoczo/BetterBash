@@ -21,7 +21,9 @@
 
 ## Preview
 <p align="center">
-  ![alt text](/screenshot.png?raw=true "BetterBash screenshot")
+    <a href="https://betterbash.cz0.cz">
+    <img src="./screenshot.png">
+    </a>
 </p>
 
 ### :star: Give a Star! 
