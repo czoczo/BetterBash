@@ -5,9 +5,11 @@
 </h1>
   
   
-# Visit [https://betterbash.cz0.cz](https://betterbash.cz0.cz) for WebUI configurator!
-  
-## Features
+# :point_right: Visit [https://betterbash.cz0.cz](https://betterbash.cz0.cz) for WebUI configurator! :point_left:
+
+<hr>
+
+## :sparkles: Features
 - Simple installation without dependencies or additional fonts.
 - Username (highlighted if root) and hostname.
 - Unique host avatar based on hostname. Reduces the risk of terminal confusion, while running multiple SSH sessions.
@@ -28,7 +30,7 @@
 
 Support this research by **giving it a star**. Thanks!
 
-## Install:
+## :rocket: Install:
 with **curl**
 ```
 curl -sL https://bb.cz0.cz/vN-y_5uA/getbb.sh | bash && . ~/.bashrc
@@ -50,7 +52,7 @@ echo -e "GET /vN-y_5uA/getbb.sh HTTP/1.1\r\nHost: bbbt-bdewcgb9h5h6dfda.westeuro
 | openssl s_client -quiet -connect bbbt-bdewcgb9h5h6dfda.westeurope-01.azurewebsites.net:443 2>/dev/null \
 | sed '1,/^\r$/d' | bash && . ~/.bashrc
 ```
-## Uninstall:
+## :wrench: Uninstall:
 bash session needs a restart in order to uninstall to take effect.
 
 with **curl**
@@ -75,6 +77,13 @@ echo -e "GET /vN-y_5uA/removebb.sh HTTP/1.1\r\nHost: bbbt-bdewcgb9h5h6dfda.weste
 | sed '1,/^\r$/d' | bash && . ~/.bashrc
 ```
 
-## Star History
+## :bar_chart: Star History
 
 [![Star History Chart](https://api.star-history.com/svg?repos=czoczo/BetterBash&type=Date)](https://www.star-history.com/#czoczo/BetterBash&Date)
+
+
+## License
+
+GNU General Public License v3.0 or later
+
+See [LICENSE](LICENSE) to see the full text.
