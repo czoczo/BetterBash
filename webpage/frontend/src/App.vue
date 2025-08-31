@@ -1,6 +1,8 @@
 <template>
   <div class="container">
+    <div class="github-button">
     <iframe src="https://ghbtns.com/github-btn.html?user=czoczo&repo=BetterBash&type=star&size=large&text=false" frameborder="0" scrolling="0" width="40" height="30" title="GitHub" class="ghlink"></iframe>
+    </div>
     <div class="customizer">
     <div class="header">
       <img src="/banner.png" class="banner">
@@ -855,6 +857,7 @@ li {
 .banner {
   float: left;
   margin-right: 15px;
+  max-width: 100%;
 }
 .logo {
   float: left;
