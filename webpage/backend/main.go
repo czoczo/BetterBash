@@ -20,7 +20,7 @@ import (
 )
 
 const (
-	gitRepoURL    = "https://git.cz0.cz/czoczo/BetterBash"
+	gitRepoURL    = "https://github.com/czoczo/BetterBash"
 	localRepoPath = "BetterBashRepo" // Cloned into a subdirectory
 	bbShellPath   = "prompt/bb.sh"
 	getBbPath     = "getbb.sh"
