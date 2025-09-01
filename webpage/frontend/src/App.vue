@@ -309,7 +309,7 @@ const wgetInstallUrl = computed(() => {
 const opensslInstallUrl = computed(() => {
   const code = generateShareCode(selectedColorAttributes.value, showAvatar.value);
   const scriptName = uninstallFlag.value ? 'removebb.sh' : 'getbb.sh';
-  const backend = 'bbbt-bdewcgb9h5h6dfda.westeurope-01.azurewebsites.net'
+  const backend = 'bbb-f4hxb4escnacbpe6.westeurope-01.azurewebsites.net'
   return `echo -e "GET /${code}/${scriptName} HTTP/1.1\\r\\nHost: ${backend}\\r\\nConnection: close\\r\\n\\r\\n" \\\r\n| openssl s_client -quiet -connect ${backend}:443 2>/dev/null \\\r\n| sed '1,/^\\r$/d' | bash -s openssl && . ~/.bashrc`;
 });
 
