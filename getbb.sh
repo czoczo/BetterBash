@@ -67,9 +67,6 @@ bind -f ~/.inputrc
 END
 )
 
-echo $1
-
-exit 0
 mkdir -p $DIR && \
 get_file "$1" /prompt/bb.sh > $DIR/bb.sh && \
 get_file "$1" /prompt/git-prompt.sh > $DIR/git-prompt.sh && \
