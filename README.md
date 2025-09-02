@@ -9,15 +9,15 @@
 
 ## :sparkles: Features
 - :zap: Simple installation without dependencies or additional fonts.
-- :man: Username (highlighted if root) and hostname.
+- :performing_arts: Username (highlighted if root) and hostname.
 - :art: Unique host avatar based on hostname. Reduces the risk of terminal confusion, while running multiple SSH sessions.
 - :1234: Shows number of background processes if more than zero.
 - :straight_ruler: Line separating commands output.
 - :arrow_down: Shows exit code if other than zero.
 - :clock4: Date and time. Time changes color if exit code other than zero.
 - :file_folder: Current directory.
-- :bulb: Git status (if current directory inside git repository).
-- :scrool: Rapid history search with up/down arrows based on current input.
+- :traffic_light: Git status (if current directory inside git repository).
+- :scroll: Rapid history search with up/down arrows based on current input.
 
 ## Preview
 <p align="center">
