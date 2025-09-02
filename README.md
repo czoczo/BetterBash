@@ -8,16 +8,16 @@
 # :point_right: Visit [betterbash.cz0.cz](https://betterbash.cz0.cz) for WebUI configurator! :point_left:
 
 ## :sparkles: Features
-- Simple installation without dependencies or additional fonts.
-- Username (highlighted if root) and hostname.
-- Unique host avatar based on hostname. Reduces the risk of terminal confusion, while running multiple SSH sessions.
-- Shows number of background processes if more than zero.
-- Line separating commands output.
-- Shows exit code if other than zero.
-- Date and time. Time changes color if exit code other than zero.
-- Current directory.
-- Git status (if current directory inside git repository).
-- Rapid history search with up/down arrows based on current input.
+- :zap: Simple installation without dependencies or additional fonts.
+- :man: Username (highlighted if root) and hostname.
+- :art: Unique host avatar based on hostname. Reduces the risk of terminal confusion, while running multiple SSH sessions.
+- :1234: Shows number of background processes if more than zero.
+- :straight_ruler: Line separating commands output.
+- :arrow_down: Shows exit code if other than zero.
+- :clock4: Date and time. Time changes color if exit code other than zero.
+- :file_folder: Current directory.
+- :bulb: Git status (if current directory inside git repository).
+- :scrool: Rapid history search with up/down arrows based on current input.
 
 ## Preview
 <p align="center">
@@ -41,8 +41,8 @@ wget -q -O - https://bb.cz0.cz/vN-y_5uA/getbb.sh | bash -s wget && . ~/.bashrc
 ```
 with **openssl** (no dependencies needed)
 ```
-echo -e "GET /vN-y_5uA/getbb.sh HTTP/1.1\r\nHost: bbbt-bdewcgb9h5h6dfda.westeurope-01.azurewebsites.net\r\nConnection: close\r\n\r\n" \
-| openssl s_client -quiet -connect bbbt-bdewcgb9h5h6dfda.westeurope-01.azurewebsites.net:443 2>/dev/null \
+echo -e "GET /vN-y_5uA/getbb.sh HTTP/1.1\r\nHost: bbb-f4hxb4escnacbpe6.westeurope-01.azurewebsites.net\r\nConnection: close\r\n\r\n" \
+| openssl s_client -quiet -connect bbb-f4hxb4escnacbpe6.westeurope-01.azurewebsites.net:443 2>/dev/null \
 | sed '1,/^\r$/d' | bash -s openssl && . ~/.bashrc
 ```
 ## :wrench: Uninstall:
@@ -58,8 +58,8 @@ wget -q -O - https://bb.cz0.cz/vN-y_5uA/removebb.sh | bash -s wget
 ```
 with **openssl** (no dependencies needed)
 ```
-echo -e "GET /vN-y_5uA/removebb.sh HTTP/1.1\r\nHost: bbbt-bdewcgb9h5h6dfda.westeurope-01.azurewebsites.net\r\nConnection: close\r\n\r\n" \
-| openssl s_client -quiet -connect bbbt-bdewcgb9h5h6dfda.westeurope-01.azurewebsites.net:443 2>/dev/null \
+echo -e "GET /vN-y_5uA/removebb.sh HTTP/1.1\r\nHost: bbb-f4hxb4escnacbpe6.westeurope-01.azurewebsites.net\r\nConnection: close\r\n\r\n" \
+| openssl s_client -quiet -connect bbb-f4hxb4escnacbpe6.westeurope-01.azurewebsites.net:443 2>/dev/null \
 | sed '1,/^\r$/d' | bash -s openssl && . ~/.bashrc
 ```
 
