@@ -1,0 +1,280 @@
+body {
+  font-family: 'Courier New', monospace;
+  margin: 0;
+  padding: 20px;
+  background-color: #1e1e1e;
+  color: #f0f0f0;
+}
+p {
+  margin-bottom: 16px;
+}
+
+li {
+  padding: 2px 0px 2px 0px
+}
+.banner {
+  float: left;
+  margin-right: 5px;
+  max-width: 75%;
+}
+.github-column {
+  text-align: right;
+}
+.logo {
+  float: left;
+  width: 150px;
+  image-rendering: pixelated;
+  margin-right: 15px;
+}
+.container {
+  max-width: 1000px;
+  /*max-width: 1200px;*/
+  margin: 0 auto;
+  background-color: #1e1e1e;
+  color: #f0f0f0;
+}
+h1 {
+  color: #4e9a06; /* A pleasant green */
+  font-family: "Tiny5", sans-serif;
+  font-weight: 400;
+  font-style: normal;
+  font-size: 64px;
+}
+a {
+  color: #4e9a06;
+  border-bottom: 2px dotted #4e9a06;
+}
+a:hover {
+  color: #076519;  
+}
+.customizer {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.color-controls {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 14px;
+}
+.color-select-group {
+  display: flex;
+  flex-direction: column;
+  background-color: #2d2d2d;
+  padding: 12px;
+  border-radius: 8px;
+  font-family: Consolas, Monaco, 'Lucida Console', monospace;
+  gap: 4px;
+}
+.color-selector-main label {
+  /*margin-bottom: 8px;*/
+  font-weight: bold;
+  /*display: flex;*/
+  align-items: center;
+  flex: 1;
+  flex-basis: 30%;
+}
+/*.color-selector-main select {*/
+.color-modifier-checkboxes select {
+  /*width: 100%;*/
+  padding: 3px;
+  margin-right: 10px;
+  background-color: #3a3a3a;
+  color: #fff;
+  border: 1px solid #555;
+  border-radius: 4px;
+  font-family: Consolas, Monaco, 'Lucida Console', monospace;
+  flex: 1;
+  flex-basis: 30%;
+}
+.color-modifier-checkboxes {
+  /*display: flex;*/
+  gap: 15px;
+  /*margin-top: 5px;*/
+}
+.color-modifier-checkboxes label {
+  /*display: flex;*/
+  align-items: center;
+  gap: 5px;
+  font-weight: normal;
+}
+.color-modifier-checkboxes input[type="checkbox"] {
+  margin-right: 4px;
+}
+.terminal-inline {
+  background-color: #000;
+  padding: 4px 6px 4px 8px;
+  border-radius: 4px;
+  min-height: 180px;
+  font-family: Consolas, Monaco, 'Lucida Console', monospace;
+  white-space: pre-wrap;
+  line-height: 0.9;
+  font-size: 18px;
+}
+.terminal {
+  background-color: #000;
+  padding: 20px;
+  border-radius: 8px;
+  font-family: "Source Code Pro", Consolas, Monaco, 'Lucida Console', monospace;
+  overflow-x: auto;
+  margin-top: 10px;
+  white-space: pre-wrap;
+  line-height: 0.9;
+  container-type: inline-size;
+  letter-spacing: -0.05rem;
+  /*font-size: 18px;*/
+}
+.ps1-line {
+  /*font-size: min(1cqw, 19px);*/
+  font-size: 1.4cqw;
+  margin-bottom: 0px;
+}
+.color-preview {
+  display: inline-block;
+  width: 20px;
+  height: 20px;
+  /*margin-left: 10px*/;
+  border: 1px solid #555;
+  vertical-align: middle;
+}
+.info-section, .share-section {
+  margin-top: 0px;
+  background-color: #2d2d2d;
+  padding: 14px 14px 20px 14px;
+  border-radius: 8px;
+}
+.info-section h3, .share-section h3 {
+  margin-top: 0;
+  color: #4e9a06;
+}
+.share-url-container {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+.share-url-container input[type="text"] {
+  min-width: 50px;
+  flex-grow: 1;
+  padding: 8px;
+  background-color: #3a3a3a;
+  color: #f0f0f0;
+  border: 1px solid #555;
+  border-radius: 4px;
+  font-family: Consolas, Monaco, 'Lucida Console', monospace;
+}
+.share-url-container textarea {
+  flex-grow: 1;
+  padding: 8px;
+  background-color: #3a3a3a;
+  color: #f0f0f0;
+  border: 1px solid #555;
+  border-radius: 4px;
+  font-family: Consolas, Monaco, 'Lucida Console', monospace;
+  resize: vertical;
+  min-height: 80px;
+}
+.share-url-container.multiline {
+  align-items: flex-start;
+}
+.share-url-container button, .default-btn {
+  padding: 8px 15px;
+  background-color: #4e9a06;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: bold;
+}
+.share-url-container button:hover, .default-btn:hover {
+  background-color: #076519;
+}
+
+/* Tab styles */
+.tab-navigation {
+  display: flex;
+  margin-bottom: 15px;
+  border-bottom: 1px solid #555;
+}
+.tab-button {
+  padding: 10px 20px;
+  background-color: transparent;
+  color: #f0f0f0;
+  border: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  font-family: Consolas, Monaco, 'Lucida Console', monospace;
+  font-size: 14px;
+  transition: all 0.3s ease;
+}
+.tab-button:hover {
+  background-color: #3a3a3a;
+}
+.tab-button.active {
+  color: #4e9a06;
+  border-bottom-color: #4e9a06;
+  font-weight: bold;
+}
+.tab-content {
+  margin-top: 15px;
+}
+.tab-panel {
+  min-height: 50px;
+}
+
+.copy-success-message {
+  position: absolute;
+  color: #8ae234; /* Bright Green */
+  font-size: 0.9em;
+}
+.decoding-explanation {
+    font-size: 0.9em;
+    /*line-height: 1.6;*/
+}
+.decoding-explanation ul {
+    padding-left: 20px;
+}
+.decoding-explanation code {
+    background-color: #3a3a3a;
+    padding: 2px 4px;
+    border-radius: 3px;
+    font-family: Consolas, Monaco, 'Lucida Console', monospace;
+}
+
+.font-bold-style {
+  font-weight: bold !important;
+}
+
+/* Terminal text colors (unchanged) */
+.text-black { color: #000000; }
+.text-red { color: #cc0000; }
+.text-green { color: #4e9a06; }
+.text-yellow { color: #c4a000; }
+.text-blue { color: #3465a4; }
+.text-magenta { color: #75507b; }
+.text-cyan { color: #06989a; }
+.text-white { color: #d3d7cf; }
+
+.text-bright-black { color: #555753; }
+.text-bright-red { color: #ef2929; }
+.text-bright-green { color: #8ae234; }
+.text-bright-yellow { color: #fce94f; }
+.text-bright-blue { color: #729fcf; }
+.text-bright-magenta { color: #ad7fa8; }
+.text-bright-cyan { color: #34e2e2; }
+.text-bright-white { color: #eeeeec; }
+
+.text-bold-red { color: #ff4d4d; font-weight: bold; }
+.text-bold-green { color: #73d216; font-weight: bold; }
+.text-bold-yellow { color: #edd400; font-weight: bold; }
+.text-bold-blue { color: #3584e4; font-weight: bold; }
+.text-bold-magenta { color: #ad7fa8; font-weight: bold; }
+.text-bold-cyan { color: #34e2e2; font-weight: bold; }
+.text-bold-white { color: #ffffff; font-weight: bold; }
+
+.text-bold-bright-magenta { color: #d070d0; font-weight: bold; }
+.text-bold-bright-black { color: #7c7c7c; font-weight: bold; }
+.text-bold-bright-white { color: #ffffff; font-weight: bold; }
+
+.text-red-on-white { color: #ffffff; background-color: #c00; }
+.text-reset { color: #d3d7cf; }
+
