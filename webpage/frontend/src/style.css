@@ -16,6 +16,8 @@ li {
   float: left;
   margin-right: 5px;
   max-width: 75%;
+  /* The banner art is drawn in the old green primary; shift it to the accent hue. */
+  filter: hue-rotate(var(--banner-hue-rotate)) saturate(var(--banner-saturate));
 }
 .github-column {
   text-align: right;
@@ -33,19 +35,21 @@ li {
   background-color: #1e1e1e;
   color: #f0f0f0;
 }
+/* Accent colours (--primary-*) are defined with fallbacks in assets/main.css
+   and redefined at runtime from PRIMARY_COLOR. */
 h1 {
-  color: #4e9a06; /* A pleasant green */
+  color: var(--primary-color);
   font-family: "Tiny5", sans-serif;
   font-weight: 400;
   font-style: normal;
   font-size: 64px;
 }
 a {
-  color: #4e9a06;
-  border-bottom: 2px dotted #4e9a06;
+  color: var(--primary-color);
+  border-bottom: 2px dotted var(--primary-color);
 }
 a:hover {
-  color: #076519;  
+  color: var(--primary-hover);
 }
 .customizer {
   display: flex;
@@ -145,7 +149,7 @@ a:hover {
 }
 .info-section h3, .share-section h3 {
   margin-top: 0;
-  color: #4e9a06;
+  color: var(--primary-color);
 }
 .share-url-container {
   display: flex;
@@ -178,15 +182,16 @@ a:hover {
 }
 .share-url-container button, .default-btn {
   padding: 8px 15px;
-  background-color: #4e9a06;
-  color: #fff;
+  background-color: var(--primary-color);
+  color: var(--primary-contrast);
   border: none;
   border-radius: 4px;
   cursor: pointer;
   font-weight: bold;
+  transition: background-color 0.2s ease;
 }
 .share-url-container button:hover, .default-btn:hover {
-  background-color: #076519;
+  background-color: var(--primary-hover);
 }
 
 /* Tab styles */
@@ -210,8 +215,8 @@ a:hover {
   background-color: #3a3a3a;
 }
 .tab-button.active {
-  color: #4e9a06;
-  border-bottom-color: #4e9a06;
+  color: var(--primary-color);
+  border-bottom-color: var(--primary-color);
   font-weight: bold;
 }
 .tab-content {
@@ -223,7 +228,7 @@ a:hover {
 
 .copy-success-message {
   position: absolute;
-  color: #8ae234; /* Bright Green */
+  color: var(--primary-bright);
   font-size: 0.9em;
 }
 .decoding-explanation {

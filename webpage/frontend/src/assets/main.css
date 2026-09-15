@@ -1,5 +1,22 @@
 @import './base.css';
 
+/*
+ * Accent ramp used by the page chrome (headings, links, buttons, active tabs).
+ * The values below are only the fallback: at runtime they are recomputed from
+ * the theme's PRIMARY_COLOR (see src/theme.js), so a random theme also
+ * re-skins the page.
+ */
+:root {
+  --primary-color: #4e9a06;
+  --primary-base: #4e9a06;
+  --primary-hover: #076519;
+  --primary-bright: #8ae234;
+  --primary-soft: rgba(78, 154, 6, 0.2);
+  --primary-contrast: #ffffff;
+  --banner-hue-rotate: 0deg;
+  --banner-saturate: 1;
+}
+
 #app {
   max-width: 1280px;
   margin: 0 auto;
@@ -10,14 +27,14 @@
 a,
 .green {
   text-decoration: none;
-  color: hsla(160, 100%, 37%, 1);
+  color: var(--primary-color);
   transition: 0.4s;
   padding: 3px;
 }
 
 @media (hover: hover) {
   a:hover {
-    background-color: hsla(160, 100%, 37%, 0.2);
+    background-color: var(--primary-soft);
   }
 }
 

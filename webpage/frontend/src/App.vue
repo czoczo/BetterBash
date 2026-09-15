@@ -1,7 +1,8 @@
 <template src="./template.html"></template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, watchEffect, onMounted, onBeforeUnmount } from 'vue';
+import { buildAccentPalette, applyAccentPalette } from './theme';
 // default theme vN-y_5uA
 
 // Color labels for UI
@@ -439,66 +440,112 @@ function loadThemeFromUrl() {
   }
 }
 
-function generateRandomTheme() {
+// Apply a parsed theme ({ selectedAttrs, avatarEnabled }) to the UI.
+function applyTheme(theme) {
+  if (!theme) return;
+  selectedColorAttributes.value = theme.selectedAttrs;
+  showAvatar.value = theme.avatarEnabled;
+}
+
+// Random attributes for every color slot, in the same shape as a parsed share code.
+function buildRandomAttrs() {
+  const randomAttrs = {};
+
+  for (const key of ENCODING_ORDERED_COLOR_KEYS) {
+    let baseCode, isLight, isBold;
+
+    do {
+      baseCode = Math.floor(Math.random() * 8) + 30; // Random base code 30-37
+      isLight = Math.random() < 0.5; // Random boolean for light
+      isBold = Math.random() < 0.5;  // Random boolean for bold
+
+      // Continue loop if we have black (30) with light unchecked (false)
+    } while (baseCode === 30 && !isLight);
+
+    randomAttrs[key] = {
+      baseCode,
+      isLight,
+      isBold
+    };
+  }
+
+  return randomAttrs;
+}
+
+function generateRandomTheme({ silent = false } = {}) {
   try {
     // Generate random attributes for each color key
-    const randomAttrs = {};
-    
-    for (const key of ENCODING_ORDERED_COLOR_KEYS) {
-      let baseCode, isLight, isBold;
-      
-      do {
-        baseCode = Math.floor(Math.random() * 8) + 30; // Random base code 30-37
-        isLight = Math.random() < 0.5; // Random boolean for light
-        isBold = Math.random() < 0.5;  // Random boolean for bold
-        
-        // Continue loop if we have black (30) with light unchecked (false)
-      } while (baseCode === 30 && !isLight);
-      
-      randomAttrs[key] = {
-        baseCode,
-        isLight,
-        isBold
-      };
-    }
-    
+    const randomAttrs = buildRandomAttrs();
+
     // Generate random avatar setting
     const randomAvatar = Math.random() < 0.5;
-    
+
     // Generate share code from random attributes
     const shareCode = generateShareCode(randomAttrs, randomAvatar);
-    
+
     // Parse and apply the generated theme using existing logic
     const parsed = parseShareCode(shareCode);
     if (parsed) {
-      selectedColorAttributes.value = parsed.selectedAttrs;
-      showAvatar.value = parsed.avatarEnabled;
-      
-      // Optional: Show success feedback
-      loadSuccess.value = true;
-      setTimeout(() => {
-        loadSuccess.value = false;
-      }, 2000);
+      applyTheme(parsed);
+
+      if (!silent) {
+        // Optional: Show success feedback
+        loadSuccess.value = true;
+        setTimeout(() => {
+          loadSuccess.value = false;
+        }, 2000);
+      }
     } else {
       console.error('Failed to parse generated random theme');
     }
-    
+
   } catch (error) {
     console.error('Error generating random theme:', error);
   }
 }
 
-// Load theme from URL hash on mount
-onMounted(() => {
+// Every fresh page load behaves as if "🎲 Random Theme" had been clicked.
+// An explicit theme code in the URL hash (shared theme) still wins, so links
+// stay reproducible.
+function initTheme() {
   const hash = window.location.hash;
   if (hash && hash.length > 1) {
-    const code = hash.substring(1);
-    const parsed = parseShareCode(code);
+    const parsed = parseShareCode(hash.substring(1));
     if (parsed) {
-      selectedColorAttributes.value = parsed.selectedAttrs;
-      showAvatar.value = parsed.avatarEnabled;
+      applyTheme(parsed);
+      return;
     }
   }
+  generateRandomTheme({ silent: true });
+}
+
+initTheme();
+
+// --- Accent (page chrome) colors, driven by PRIMARY_COLOR ---
+const accentPalette = computed(() =>
+  buildAccentPalette(getPreviewColorFromBash(generatedColors.value.PRIMARY_COLOR))
+);
+
+// The theme is chosen before this watcher is registered, so the CSS variables
+// are correct before the first paint and the page never flashes in the
+// hardcoded fallback green.
+watchEffect(() => {
+  applyAccentPalette(accentPalette.value);
+});
+
+function onHashChange() {
+  const hash = window.location.hash;
+  if (!hash || hash.length <= 1) return;
+  const parsed = parseShareCode(hash.substring(1));
+  if (parsed) applyTheme(parsed);
+}
+
+onMounted(() => {
+  window.addEventListener('hashchange', onHashChange);
+});
+
+onBeforeUnmount(() => {
+  window.removeEventListener('hashchange', onHashChange);
 });
 
 </script>
