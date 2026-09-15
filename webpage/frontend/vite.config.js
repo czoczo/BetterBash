@@ -12,7 +12,7 @@ export default defineConfig({
     vueDevTools(),
   ],
   server: {
-    allowedHosts: ['devcode.dom.cz0.cz', 'czoczo.github.io']
+    allowedHosts: ['devcode.dom.cz0.cz', 'czoczo.github.io', 'hermes-dev.dom.cz0.cz']
 	},
   resolve: {
     alias: {
