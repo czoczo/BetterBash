@@ -125,12 +125,23 @@ a:hover {
   white-space: pre-wrap;
   line-height: 0.9;
   container-type: inline-size;
-  letter-spacing: -0.05rem;
-  /*font-size: 18px;*/
+  /* One column, sized to the longest prompt line and centred in the box, so the
+     preview looks centred as a whole and every shorter line still starts in the
+     same place as the longest one. */
+  display: grid;
+  justify-content: center;
 }
 .ps1-line {
-  /*font-size: min(1cqw, 19px);*/
-  font-size: 1.4cqw;
+  /* Single font size for the whole preview (so terminal columns keep lining up),
+     scaled with the box: the longest line is 98 chars, one monospace char is
+     ~0.6em wide minus the -0.06em tracking below, so that line measures ~53em.
+     Filling ~93% of the box is then 0.93/53 = 1.75% of its width, i.e. 1.75cqw -
+     every window size gets the same fill, and the tracking is in em (not rem/px)
+     precisely so it scales with the font size and the ratio stays true. (Rounding
+     of glyph advances to whole pixels makes the real fill wobble between ~92% and
+     ~97% - the missing few percent is what keeps a line from ever wrapping.) */
+  font-size: 1.75cqw;
+  letter-spacing: -0.06em;
   margin-bottom: 0px;
 }
 .color-preview {
