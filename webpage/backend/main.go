@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"math/rand"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -24,6 +25,11 @@ const (
 	localRepoPath = "BetterBashRepo" // Cloned into a subdirectory
 	bbShellPath   = "prompt/bb.sh"
 	getBbPath     = "getbb.sh"
+	// randPathKeyword is an alternative to a theme code as the first URL segment.
+	// Every request to it is resolved to a freshly generated random theme, so
+	// /rand/getbb.sh installs a random theme and /rand/removebb.sh uninstalls it.
+	// It cannot clash with a theme code: those always encode to 8 characters.
+	randPathKeyword = "rand"
 )
 
 var (
@@ -116,6 +122,53 @@ func decodeColorLogic(encodedData string) (map[string]string, string, bool, erro
 
 	// Remove the last newline character from the block of definitions if present for cleaner insertion
 	return colorsMap, strings.TrimSuffix(resultList.String(), "\n"), avatarEnabled, nil
+}
+
+// randomThemeCode builds a theme code carrying randomly picked colors and a
+// random avatar flag, in exactly the format the WebUI generates (eight 5-bit
+// color values plus the avatar bit packed into 6 bytes, then url-safe unpadded
+// Base64), so it decodes identically in decodeColorLogic. Plain black is never
+// picked, as it would be invisible on a dark terminal.
+func randomThemeCode() string {
+	fiveBitValues := make([]byte, len(colorComponentKeys))
+	for i := range fiveBitValues {
+		for {
+			baseColor07 := byte(rand.Intn(8))
+			lightBit := byte(rand.Intn(2))
+			boldBit := byte(rand.Intn(2))
+			if baseColor07 == 0 && lightBit == 0 {
+				continue
+			}
+			fiveBitValues[i] = baseColor07<<2 | lightBit<<1 | boldBit
+			break
+		}
+	}
+
+	b := make([]byte, 6)
+	b[0] = fiveBitValues[0]<<3 | fiveBitValues[1]>>2
+	b[1] = (fiveBitValues[1]&0x03)<<6 | (fiveBitValues[2]<<1)&0x3F | fiveBitValues[3]>>4
+	b[2] = (fiveBitValues[3]&0x0F)<<4 | fiveBitValues[4]>>1
+	b[3] = (fiveBitValues[4]&0x01)<<7 | (fiveBitValues[5]<<2)&0x7C | fiveBitValues[6]>>3
+	b[4] = (fiveBitValues[6]&0x07)<<5 | fiveBitValues[7]
+	if rand.Intn(2) == 1 {
+		b[5] = 0x80
+	}
+
+	return base64.RawURLEncoding.EncodeToString(b)
+}
+
+// resolveThemeSegment maps the "rand" keyword to a new random theme code. Any
+// other segment (a real theme code) is passed through untouched, which keeps
+// every previously generated URL working.
+func resolveThemeSegment(encodedData string, r *http.Request) string {
+	if encodedData != randPathKeyword {
+		return encodedData
+	}
+
+	randomCode := randomThemeCode()
+	log.Printf("🎲 %s resolved to randomly generated theme: %s", randPathKeyword, randomCode)
+	recordMetrics(randPathKeyword, r.Method, "200")
+	return randomCode
 }
 
 func serveDecodedColorsOnlyHandler(w http.ResponseWriter, r *http.Request, encodedData string) {
@@ -433,6 +486,8 @@ func mainRouter(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	encodedData = resolveThemeSegment(encodedData, r)
+
 	if len(parts) == 1 {
 		serveDecodedColorsOnlyHandler(w, r, encodedData)
 	} else if len(parts) == 2 {
@@ -465,6 +520,9 @@ func main() {
 	log.Printf("  GET /<encoded_color_data>         - Show color definitions")
 	log.Printf("  GET /<encoded_color_data>/<path> - Serve file from repo (e.g., /VcrS_H8A/removebb.sh)")
 	log.Printf("                                    Special: /<encoded_color_data>/%s for dynamic colors", bbShellPath)
+	log.Printf("  GET /%s                             - Show color definitions of a randomly generated theme", randPathKeyword)
+	log.Printf("  GET /%s/<path>                      - Same as /<encoded_color_data>/<path>, but with a randomly generated", randPathKeyword)
+	log.Printf("                                    theme on every request (e.g. /%s/%s install, /%s/removebb.sh uninstall)", randPathKeyword, getBbPath, randPathKeyword)
 	log.Printf("  GET /reload                       - Pull latest from git master branch")
 	log.Printf("  GET /stats                        - Show request count")
 	log.Printf("  GET /metrics                      - Prometheus metrics endpoint")

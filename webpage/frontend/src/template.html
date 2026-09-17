@@ -195,8 +195,10 @@
           <div class="share-url-container">
             <input type="text" :value="curlInstallUrl" readonly id="installCurlCmd" @click="selectUrlText" />
             <div class="color-modifier-checkboxes">
-              <input id="uninstall-toggle" type="checkbox" v-model="uninstallFlag" />
-              <label for="uninstall-toggle">Uninstall</label>
+              <input id="uninstall-toggle-curl" type="checkbox" v-model="uninstallFlag" />
+              <label for="uninstall-toggle-curl">Uninstall</label>
+              <input id="random-toggle-curl" type="checkbox" v-model="randomFlag" />
+              <label for="random-toggle-curl" :title="randomToggleHint">🎲 Random</label>
             </div>
             <button @click="copyCurlCmdToClipboard">Copy command</button>
           </div>
@@ -206,8 +208,10 @@
           <div class="share-url-container">
             <input type="text" :value="wgetInstallUrl" readonly id="installWgetCmd" @click="selectUrlText" />
             <div class="color-modifier-checkboxes">
-              <input id="uninstall-toggle" type="checkbox" v-model="uninstallFlag" />
-              <label for="uninstall-toggle">Uninstall</label>
+              <input id="uninstall-toggle-wget" type="checkbox" v-model="uninstallFlag" />
+              <label for="uninstall-toggle-wget">Uninstall</label>
+              <input id="random-toggle-wget" type="checkbox" v-model="randomFlag" />
+              <label for="random-toggle-wget" :title="randomToggleHint">🎲 Random</label>
             </div>
             <button @click="copyWgetCmdToClipboard">Copy command</button>
           </div>
@@ -219,8 +223,10 @@
             <button @click="copyOpensslCmdToClipboard">Copy command</button>
           </div>
           <div class="color-modifier-checkboxes">
-            <input id="uninstall-toggle" type="checkbox" v-model="uninstallFlag" />
-            <label for="uninstall-toggle">Uninstall</label>
+            <input id="uninstall-toggle-openssl" type="checkbox" v-model="uninstallFlag" />
+            <label for="uninstall-toggle-openssl">Uninstall</label>
+            <input id="random-toggle-openssl" type="checkbox" v-model="randomFlag" />
+            <label for="random-toggle-openssl" :title="randomToggleHint">🎲 Random</label>
           </div>
         </div>
       </div>

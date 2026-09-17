@@ -26,6 +26,9 @@ const ENCODING_ORDERED_COLOR_KEYS = [
 // Avatar state
 const showAvatar = ref(true);
 const uninstallFlag = ref(false);
+// Random mode: the install command points at the backend 'rand' endpoint, which
+// serves a freshly drawn theme on every call instead of the one configured here.
+const randomFlag = ref(false);
 
 const activeTab = ref('curl');
 
@@ -295,21 +298,34 @@ function parseShareCode(code) {
   }
 }
 
+// First URL path segment of the install commands. In random mode it is the
+// backend 'rand' keyword (the theme is then chosen by the server, so the colors
+// selected in the UI are irrelevant for the command), otherwise the usual theme
+// code generated from the current selection.
+const installThemeSegment = computed(() =>
+  randomFlag.value ? 'rand' : generateShareCode(selectedColorAttributes.value, showAvatar.value)
+);
+
+const installScriptName = computed(() => (uninstallFlag.value ? 'removebb.sh' : 'getbb.sh'));
+
+const randomToggleHint =
+  'Random theme mode: every run of the command downloads a different theme picked by the server, so the colors selected above are ignored.';
+
 const curlInstallUrl = computed(() => {
-  const code = generateShareCode(selectedColorAttributes.value, showAvatar.value);
-  const scriptName = uninstallFlag.value ? 'removebb.sh' : 'getbb.sh';
+  const code = installThemeSegment.value;
+  const scriptName = installScriptName.value;
   return `curl -sL https://bb.cz0.cz/${code}/${scriptName} | bash -s curl && . ~/.bashrc`;
 });
 
 const wgetInstallUrl = computed(() => {
-  const code = generateShareCode(selectedColorAttributes.value, showAvatar.value);
-  const scriptName = uninstallFlag.value ? 'removebb.sh' : 'getbb.sh';
+  const code = installThemeSegment.value;
+  const scriptName = installScriptName.value;
   return `wget -q -O - https://bb.cz0.cz/${code}/${scriptName} | bash -s wget && . ~/.bashrc`;
 });
 
 const opensslInstallUrl = computed(() => {
-  const code = generateShareCode(selectedColorAttributes.value, showAvatar.value);
-  const scriptName = uninstallFlag.value ? 'removebb.sh' : 'getbb.sh';
+  const code = installThemeSegment.value;
+  const scriptName = installScriptName.value;
   const backend = 'bbb-f4hxb4escnacbpe6.westeurope-01.azurewebsites.net'
   return `echo -e "GET /${code}/${scriptName} HTTP/1.1\\r\\nHost: ${backend}\\r\\nConnection: close\\r\\n\\r\\n" \\\r\n| openssl s_client -quiet -connect ${backend}:443 2>/dev/null \\\r\n| sed '1,/^\\r$/d' | bash -s openssl && . ~/.bashrc`;
 });
@@ -337,7 +353,7 @@ const copyCmdSuccess = ref(false);
 
 async function copyCurlCmdToClipboard() {
   try {
-    await navigator.clipboard.writeText(installCurlCmd.value);
+    await navigator.clipboard.writeText(curlInstallUrl.value);
     copyCmdSuccess.value = true;
     setTimeout(() => {
       copyCmdSuccess.value = false;
@@ -350,7 +366,7 @@ async function copyCurlCmdToClipboard() {
 
 async function copyWgetCmdToClipboard() {
   try {
-    await navigator.clipboard.writeText(installWgetCmd.value);
+    await navigator.clipboard.writeText(wgetInstallUrl.value);
     copyCmdSuccess.value = true;
     setTimeout(() => {
       copyCmdSuccess.value = false;
@@ -363,7 +379,7 @@ async function copyWgetCmdToClipboard() {
 
 async function copyOpensslCmdToClipboard() {
   try {
-    await navigator.clipboard.writeText(installOpensslCmd.value);
+    await navigator.clipboard.writeText(opensslInstallUrl.value);
     copyCmdSuccess.value = true;
     setTimeout(() => {
       copyCmdSuccess.value = false;
