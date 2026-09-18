@@ -95,6 +95,7 @@ a:hover {
   /*display: flex;*/
   gap: 15px;
   /*margin-top: 5px;*/
+  margin-bottom: 8px;
 }
 .color-modifier-checkboxes label {
   /*display: flex;*/
@@ -104,6 +105,11 @@ a:hover {
 }
 .color-modifier-checkboxes input[type="checkbox"] {
   margin-right: 4px;
+}
+/* Checkbox/label pairs are plain siblings, so the container's gap does not apply:
+   add space in front of every pair but the first one (i.e. before "Random"). */
+.color-modifier-checkboxes label + input[type="checkbox"] {
+  margin-left: 16px;
 }
 .terminal-inline {
   background-color: #000;
@@ -117,7 +123,12 @@ a:hover {
 }
 .terminal {
   background-color: #000;
-  padding: 20px;
+  /* No horizontal padding on purpose: the fill ratio of the preview is defined
+     against the black box itself (see .ps1-line), and padding would shrink the
+     text area under it, so the same font size would fill a visibly smaller part
+     of the black box. The side margin comes from the ratio instead and scales
+     with the box, which keeps the look identical at every window size. */
+  padding: 20px 0;
   border-radius: 8px;
   font-family: "Source Code Pro", Consolas, Monaco, 'Lucida Console', monospace;
   overflow-x: auto;
@@ -133,15 +144,15 @@ a:hover {
 }
 .ps1-line {
   /* Single font size for the whole preview (so terminal columns keep lining up),
-     scaled with the box: the longest line is 98 chars, one monospace char is
-     ~0.6em wide minus the -0.06em tracking below, so that line measures ~53em.
-     Filling ~93% of the box is then 0.93/53 = 1.75% of its width, i.e. 1.75cqw -
-     every window size gets the same fill, and the tracking is in em (not rem/px)
-     precisely so it scales with the font size and the ratio stays true. (Rounding
-     of glyph advances to whole pixels makes the real fill wobble between ~92% and
-     ~97% - the missing few percent is what keeps a line from ever wrapping.) */
-  font-size: 1.75cqw;
-  letter-spacing: -0.06em;
+     scaled with the box. Every prompt line in the template is padded to at most
+     98 glyphs and a monospace glyph is 0.6em wide, so the longest line measures
+     98 * 0.6 = 58.8em. Filling ~96% of the box is then 0.96/58.8 = 1.63% of its
+     width, i.e. 1.63cqw - one ratio for every window size. Nothing else to tune:
+     letter-spacing is left alone, because tracking would only shift the constant
+     and hide this arithmetic. The real fill still wobbles a few percent (glyph
+     advances are rounded to whole pixels), and the remaining ~4% is what keeps
+     white-space: pre-wrap from ever breaking a prompt line in two. */
+  font-size: 1.63cqw;
   margin-bottom: 0px;
 }
 .color-preview {
