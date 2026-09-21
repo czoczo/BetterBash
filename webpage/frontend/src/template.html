@@ -6,6 +6,13 @@
     </div>
     <div class="github-column">
       <iframe src="https://ghbtns.com/github-btn.html?user=czoczo&repo=BetterBash&type=star&size=large&text=false" frameborder="0" scrolling="0" width="40" height="30" title="GitHub" class="ghlink"></iframe>
+      <div
+        v-if="appEnv !== 'production'"
+        class="env-badge"
+        title="Non production build: the install commands below point at the development backend"
+      >
+        {{ appEnv }}
+      </div>
     </div>
   </div>
 

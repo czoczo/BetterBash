@@ -3,7 +3,12 @@
 <script setup>
 import { ref, computed, watchEffect, onMounted, onBeforeUnmount } from 'vue';
 import { buildAccentPalette, applyAccentPalette } from './theme';
+import { APP_ENV, SITE_HOST, installCommands } from './config';
 // default theme vN-y_5uA
+
+// Surfaced in the page so a development build cannot be mistaken for the
+// published one (the install commands differ).
+const appEnv = APP_ENV;
 
 // Color labels for UI
 const colorLabels = {
@@ -311,24 +316,15 @@ const installScriptName = computed(() => (uninstallFlag.value ? 'removebb.sh' : 
 const randomToggleHint =
   'Random theme mode: every run of the command downloads a different theme picked by the server, so the colors selected above are ignored.';
 
-const curlInstallUrl = computed(() => {
-  const code = installThemeSegment.value;
-  const scriptName = installScriptName.value;
-  return `curl -sL https://bb.cz0.cz/${code}/${scriptName} | bash -s curl && . ~/.bashrc`;
-});
+// Every command is built from the endpoints of the environment the page was
+// built for (see src/config.js and the .env.* files).
+const currentInstallCommands = computed(() =>
+  installCommands(installThemeSegment.value, installScriptName.value)
+);
 
-const wgetInstallUrl = computed(() => {
-  const code = installThemeSegment.value;
-  const scriptName = installScriptName.value;
-  return `wget -q -O - https://bb.cz0.cz/${code}/${scriptName} | bash -s wget && . ~/.bashrc`;
-});
-
-const opensslInstallUrl = computed(() => {
-  const code = installThemeSegment.value;
-  const scriptName = installScriptName.value;
-  const backend = 'bbb-f4hxb4escnacbpe6.westeurope-01.azurewebsites.net'
-  return `echo -e "GET /${code}/${scriptName} HTTP/1.1\\r\\nHost: ${backend}\\r\\nConnection: close\\r\\n\\r\\n" \\\r\n| openssl s_client -quiet -connect ${backend}:443 2>/dev/null \\\r\n| sed '1,/^\\r$/d' | bash -s openssl && . ~/.bashrc`;
-});
+const curlInstallUrl = computed(() => currentInstallCommands.value.curl);
+const wgetInstallUrl = computed(() => currentInstallCommands.value.wget);
+const opensslInstallUrl = computed(() => currentInstallCommands.value.openssl);
 
 const shareableUrl = computed(() => {
   const code = generateShareCode(selectedColorAttributes.value, showAvatar.value);
@@ -418,8 +414,8 @@ function loadThemeFromUrl() {
     
     if (url.includes('#')) {
       code = url.split('#')[1];
-    } else if (url.includes('betterbash.cz0.cz/')) {
-      const parts = url.split('betterbash.cz0.cz/');
+    } else if (url.includes(`${SITE_HOST}/`)) {
+      const parts = url.split(`${SITE_HOST}/`);
       if (parts.length > 1) {
         code = parts[1].split(/[?&#]/)[0];
       }

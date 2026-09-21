@@ -17,6 +17,11 @@ USER nonroot:nonroot
 
 WORKDIR /app
 
+# Production is the default of the binary as well; spelling it out keeps a
+# container started with an inherited APP_ENV from accidentally coming up as a
+# development instance.
+ENV APP_ENV=production
+
 COPY --chown=nonroot:nonroot --from=go-build /bbb /app/
 
 ENTRYPOINT ["./bbb"]

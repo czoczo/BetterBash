@@ -22,6 +22,18 @@ li {
 .github-column {
   text-align: right;
 }
+/* Rendered only in non production builds, whose install commands point at the
+   local backend instead of the published one. */
+.env-badge {
+  display: inline-block;
+  margin-top: 8px;
+  padding: 1px 8px;
+  border: 1px solid var(--primary-color);
+  border-radius: 4px;
+  color: var(--primary-color);
+  font-size: 12px;
+  letter-spacing: 1px;
+}
 .logo {
   float: left;
   width: 150px;

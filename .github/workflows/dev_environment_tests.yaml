@@ -1,0 +1,100 @@
+name: Test development environment
+
+# Everything that has to work locally also has to work in CI: the backend unit
+# tests (which cover the endpoints of both environments), the three installation
+# methods against a development backend, and WebUI builds of both modes.
+
+on:
+  push:
+    branches: [ develop, main ]
+  pull_request:
+    branches: [ develop, main ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: webpage/backend/go.mod
+          cache: true
+
+      - name: go vet
+        run: go vet ./...
+        working-directory: webpage/backend
+
+      - name: Unit tests
+        run: go test ./...
+        working-directory: webpage/backend
+
+  installation-methods:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: webpage/backend/go.mod
+          cache: true
+
+      - name: Install and uninstall with curl, wget and openssl
+        run: ./test-install-methods.sh
+
+  webui:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: latest
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+          cache-dependency-path: 'webpage/frontend/pnpm-lock.yaml'
+
+      - name: Install dependencies
+        run: pnpm install --no-frozen-lockfile
+        working-directory: webpage/frontend
+
+      - name: Build for production
+        run: pnpm build
+        working-directory: webpage/frontend
+
+      - name: Production bundle must carry the published endpoints only
+        run: |
+          grep -q "bb.cz0.cz" dist/assets/*.js
+          grep -q "bbb-f4hxb4escnacbpe6.westeurope-01.azurewebsites.net" dist/assets/*.js
+          if grep -q "localhost" dist/assets/*.js; then
+            echo "a production bundle points at localhost"
+            exit 1
+          fi
+        working-directory: webpage/frontend
+
+      - name: Build for development
+        run: pnpm build:dev
+        working-directory: webpage/frontend
+
+      - name: Development bundle must carry the local endpoints only
+        run: |
+          grep -q "localhost" dist/assets/*.js
+          if grep -q "bb.cz0.cz" dist/assets/*.js; then
+            echo "a development bundle points at the production endpoint"
+            exit 1
+          fi
+        working-directory: webpage/frontend
