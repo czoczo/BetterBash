@@ -1,6 +1,9 @@
 #!/bin/bash
 
-source ~/.bb/git-prompt.sh
+# Where BetterBash keeps its files; getbb.sh installs into the same variable.
+BB_DIR="${BB_DIR:-$HOME/.bb}"
+
+source "$BB_DIR/git-prompt.sh"
 
 #arrchar=('\u25B2' '\u25B6' '\u25BC' '\u25C0')
 arrchar=('\u25B2' '\u25B6' '\u25BC' '\u25C0' '\u25C6' '\u25CF' '\u25E2' '\u25E3' '\u25E4' '\u25E5' '\u25AC' '\u25AE' '\u25A0')
@@ -57,6 +60,14 @@ unset temp
 HBAR="─"
 PR_ULCORNER="┌"
 PR_LLCORNER="└"
+
+# The theme of this machine. getbb.sh writes ~/.bb/theme.sh from the theme code
+# of the install command, and prompt/bb-theme.sh is what decoded it there. It is
+# read before the defaults below, so an install without a theme file - or an
+# older one, where the backend injected the assignments into this file - keeps
+# working.
+BB_THEME_FILE="$BB_DIR/theme.sh"
+[ -f "$BB_THEME_FILE" ] && . "$BB_THEME_FILE"
 
 # Defaults:
 [ -z "${PRIMARY_COLOR}" ] && PRIMARY_COLOR='\[\033[00;92m\]'

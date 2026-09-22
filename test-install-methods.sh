@@ -1,242 +1,493 @@
-#!/usr/bin/env bash
+#!/bin/sh
 #
-# Check that every BetterBash installation method works against the development
-# backend. Each method installs into, and uninstalls from, its own throwaway
-# HOME, so the real shell configuration is never touched.
+# BetterBash end to end installation tests.
 #
-# Usage: ./test-install-methods.sh [options]
+# Every download method of getbb.sh is run against a staging of this working
+# copy, in a throwaway home directory, and the result is checked: the files that
+# land in ~/.bb, the theme that was decoded, the hook in ~/.bashrc, the readline
+# block in ~/.inputrc, and the prompt prompt/bb.sh finally builds. removebb.sh is
+# run afterwards and has to leave nothing behind.
 #
-#   --base-host HOST   host the client side of the checks connects as (default
-#                      localhost; pass the address of a machine running ./dev.sh
-#                      with --site-host 0.0.0.0 to test it over the network)
-#   --http-port PORT     plain HTTP backend port (default 18081, used by curl/wget)
-#   --https-port PORT    HTTPS backend port    (default 18443, used by openssl)
-#   --repo PATH          repository checkout to serve (default: this one)
-#   --code CODE          theme code to install (default vN-y_5uA)
-#   --keep               keep the temporary HOMEs for inspection
+#   ./test-install-methods.sh                       # all methods, both shells
+#   ./test-install-methods.sh --code vN-y_5uA       # theme code to install
+#   ./test-install-methods.sh --live URL            # test a deployed site instead
+#   ./test-install-methods.sh --method curl         # one method only
+#   ./test-install-methods.sh --shell dash          # one shell only
+#   ./test-install-methods.sh --keep                # keep the test homes
 #
-# If a backend already listens on the requested port it is reused, otherwise one
-# is started for the duration of the test.
+# --live is how this checks a deployment (GitHub Pages) rather than a working
+# copy; it needs no server and no certificate:
+#
+#   ./test-install-methods.sh --live https://betterbash.cz0.cz --code vN-y_5uA
+#
+# The staging served locally is produced by tests/stage-downloads.sh, the same
+# script the Pages workflow uses, so the layout cannot drift apart from it. A
+# self signed certificate is generated for the openssl method.
 
-set -uo pipefail
+set -u
 
-REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-BASE_HOST=localhost
-HTTP_PORT=18081
-HTTPS_PORT=18443
-REPO_PATH="$REPO_ROOT"
-CODE="vN-y_5uA"
-KEEP=0
+REPO_ROOT=$(cd "$(dirname "$0")" && pwd)
+BB_TEST_CODE=${BB_TEST_CODE:-vN-y_5uA}
+BB_TEST_METHODS=${BB_TEST_METHODS:-curl wget openssl}
+BB_TEST_SHELLS=${BB_TEST_SHELLS:-sh bash dash}
+BB_LIVE_URL=""
+BB_KEEP=0
+BB_HTTP_PORT=0
+BB_HTTPS_PORT=0
+BB_SERVE_DIR=$REPO_ROOT
+
+PASS=0
+FAIL=0
+
+# --- helpers ----------------------------------------------------------------
+
+log_info() {
+  printf '\n\033[36m>> %s\033[0m\n' "$*"
+}
+
+log_success() {
+  printf '\033[32m     PASS\033[0m %s\n' "$*"
+  PASS=$(( PASS + 1 ))
+}
+
+log_error() {
+  printf '\033[31m     FAIL\033[0m %s\n' "$*"
+  FAIL=$(( FAIL + 1 ))
+}
+
+# expect_file PATH DESCRIPTION
+expect_file() {
+  if [ -f "$1" ]; then
+    log_success "$2"
+  else
+    log_error "$2 (missing $1)"
+  fi
+}
+
+# expect_grep PATTERN FILE DESCRIPTION
+expect_grep() {
+  if grep -q -- "$1" "$2" 2>/dev/null; then
+    log_success "$3"
+  else
+    log_error "$3 (no '$1' in $2)"
+  fi
+}
+
+expect_not_grep() {
+  if grep -q -- "$1" "$2" 2>/dev/null; then
+    log_error "$2 still contains '$1' ($3)"
+  else
+    log_success "$3"
+  fi
+}
+
+# new_home -> echoes a fresh home directory, exported as $HOME for the run
+new_home() {
+  _home=$(mktemp -d)
+  # The two files getbb.sh appends to have to exist, like on a normal machine.
+  : >"$_home/.bashrc"
+  : >"$_home/.inputrc"
+  printf '%s' "$_home"
+}
 
 while [ $# -gt 0 ]; do
-  case "$1" in
-    --base-host) BASE_HOST="$2"; shift 2 ;;
-    --http-port) HTTP_PORT="$2"; shift 2 ;;
-    --https-port) HTTPS_PORT="$2"; shift 2 ;;
-    --repo) REPO_PATH="$2"; shift 2 ;;
-    --code) CODE="$2"; shift 2 ;;
-    --keep) KEEP=1; shift ;;
-    *) echo "unknown option: $1" >&2; exit 2 ;;
-  esac
-done
-
-for command in go git curl wget openssl; do
-  command -v "$command" >/dev/null || { echo "missing requirement: $command" >&2; exit 1; }
-done
-
-# Everything below talks to the backend through these two, so --base-host moves
-# the whole suite to another machine.
-BASE_URL="http://${BASE_HOST}:${HTTP_PORT}"
-TLS_CONNECT="${BASE_HOST}:${HTTPS_PORT}"
-WORK_DIR="$(mktemp -d)"
-BACKEND_PID=""
-FAILURES=0
-
-stop_backend() {
-  if [ -n "$BACKEND_PID" ] && kill -0 "$BACKEND_PID" 2>/dev/null; then
-    kill "$BACKEND_PID" 2>/dev/null || true
-    wait "$BACKEND_PID" 2>/dev/null || true
-  fi
-}
-
-finish() {
-  stop_backend
-  if [ "$KEEP" = "1" ]; then
-    echo "temporary files kept in $WORK_DIR"
-  elif [ -d "$WORK_DIR" ]; then
-    rm -rf "$WORK_DIR"
-  fi
-}
-trap finish EXIT INT TERM
-
-start_backend() {
-  # Starting one is only possible on this machine; a remote base host has to be
-  # started over there with ./dev.sh.
-  if [ "$BASE_HOST" != localhost ]; then
-    echo "cannot start a backend for --base-host $BASE_HOST here, start it over there with ./dev.sh --public-host $BASE_HOST" >&2
-    return 1
-  fi
-
-  echo "==> Starting a development backend on ${BASE_URL} (TLS ${TLS_CONNECT})"
-  (cd "$REPO_PATH/webpage/backend" && go build -o "$WORK_DIR/bbb" .) || return 1
-
-  APP_ENV=development \
-  BB_HTTP_PORT="$HTTP_PORT" \
-  BB_HTTPS_PORT="$HTTPS_PORT" \
-  BB_REPO_PATH="$REPO_PATH" \
-  BB_REPO_LOCAL=true \
-  BB_REDIRECT_URL="$BASE_URL" \
-    "$WORK_DIR/bbb" >"$WORK_DIR/backend.log" 2>&1 &
-  BACKEND_PID=$!
-
-  for _ in $(seq 1 50); do
-    curl -fsS -o /dev/null "$BASE_URL/stats" 2>/dev/null && return 0
-    sleep 0.2
-  done
-
-  echo "the backend did not come up, its log:" >&2
-  cat "$WORK_DIR/backend.log" >&2
-  return 1
-}
-
-# --- checks -------------------------------------------------------------
-
-pass() { printf '  \033[32mok\033[0m   %s\n' "$1"; }
-fail() { printf '  \033[31mFAIL\033[0m %s\n' "$1"; FAILURES=$(( FAILURES + 1 )); }
-
-check() {
-  local description="$1"; shift
-  if "$@" >/dev/null 2>&1; then pass "$description"; else fail "$description"; fi
-}
-
-install_with_curl() {
-  local script="$1" home="$2"
-  curl -sL "${BASE_URL}/${CODE}/${script}" | HOME="$home" bash -s curl
-}
-
-install_with_wget() {
-  local script="$1" home="$2"
-  wget -q -O - "${BASE_URL}/${CODE}/${script}" | HOME="$home" bash -s wget
-}
-
-install_with_openssl() {
-  local script="$1" home="$2"
-  echo -e "GET /${CODE}/${script} HTTP/1.1\r\nHost: ${TLS_CONNECT}\r\nConnection: close\r\n\r\n" \
-    | openssl s_client -quiet -connect "$TLS_CONNECT" 2>/dev/null \
-    | sed '1,/^\r$/d' | HOME="$home" bash -s openssl
-}
-
-verify_installation() {
-  local method="$1" home="$2" label="$3"
-
-  check "$label: bb.sh downloaded" test -s "$home/.bb/bb.sh"
-  check "$label: theme injected into bb.sh" grep -q "^PRIMARY_COLOR=" "$home/.bb/bb.sh"
-  check "$label: avatar flag injected into bb.sh" grep -q "^AVATAR=" "$home/.bb/bb.sh"
-  check "$label: git-prompt.sh downloaded" test -s "$home/.bb/git-prompt.sh"
-  check "$label: inputrc appended" grep -q "BetterBash" "$home/.inputrc"
-  check "$label: bashrc updated" grep -q "BetterBash" "$home/.bashrc"
-  check "$label: prompt function builds PS1" bash -c "
-      HOME='$home'
-      . '$home/.bb/bb.sh'
-      __prompt_command
-      [ -n \"\$PS1\" ]
-    "
-}
-
-# The download script handed out by the development backend has to point back at
-# it, otherwise the installation stops working after its first request.
-verify_endpoint_injection() {
-  local method="$1"
-  local file="$WORK_DIR/getbb-$method.sh"
-  local label="$method endpoints"
-
-  local base_url="$BASE_URL/$CODE"
-
-  case "$method" in
-    curl) curl -fsS -o "$file" "${BASE_URL}/${CODE}/getbb.sh" ;;
-    openssl)
-      base_url="https://${TLS_CONNECT}/${CODE}"
-      echo -e "GET /${CODE}/getbb.sh HTTP/1.1\r\nHost: ${TLS_CONNECT}\r\nConnection: close\r\n\r\n" \
-        | openssl s_client -quiet -connect "$TLS_CONNECT" 2>/dev/null \
-        | sed '1,/^\r$/d' >"$file"
+  case $1 in
+    --code) BB_TEST_CODE=${2:-}; shift ;;
+    --dir) BB_SERVE_DIR=$(cd "${2:-}" && pwd); shift ;;
+    --live) BB_LIVE_URL=${2:-}; shift ;;
+    --method) BB_TEST_METHODS=${2:-}; shift ;;
+    --shell | --shells) BB_TEST_SHELLS=${2:-}; shift ;;
+    --http-port) BB_HTTP_PORT=${2:-}; shift ;;
+    --https-port) BB_HTTPS_PORT=${2:-}; shift ;;
+    --keep) BB_KEEP=1 ;;
+    -h | --help)
+      awk 'NR <= 2 { next } /^#/ { sub(/^# ?/, ""); print; next } { exit }' "$0"
+      exit 0
+      ;;
+    *)
+      printf 'unknown option: %s\n' "$1" >&2
+      exit 2
       ;;
   esac
-
-  check "$label: script downloaded" test -s "$file"
-  check "$label: curl/wget base url rewritten" grep -q "^BB_BASE_URL='${base_url}'" "$file"
-  # A script fetched over TLS must not be chunked, bash would choke on the
-  # markers and on stray carriage returns.
-  check "$label: no carriage returns left in the script" bash -c "! grep -q $'\\r' '$file'"
-  check "$label: openssl target rewritten" grep -q "^BB_TLS_PORT='${HTTPS_PORT}'" "$file"
-  check "$label: no production endpoint left behind" bash -c "! grep -q 'git.cz0.cz\|bb.cz0.cz' '$file'"
-}
-
-verify_uninstallation() {
-  local method="$1" home="$2" label="$3"
-
-  check "$label: ~/.bb removed" test ! -e "$home/.bb"
-  check "$label: bashrc cleaned" bash -c "! grep -q 'BetterBash' '$home/.bashrc'"
-  check "$label: inputrc cleaned" bash -c "! grep -q 'BetterBash' '$home/.inputrc'"
-}
-
-run_method() {
-  local method="$1"
-  local home="$WORK_DIR/$method"
-  local label="$method install/uninstall via $BASE_URL"
-
-  mkdir -p "$home"
-  echo "==> $method"
-
-  case "$method" in
-    curl) install_with_curl getbb.sh "$home" ;;
-    wget) install_with_wget getbb.sh "$home" ;;
-    openssl) install_with_openssl getbb.sh "$home" ;;
-    *) fail "unknown method $method"; return ;;
-  esac
-
-  verify_installation "$method" "$home" "$label"
-
-  case "$method" in
-    curl) install_with_curl removebb.sh "$home" ;;
-    wget) install_with_wget removebb.sh "$home" ;;
-    openssl) install_with_openssl removebb.sh "$home" ;;
-  esac
-
-  verify_uninstallation "$method" "$home" "$label"
-}
-
-# --- run ----------------------------------------------------------------
-
-if curl -fsS -o /dev/null "$BASE_URL/stats" 2>/dev/null; then
-  echo "==> Reusing the backend already listening on ${BASE_URL}"
-else
-  start_backend || exit 1
-fi
-
-verify_endpoint_injection curl
-verify_endpoint_injection openssl
-
-for method in curl wget openssl; do
-  run_method "$method"
+  shift
 done
 
-echo "==> Random theme endpoint through $BASE_URL"
-random_script="$WORK_DIR/rand-getbb.sh"
-curl -fsS -o "$random_script" "${BASE_URL}/rand/getbb.sh"
-if [ -s "$random_script" ]; then
-  pass "rand/getbb.sh served"
-  rand_home="$WORK_DIR/rand"
-  mkdir -p "$rand_home"
-  curl -fsS "${BASE_URL}/rand/getbb.sh" | HOME="$rand_home" bash -s curl >/dev/null 2>&1
-  check "rand install produced a themed bb.sh" grep -q "^PRIMARY_COLOR=" "$rand_home/.bb/bb.sh"
+case $BB_TEST_CODE in
+  rand) ;;
+  ????????) ;;
+  *)
+    printf '%s is not a theme code (eight characters of A-Za-z0-9_-, or "rand")\n' "$BB_TEST_CODE" >&2
+    exit 2
+    ;;
+esac
+
+WORK=$(mktemp -d)
+SERVER_PID=""
+HOMES=""
+
+cleanup() {
+  [ -n "$SERVER_PID" ] && kill "$SERVER_PID" 2>/dev/null
+  wait "$SERVER_PID" 2>/dev/null
+  [ -n "$HOMES" ] || return 0
+  if [ "$BB_KEEP" = "1" ]; then
+    printf '\nKept test homes:%s\n' "$(printf '%s' "$HOMES" | tr '\n' ' ')"
+    return 0
+  fi
+  for _h in $HOMES; do rm -rf "$_h"; done
+}
+trap cleanup EXIT INT TERM
+
+# --- staging and server -----------------------------------------------------
+
+STAGE=$WORK/downloads
+BASES=""
+
+if [ -n "$BB_LIVE_URL" ]; then
+  log_info "testing the deployment at $BB_LIVE_URL"
+  BASES=$BB_LIVE_URL
+  # The installers of the deployment are what the user runs, so they are fetched
+  # rather than taken from this working copy.
+  mkdir -p "$WORK/live"
+  for _f in getbb.sh removebb.sh; do
+    if ! curl -fsSL "$BB_LIVE_URL/$_f" >"$WORK/live/$_f" 2>"$WORK/fetch.log"; then
+      log_error "could not download $_f from $BB_LIVE_URL"
+      sed 's/^/       /' "$WORK/fetch.log"
+      exit 1
+    fi
+  done
+  SCRIPT_GET=$WORK/live/getbb.sh
+  SCRIPT_REMOVE=$WORK/live/removebb.sh
 else
-  fail "rand/getbb.sh served"
+  SCRIPT_GET=$STAGE/getbb.sh
+  SCRIPT_REMOVE=$STAGE/removebb.sh
+  log_info "staging the files of $BB_SERVE_DIR"
+  if ! "$REPO_ROOT/tests/stage-downloads.sh" "$STAGE"; then
+    log_error "staging failed"
+    exit 1
+  fi
+
+  # TLS for the openssl method, with a certificate that is valid for one day and
+  # for localhost only.
+  CERT=$WORK/localhost.pem
+  KEY=$WORK/localhost.key
+  HTTPS_ENABLED=1
+  if ! openssl req -x509 -newkey rsa:2048 -nodes -days 1 \
+    -keyout "$KEY" -out "$CERT" -subj /CN=localhost \
+    -addext 'subjectAltName=DNS:localhost,IP:127.0.0.1' >"$WORK/openssl.log" 2>&1; then
+    HTTPS_ENABLED=0
+    log_error "could not create the self signed certificate, the openssl method will be skipped"
+    cat "$WORK/openssl.log"
+  fi
+
+  # Ports 0 asks the kernel for free ones; the server reports them.
+  if [ "$HTTPS_ENABLED" = "1" ]; then
+    _https_port=$BB_HTTPS_PORT
+  else
+    _https_port=-
+  fi
+  node "$REPO_ROOT/tests/static-server.js" "$STAGE" "$BB_HTTP_PORT" \
+    "$_https_port" "$CERT" "$KEY" >"$WORK/server.log" 2>&1 &
+  SERVER_PID=$!
+
+  _waited=0
+  while [ $_waited -lt 50 ]; do
+    grep -q 'listening https ' "$WORK/server.log" 2>/dev/null && break
+    grep -q 'static server failed' "$WORK/server.log" 2>/dev/null && break
+    sleep 0.1
+    _waited=$((_waited + 1))
+  done
+
+  HTTP_PORT=$(sed -n 's/^listening http 127\.0\.0\.1:\([0-9]*\)$/\1/p' "$WORK/server.log")
+  HTTPS_PORT=$(sed -n 's/^listening https 127\.0\.0\.1:\([0-9]*\)$/\1/p' "$WORK/server.log")
+
+  if [ -z "$HTTP_PORT" ]; then
+    log_error "the static server did not start:"
+    sed 's/^/       /' "$WORK/server.log"
+    exit 1
+  fi
+  BASES="http://127.0.0.1:$HTTP_PORT"
+  [ -n "$HTTPS_PORT" ] && BASES="$BASES https://localhost:$HTTPS_PORT"
+
+  # curl, wget and openssl each need to be told to trust the test certificate.
+  CURL_CA_BUNDLE=$CERT
+  export CURL_CA_BUNDLE
+  # wget reads its config from $WGETRC; the value of ca_certificate is taken
+  # literally, so it must not be quoted.
+  printf 'ca_certificate = %s\n' "$CERT" >"$WORK/wgetrc"
+  WGETRC=$WORK/wgetrc
+  export WGETRC
+
+  log_info "serving $(printf '%s\n' "$BASES" | tr '\n' ' ')"
 fi
 
-echo
-if [ "$FAILURES" = "0" ]; then
-  echo "All installation methods work against $BASE_URL"
+# --- the checks -------------------------------------------------------------
+
+# A run installs into HOME and returns the exit status of the installer.
+run_install() {
+  _shell=$1
+  _base=$2
+  _method=$3
+  shift 3
+  HOME=$_target_home BB_DIR=$_target_home/.bb "$_shell" "$_script" \
+    --base-url "$_base" "$_method" "$@" >"$_log" 2>&1
+}
+
+# check_theme HOME: the decoded theme has to be the one the code stands for, and
+# it has to be the theme prompt/bb.sh actually uses.
+check_theme() {
+  _home=$1
+  _code=$2
+
+  if [ ! -f "$_home/.bb/theme.sh" ]; then
+    log_error "theme written for $_code"
+    return
+  fi
+
+  # A random install is checked through the code it drew and stored.
+  if [ "$_code" = rand ]; then
+    _code=$(cat "$_home/.bb/theme-code" 2>/dev/null)
+  fi
+
+  # Decode the code with the library that was installed and compare.
+  ( . "$_home/.bb/bb-theme.sh" && bb_theme_decode "$_code" ) >"$WORK/expected-theme" 2>/dev/null
+  sed -n '/^PRIMARY_COLOR=/,$p' "$_home/.bb/theme.sh" >"$WORK/actual-theme"
+  if diff -q "$WORK/expected-theme" "$WORK/actual-theme" >"$WORK/theme.diff" 2>&1; then
+    log_success "theme of $_code decoded by the installed library matches ~/.bb/theme.sh"
+  else
+    log_error "theme of $_code does not match what the installed library decodes"
+    sed 's/^/       /' "$WORK/theme.diff"
+  fi
+
+  if [ "$2" = "rand" ]; then
+    _stored=$(cat "$_home/.bb/theme-code" 2>/dev/null)
+    expect_grep '^[A-Za-z0-9_-]\{8\}$' "$_home/.bb/theme-code" "a random install remembers its code"
+    if ( . "$_home/.bb/bb-theme.sh" && bb_theme_decode "$_stored" ) 2>/dev/null |
+      diff -q - "$WORK/actual-theme" >/dev/null 2>&1; then
+      log_success "the remembered code $_stored decodes to the installed theme"
+    else
+      log_error "the remembered code $_stored decodes to the installed theme"
+    fi
+  fi
+
+  # The prompt is the whole point: source bb.sh and build PS1.
+  _ps1=$(HOME=$_home BB_DIR=$_home/.bb bash -c \
+    '. "$HOME/.bb/bb.sh" >/dev/null 2>&1; __prompt_command; printf "%s" "$PS1"' 2>/dev/null)
+  if [ -n "$_ps1" ]; then
+    log_success "prompt/bb.sh builds a PS1 ($_base $_method)"
+  else
+    log_error "prompt/bb.sh builds a PS1 ($_base $_method)"
+  fi
+  # The theme reached the prompt: every colour in PS1 has to come from theme.sh.
+  _theme_color=$(sed -n 's/^PRIMARY_COLOR=.*033\[\([0-9;]*\)m.*/\1/p' "$_home/.bb/theme.sh")
+  _needle="033[${_theme_color}m"
+  case $_ps1 in
+    *"$_needle"*) log_success "PS1 uses the colour $_theme_color of the theme" ;;
+    *)
+      log_error "PS1 uses the colour $_theme_color of the theme"
+      printf '       PS1: %s\n' "$(printf '%s' "$_ps1" | cat -v | head -c 200)"
+      ;;
+  esac
+}
+
+# check_installed_files HOME
+check_installed_files() {
+  _home=$1
+  expect_file "$_home/.bb/bb.sh" "prompt/bb.sh installed"
+  expect_file "$_home/.bb/git-prompt.sh" "prompt/git-prompt.sh installed"
+  expect_file "$_home/.bb/bb-theme.sh" "prompt/bb-theme.sh installed (the decoder travels with the prompt)"
+  expect_file "$_home/.bb/theme.sh" "theme.sh installed"
+  expect_file "$_home/.bb/theme-code" "theme-code installed (the code that produced it)"
+  expect_grep '__prompt_command' "$_home/.bb/bb.sh" "installed prompt/bb.sh is the BetterBash prompt"
+  expect_grep 'BetterBash' "$_home/.bashrc" "hook added to ~/.bashrc"
+  expect_grep 'history-search-backward' "$_home/.inputrc" "readline block added to ~/.inputrc"
+
+  # Nothing half written may be left in the directory the prompt is sourced from.
+  _leftovers=$(ls -A "$_home/.bb" | grep -v -E '^(bb\.sh|bb-theme\.sh|git-prompt\.sh|theme\.sh|theme-code)$' || true)
+  if [ -z "$_leftovers" ]; then
+    log_success "~/.bb holds only the files of the installation"
+  else
+    log_error "~/.bb holds only the files of the installation (found: $_leftovers)"
+  fi
+}
+
+check_uninstalled() {
+  _home=$1
+  if [ -d "$_home/.bb" ]; then
+    log_error "~/.bb removed by removebb.sh"
+  else
+    log_success "~/.bb removed by removebb.sh"
+  fi
+  expect_not_grep 'BetterBash' "$_home/.bashrc" "~/.bashrc cleaned"
+  expect_not_grep 'BetterBash' "$_home/.inputrc" "~/.inputrc cleaned"
+}
+
+# --- every method and shell --------------------------------------------------
+
+for _base in $BASES; do
+  for _shell in $BB_TEST_SHELLS; do
+    command -v "$_shell" >/dev/null 2>&1 || continue
+    for _method in $BB_TEST_METHODS; do
+      case $_method in
+        openssl)
+          # The openssl method speaks TLS, so it only makes sense on https.
+          case $_base in
+            https://*) ;;
+            *) continue ;;
+          esac
+          ;;
+      esac
+
+      log_info "$_shell + $_method from $_base, theme code $BB_TEST_CODE"
+      _target_home=$(new_home)
+      HOMES="$HOMES $_target_home"
+      _script=$SCRIPT_GET
+      _log=$WORK/install.log
+
+      if run_install "$_shell" "$_base" "$_method" "$BB_TEST_CODE"; then
+        log_success "getbb.sh finished without error"
+      else
+        log_error "getbb.sh failed"
+        sed 's/^/       /' "$_log"
+        continue
+      fi
+
+      check_installed_files "$_target_home"
+      check_theme "$_target_home" "$BB_TEST_CODE"
+
+      log_info "$_shell + $_method uninstall"
+      if HOME=$_target_home BB_DIR=$_target_home/.bb "$_shell" "$SCRIPT_REMOVE" \
+        "$_method" >"$WORK/remove.log" 2>&1; then
+        log_success "removebb.sh finished without error"
+      else
+        log_error "removebb.sh failed"
+        sed 's/^/       /' "$WORK/remove.log"
+      fi
+      check_uninstalled "$_target_home"
+    done
+  done
+done
+
+# --- the command of the WebUI, through a pipe --------------------------------
+
+# The first shell of the list is enough here: what is under test is the shape of
+# the command the WebUI shows, not the shell that runs it.
+PIPE_SHELL=""
+for _shell in $BB_TEST_SHELLS; do
+  command -v "$_shell" >/dev/null 2>&1 && PIPE_SHELL=$_shell && break
+done
+
+for _base in $BASES; do
+  [ -n "$PIPE_SHELL" ] || break
+  log_info "$_base: the curl pipeline exactly as the WebUI prints it"
+  _target_home=$(new_home)
+  HOMES="$HOMES $_target_home"
+  # BB_BASE_URL is exported for the same reason the WebUI puts the host into the
+  # command: a script arriving through a pipe cannot know where it came from.
+  if HOME=$_target_home BB_BASE_URL=$_base "$PIPE_SHELL" -c \
+    "curl -sL $_base/getbb.sh | $PIPE_SHELL -s -- curl $BB_TEST_CODE" \
+    >"$WORK/pipe.log" 2>&1; then
+    log_success "curl -sL .../getbb.sh | $PIPE_SHELL -s -- curl $BB_TEST_CODE"
+  else
+    log_error "curl -sL .../getbb.sh | $PIPE_SHELL -s -- curl $BB_TEST_CODE"
+    sed 's/^/       /' "$WORK/pipe.log"
+  fi
+  check_installed_files "$_target_home"
+done
+
+# --- random themes ------------------------------------------------------------
+
+for _base in $BASES; do
+  log_info "$_base: a random theme is drawn once and kept"
+  _target_home=$(new_home)
+  HOMES="$HOMES $_target_home"
+  _script=$SCRIPT_GET
+  _shell=$PIPE_SHELL
+  [ -n "$_shell" ] || break
+
+  HOME=$_target_home "$_shell" "$_script" --base-url "$_base" curl rand >"$WORK/rand.log" 2>&1
+  _first=$(cat "$_target_home/.bb/theme-code" 2>/dev/null)
+  HOME=$_target_home "$_shell" "$_script" --base-url "$_base" curl rand >"$WORK/rand2.log" 2>&1
+  _second=$(cat "$_target_home/.bb/theme-code" 2>/dev/null)
+  HOME=$_target_home BB_THEME_REROLL=1 "$_shell" "$_script" --base-url "$_base" curl rand \
+    >"$WORK/rand3.log" 2>&1
+  _third=$(cat "$_target_home/.bb/theme-code" 2>/dev/null)
+
+  if [ -n "$_first" ] && [ "$_first" = "$_second" ]; then
+    log_success "two random installs keep the theme $_first of the first one"
+  else
+    log_error "two random installs keep one theme (got '$_first' then '$_second')"
+  fi
+  if [ -n "$_third" ] && [ "$_third" != "$_first" ]; then
+    log_success "BB_THEME_REROLL=1 draws a new theme ($_third)"
+  else
+    log_error "BB_THEME_REROLL=1 draws a new theme (got '$_third')"
+  fi
+  check_theme "$_target_home" rand
+  break
+done
+
+# The command of older releases, without a theme code: reinstalling has to keep
+# the theme that is already installed rather than replace it with another one.
+for _base in $BASES; do
+  log_info "$_base: an install command without a theme code keeps the theme"
+  _target_home=$(new_home)
+  HOMES="$HOMES $_target_home"
+  _script=$SCRIPT_GET
+  _shell=$PIPE_SHELL
+  [ -n "$_shell" ] || break
+
+  HOME=$_target_home "$_shell" "$_script" --base-url "$_base" curl >"$WORK/nocode.log" 2>&1
+  _first=$(cat "$_target_home/.bb/theme-code" 2>/dev/null)
+  HOME=$_target_home "$_shell" "$_script" --base-url "$_base" curl >"$WORK/nocode2.log" 2>&1
+  _second=$(cat "$_target_home/.bb/theme-code" 2>/dev/null)
+
+  if [ -n "$_first" ] && [ "$_first" = "$_second" ]; then
+    log_success "a reinstall without a code keeps theme $_first"
+  else
+    log_error "a reinstall without a code keeps one theme (got '$_first' then '$_second')"
+  fi
+  check_installed_files "$_target_home"
+  break
+done
+
+# --- bad input ----------------------------------------------------------------
+
+log_info 'refusing bad input before downloading anything'
+for _bad in 'nope' 'vN-y_5uA/' '../../etc/passwd' ''; do
+  _target_home=$(new_home)
+  HOMES="$HOMES $_target_home"
+  if HOME=$_target_home sh "$SCRIPT_GET" --base-url http://127.0.0.1:1 curl "$_bad" \
+    >"$WORK/bad.log" 2>&1; then
+    log_error "'$_bad' is refused"
+  else
+    log_success "'$_bad' is refused"
+  fi
+  if [ -e "$_target_home/.bb/bb.sh" ]; then
+    log_error "'$_bad' is refused before anything is downloaded"
+  else
+    log_success "'$_bad' is refused before anything is downloaded"
+  fi
+done
+
+# A host that does not answer must not leave a half installed prompt behind.
+_target_home=$(new_home)
+HOMES="$HOMES $_target_home"
+if HOME=$_target_home sh "$SCRIPT_GET" --base-url http://127.0.0.1:1 curl "$BB_TEST_CODE" \
+  >"$WORK/dead.log" 2>&1; then
+  log_error "a dead download host is reported as a failure"
 else
-  echo "$FAILURES check(s) failed"
+  log_success "a dead download host is reported as a failure"
 fi
-exit "$FAILURES"
+if [ -e "$_target_home/.bb/bb.sh" ] || [ -e "$_target_home/.bb/theme.sh" ] ||
+  grep -q BetterBash "$_target_home/.bashrc"; then
+  log_error "a dead download host leaves nothing installed"
+else
+  log_success "a dead download host leaves nothing installed"
+fi
+
+# --- summary -----------------------------------------------------------------
+
+echo
+echo "Tests passed: $PASS"
+echo "Tests failed: $FAIL"
+exit "$FAIL"
