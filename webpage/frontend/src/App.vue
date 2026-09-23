@@ -34,6 +34,9 @@ const uninstallFlag = ref(false);
 // Random mode: the install command asks for the word "rand" instead of a theme
 // code, so the machine that runs it draws its own theme and remembers it.
 const randomFlag = ref(false);
+// Automatic mode: the command drops the question it asks before running the
+// installer. It is meant for scripts and containers, where nobody can answer.
+const autoFlag = ref(false);
 
 const activeTab = ref('curl');
 
@@ -310,20 +313,27 @@ const installThemeCode = computed(() =>
   randomFlag.value ? 'rand' : generateShareCode(selectedColorAttributes.value, showAvatar.value)
 );
 
-const installScriptName = computed(() => (uninstallFlag.value ? 'removebb.sh' : 'getbb.sh'));
+// What the fetched tree is asked to do, and with which theme code.
+const installKind = computed(() => (uninstallFlag.value ? 'uninstall' : 'install'));
 
 const randomToggleHint =
   'Random theme mode: the command installs without a theme code and draws one on the machine that runs it, so the colors selected above are ignored. A reinstall keeps that theme until a new one is drawn.';
 
-// The commands download from the origin serving this page (see src/config.js);
-// the uninstaller gets no theme code, colors are not its business.
+const autoToggleHint =
+  'Automatic mode: the command drops the question it asks before running the installer. Without the question nothing can be answered, so it is the variant for scripts and containers; an interactive shell should keep being asked.';
+
+// Every command fetches from the origin serving this page and then installs from
+// the tree it fetched (see src/config.js); the uninstaller gets no theme code,
+// colors are not its business.
 const currentInstallCommands = computed(() =>
   installCommands({
-    script: installScriptName.value,
+    kind: installKind.value,
     code: uninstallFlag.value ? null : installThemeCode.value,
+    auto: autoFlag.value,
   })
 );
 
+const gitInstallUrl = computed(() => currentInstallCommands.value.git);
 const curlInstallUrl = computed(() => currentInstallCommands.value.curl);
 const wgetInstallUrl = computed(() => currentInstallCommands.value.wget);
 const opensslInstallUrl = computed(() => currentInstallCommands.value.openssl);
@@ -348,6 +358,19 @@ async function copyUrlToClipboard() {
 }
 
 const copyCmdSuccess = ref(false);
+
+async function copyGitCmdToClipboard() {
+  try {
+    await navigator.clipboard.writeText(gitInstallUrl.value);
+    copyCmdSuccess.value = true;
+    setTimeout(() => {
+      copyCmdSuccess.value = false;
+    }, 2000);
+  } catch (err) {
+    console.error('Failed to copy install command: ', err);
+        alert('Failed to copy install command. Please copy it manually.');
+  }
+}
 
 async function copyCurlCmdToClipboard() {
   try {

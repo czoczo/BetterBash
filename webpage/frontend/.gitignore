@@ -37,3 +37,6 @@ core
 /public/removebb.sh
 /public/.inputrc
 /public/prompt/
+
+/public/bb.tgz
+/public/bb.tgz.sha256

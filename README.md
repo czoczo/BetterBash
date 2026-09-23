@@ -32,44 +32,54 @@
 Support this project by **giving it a star**. Thanks!
 
 ## :rocket: Install:
-The eight characters after `-- curl` are the theme: `vN-y_5uA` is one colour
-scheme, another code is another scheme, and the word `rand` draws a random theme
-on the machine that runs the command and keeps it there. Configure the code at
-[betterbash.cz0.cz](https://betterbash.cz0.cz), which shows exactly the command
-for what you picked.
+Every command does the same three things: **fetch** the BetterBash tree, **ask**
+whether to go on (answer `y`, or `n` and nothing at all happened beyond a
+directory in `/tmp`), then **install** from what was fetched. Nothing is piped
+into a shell, so the fetched scripts can be read before they are run.
 
+The eight characters of the theme are `vN-y_5uA`: one code, one colour scheme,
+and the word `rand` draws a random theme on the machine that runs the command and
+keeps it there. Configure it at [betterbash.cz0.cz](https://betterbash.cz0.cz),
+which prints these commands for what you picked - including the tag of the
+release it points at, which is worth knowing when you update.
+
+with **git**
+```
+git clone -q --depth 1 --branch 0.1.3 https://github.com/czoczo/BetterBash /tmp/bb && read -p"install BetterBash from /tmp/bb? [y/N] " -n1 && [[ $REPLY == [Yy] ]] && sh /tmp/bb/installbb.sh vN-y_5uA && . ~/.bashrc
+```
 with **curl**
 ```
-curl -sL https://betterbash.cz0.cz/getbb.sh | bash -s -- curl vN-y_5uA && . ~/.bashrc
+curl -sL https://betterbash.cz0.cz/bb.tgz | tar -C /tmp -xz && read -p"install BetterBash from /tmp/bb? [y/N] " -n1 && [[ $REPLY == [Yy] ]] && sh /tmp/bb/installbb.sh vN-y_5uA && . ~/.bashrc
 ```
 with **wget**
 ```
-wget -q -O - https://betterbash.cz0.cz/getbb.sh | bash -s -- wget vN-y_5uA && . ~/.bashrc
+wget -q -O - https://betterbash.cz0.cz/bb.tgz | tar -C /tmp -xz && read -p"install BetterBash from /tmp/bb? [y/N] " -n1 && [[ $REPLY == [Yy] ]] && sh /tmp/bb/installbb.sh vN-y_5uA && . ~/.bashrc
 ```
-with **openssl** (no dependencies needed)
+with **openssl** (needs no git, curl or wget)
 ```
-echo -e "GET /getbb.sh HTTP/1.1\r\nHost: betterbash.cz0.cz\r\nConnection: close\r\n\r\n" \
+printf 'GET /bb.tgz HTTP/1.1\r\nHost: betterbash.cz0.cz\r\nConnection: close\r\n\r\n' \
 | openssl s_client -quiet -connect betterbash.cz0.cz:443 -servername betterbash.cz0.cz 2>/dev/null \
-| sed '1,/^\r$/d' | sed 's/\r$//' | bash -s -- openssl vN-y_5uA && . ~/.bashrc
+| sed '1,/^\r$/d' | tar -C /tmp -xz && read -p"install BetterBash from /tmp/bb? [y/N] " -n1 && [[ $REPLY == [Yy] ]] && sh /tmp/bb/installbb.sh vN-y_5uA && . ~/.bashrc
 ```
+The question is written for bash (`[[ ]]`); for a script or a container, tick
+**Auto** on the page and the command answers itself by running
+`installbb.sh --yes`.
+
+`bb.tgz` unpacks a directory named `bb`, so `/tmp` is where it lands and `/tmp/bb`
+is what you say yes to. `/tmp` is shared with every other user of the machine, so
+`installbb.sh` refuses to copy a tree that anyone but you can write, and it copies
+only the files it knows instead of the whole tree.
+
 ## :wrench: Uninstall:
-bash session needs a restart in order to uninstall to take effect. Colours are
-not the uninstaller's business, so it takes no theme code.
-
-with **curl**
+The uninstaller is installed with the prompt, so removing needs no theme code and
+nothing is fetched either:
 ```
-curl -sL https://betterbash.cz0.cz/removebb.sh | bash -s -- curl && . ~/.bashrc
+sh ~/.bb/removebb.sh
 ```
-with **wget**
-```
-wget -q -O - https://betterbash.cz0.cz/removebb.sh | bash -s -- wget && . ~/.bashrc
-```
-with **openssl** (no dependencies needed)
-```
-echo -e "GET /removebb.sh HTTP/1.1\r\nHost: betterbash.cz0.cz\r\nConnection: close\r\n\r\n" \
-| openssl s_client -quiet -connect betterbash.cz0.cz:443 -servername betterbash.cz0.cz 2>/dev/null \
-| sed '1,/^\r$/d' | sed 's/\r$//' | bash -s -- openssl && . ~/.bashrc
-```
+A bash session needs a restart for it to take effect. If you would rather fetch
+the tree again (or never installed), the page prints uninstall commands for all
+four methods, which fetch the tree into `/tmp/bb` and ask the same question about
+removing.
 
 ## :microscope: Development
 
@@ -80,15 +90,18 @@ Everything BetterBash needs is in this repository, and nothing runs a server:
 | `prompt/bb.sh` | the prompt itself (bash) |
 | `prompt/bb-theme.sh` | theme library: validates a code, decodes it to the nine prompt colours, draws a random one (`sh`, POSIX) |
 | `prompt/git-prompt.sh` | vendored [git-prompt](https://github.com/git/git/blob/master/contrib/prompt/git-prompt.sh) |
-| `getbb.sh`, `removebb.sh` | installer and uninstaller a user pipes into a shell (`sh`, POSIX) |
+| `installbb.sh` | installer: copies the prompt out of a fetched tree into `~/.bb` (`sh`, POSIX) |
+| `removebb.sh` | uninstaller, installed with the prompt so removing needs no fetch (`sh`, POSIX) |
+| `getbb.sh` | installer of the legacy path, downloading one file at a time (`sh`, POSIX) |
 | `.inputrc` | readline bindings for history search on the arrow keys |
 | `webpage/frontend` | the configurator page (Vue, built statically) |
 
-The Pages workflow builds the page and stages the installer files next to it, so
-`https://betterbash.cz0.cz/getbb.sh`, `/removebb.sh`, `/prompt/bb.sh` and
-`/.inputrc` are the files of this repository, and the page downloads from its own
+The Pages workflow builds the page and stages `bb.tgz` next to it, so
+`https://betterbash.cz0.cz/bb.tgz` holds exactly `prompt/`, `installbb.sh`,
+`removebb.sh`, `VERSION_APP.txt` and `.inputrc`, and the page fetches from its own
 origin. That is what makes both domains of the deployment - `betterbash.cz0.cz`
-and `bb.cz0.cz` - install from themselves.
+and `bb.cz0.cz` - install from themselves. The same files are staged loose as
+well, which is what the legacy `getbb.sh` path downloads.
 
 A theme code is an argument of the installer, never part of a URL, and it is
 decoded by `prompt/bb-theme.sh` on the target machine. `tests/golden/` pins the
@@ -99,56 +112,68 @@ colours of every code that has ever been handed out, so decoding cannot drift.
 ./dev.sh                     # WebUI on :5173, HTTPS file server on :8443
 ./dev.sh --help              # ports, interfaces, alternative checkout, files only
 ```
-`./dev.sh` stages `getbb.sh`, `removebb.sh`, `.inputrc` and `prompt/` into
-`webpage/frontend/public/` (generated, not in version control), so the dev server
-serves them and the curl and wget commands on the page point at the dev server.
-Only the openssl method, which insists on TLS, gets the second listener with a
-self-signed certificate under `.dev/`. Restart `./dev.sh` after editing the shell
+`./dev.sh` stages `bb.tgz` (and the loose files of the legacy path: `getbb.sh`,
+`removebb.sh`, `.inputrc`, `prompt/`) into `webpage/frontend/public/` (generated,
+not in version control), so the dev server serves them and the fetch commands on
+the page point at the dev server. Only the openssl method, which insists on TLS,
+gets the second listener with a self-signed certificate under `.dev/`. The git tab
+would otherwise clone a tag that does not exist yet, so locally it points at the
+origin and branch of this checkout. Restart `./dev.sh` after editing the shell
 scripts, or restage them with `./tests/stage-downloads.sh webpage/frontend/public`.
 
 The WebUI dev server listens on **`0.0.0.0`** (`--site-host`), so a browser on
-another machine can open `http://<this machine>:5173` and install from it. A page
-that is not the canonical origin says in its commands where the rest of the files
-come from (`BB_BASE_URL=... bash -s -- ...`), which is also what makes a local
-checkout install its own files rather than the released ones.
+another machine can open `http://<this machine>:5173` and install from it - the
+commands it prints fetch from that address, because they follow the origin the page
+was loaded from.
 
-### Try every installation method
+### Try the installation commands
 ```
-./test-install-methods.sh    # installs and uninstalls with curl, wget and openssl
+./test-install.sh            # all four fetch commands of the page, run as printed
                              # into throwaway HOMEs, then reports every check
-./test-install-methods.sh --live https://betterbash.cz0.cz   # against a deployment
+./test-install.sh --live https://betterbash.cz0.cz   # against a deployment
 ```
-It stages the working copy, serves it over HTTP and HTTPS on free ports, and runs
-each method under `sh`, `bash` and `dash`. Every method is verified end to end:
-download of the prompt scripts, the decoded theme, `.inputrc`, the `~/.bashrc`
-hook, a `PS1` built by the installed prompt, the commands exactly as the page
-prints them, and the clean uninstall.
+It stages the working copy into `bb.tgz`, serves it over HTTP and HTTPS on free
+ports, and turns the package into a local git repository tagged like a release, so
+even the git command needs no network. What it checks, among others: the installed
+files and the decoded theme and the `PS1` the prompt builds; that answering `n`, or
+having no terminal, installs nothing; that openssl delivers the package byte for
+byte (the legacy text pipeline used to eat four bytes of it); that
+`installbb.sh` refuses a planted, incomplete or faked tree; the installer under
+`sh`, `bash` and `dash`; and the theme rules of a reinstall.
 
 ### Tests
 ```
 ./tests/test-theme.sh        # decoder against the golden fixtures, under dash and bash
-./test-install-methods.sh    # installation methods, see above
+./test-install.sh            # the fetch commands of the page, see above
+./tests/test-legacy-pipe.sh  # the legacy getbb.sh path, while it is served
 ./tests/test-shellcheck.sh   # shellcheck over every script, in its own dialect
 ```
 
 ### WebUI options
 
-Endpoints come from `webpage/frontend/.env.production` and `.env.development`
-(`VITE_BB_INSTALL_BASE_URL`, `VITE_BB_TLS_BASE_URL`), read in
-`webpage/frontend/src/config.js`. Empty means *download from the origin that
-served this page*, which is what production does. A non-production build marks
-itself with a badge next to the banner, because its commands point at the local
-server.
+What the commands are built from lives in `webpage/frontend/src/config.js` and its
+`.env.production` / `.env.development`: `VITE_BB_INSTALL_BASE_URL` (where `bb.tgz`
+is fetched from; empty means *the origin that served this page*, which is what
+production does), `VITE_BB_TLS_BASE_URL` (the openssl request), `VITE_BB_REPO_URL`
+and `VITE_BB_RELEASE_REF` (the git command, pinned to the tag in
+`VERSION_APP.txt`). A non-production build marks itself with a badge next to the
+banner, because its commands point at the local server.
 
 ### Hosting
 
-`.github/workflows/pages_deploy.yaml` builds the page, stages the installer files
-and deploys both to GitHub Pages, then waits for the new artifact and runs the
-installation tests against it (`--live`). The domains answer from there; TLS is
-the host's job. The Azure container app that used to serve
-`https://bb.cz0.cz/<code>/getbb.sh` keeps answering those older commands for a
-while, because a static host cannot rewrite a path - once its traffic drops to
-zero it can be deleted together with its registry and its DNS records.
+`.github/workflows/pages_deploy.yaml` builds the page, stages `bb.tgz` and the
+loose files next to it, deploys to GitHub Pages, then waits for the new artifact
+and installs from it (`--live` runs of both install paths). The domains answer from
+there; TLS is the host's job.
+
+Two bridges are still standing and both are meant to go. `getbb.sh` - the old
+"download one file at a time, pipe it into a shell" installer - is no longer what
+the page prints, but install commands of that shape are in other people's notes, so
+it is still served and still tested (`./tests/test-legacy-pipe.sh`); deleting it is
+a documentation change plus a removal. The Azure container app that served
+`https://bb.cz0.cz/<code>/getbb.sh` answers those older commands for a while,
+because a static host cannot rewrite a path - once its traffic drops to zero it can
+be deleted together with its registry and its DNS records.
 
 ## :bar_chart: Star History
 

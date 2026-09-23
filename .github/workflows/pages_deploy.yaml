@@ -1,126 +1,152 @@
-name: Deploy WebUI to GitHub Pages
-
-# The WebUI is a static site, and so is everything the installer downloads: the
-# same artifact carries the prompt files, see tests/stage-downloads.sh. There is
-# no server component to build any more.
+name: Deploy Vue App to GitHub Pages
 
 on:
   push:
-    branches: [ main ]
+    branches:
+      - main
   workflow_dispatch:
-
-permissions:
-  contents: read
-  pages: write
-  id-token: write
-
-concurrency:
-  group: "pages"
-  cancel-in-progress: false
 
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v2
+      - uses: pnpm/action-setup@v4
         with:
           version: latest
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
           cache: 'pnpm'
-          cache-dependency-path: 'webpage/frontend/pnpm-lock.yaml'
+          cache-dependency-path: webpage/frontend/pnpm-lock.yaml
 
-      - name: Install dependencies
-        run: pnpm install --no-frozen-lockfile
+      - name: Install WebUI dependencies
         working-directory: webpage/frontend
+        run: pnpm install --frozen-lockfile
 
-      - name: Build Vue app
-        run: pnpm run build
+      - name: Build WebUI
         working-directory: webpage/frontend
-        env:
-          NODE_ENV: production
+        # The page is built for its production origin, and the theme code of the
+        # link it shows is generated at page load rather than at build time.
+        run: pnpm build --base=/BetterBash/
 
-      - name: Stage the files the installer downloads
-        run: ./tests/stage-downloads.sh webpage/frontend/dist
-
-      # The artifact is served as it is, so this is the last moment to notice a
-      # file that would 404 for every user of getbb.sh.
-      - name: Every request getbb.sh makes has to be in the artifact
+      - name: Stage the files an install command fetches
+        # The payload is published as bb.tgz, which contains exactly the prompt
+        # files and the installer and uninstaller of them; the same files are
+        # staged loose as well, for the legacy getbb.sh path.
         run: |
-          cd webpage/frontend/dist
-          for file in getbb.sh removebb.sh .inputrc prompt/bb.sh prompt/bb-theme.sh prompt/git-prompt.sh; do
-            if [ ! -s "$file" ]; then
-              echo "::error::$file is missing from the Pages artifact"
+          ./tests/stage-downloads.sh webpage/frontend/dist
+          tar -tzf webpage/frontend/dist/bb.tgz
+
+      - name: Check the payload of the deployment
+        # Everything an installation command fetches has to be in the artifact, and
+        # everything inside bb.tgz has to be a staged file too, so the package
+        # cannot hold anything the deployment does not already show.
+        run: |
+          set -euo pipefail
+          dist=webpage/frontend/dist
+          for path in bb.tgz bb.tgz.sha256 installbb.sh removebb.sh getbb.sh .inputrc \
+                      prompt/bb-theme.sh prompt/bb.sh prompt/git-prompt.sh; do
+            if [ ! -s "$dist/$path" ]; then
+              echo "$dist/$path is missing, so an installation command would 404" >&2
               exit 1
             fi
           done
-          ls -la . prompt
-
-      - name: Setup Pages
-        uses: actions/configure-pages@v4
-
-      - name: Upload pages artifact
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: webpage/frontend/dist
+          missing=
+          for path in $(tar -tzf "$dist/bb.tgz" | sed '/^bb\/$/d; s|^bb/||'); do
+            [ -f "$dist/$path" ] || missing="$missing $path"
+          done
+          if [ -n "$missing" ]; then
+            echo "inside bb.tgz but not staged as a file of its own:$missing" >&2
+            exit 1
+          fi
+          ls -l "$dist"
 
   deploy:
+    needs: build
+    permissions:
+      pages: write
+      id-token: write
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
-    outputs:
-      page_url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
-    needs: build
     steps:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
 
-  # Installs and uninstalls BetterBash from the site that has just been deployed.
-  # A Pages CDN takes a moment to answer with the new artifact, so the checks
-  # wait for the installer to appear rather than failing on the first 404.
   smoke:
+    # The published site is what users install from, so after a deploy its package
+    # is fetched, unpacked and installed the way the page tells a user to do.
     needs: deploy
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Wait for the deployment to answer
-        env:
-          PAGE_URL: ${{ needs.deploy.outputs.page_url }}
+      - name: Wait for Pages to serve this deployment
+        id: url
         run: |
-          for attempt in $(seq 1 20); do
-            code=$(curl -s -o /dev/null -w '%{http_code}' -L "$PAGE_URL/getbb.sh" || echo fail)
-            echo "attempt $attempt: getbb.sh answers $code"
-            [ "$code" = "200" ] && exit 0
+          set -euo pipefail
+          PAGE_URL="https://betterbash.cz0.cz"
+          for _ in $(seq 1 40); do
+            # The checksum of the package changes with every build, so its presence
+            # means this deployment is being served and not a cached older one.
+            if [ "$(curl -fsSL -o /dev/null -w '%{http_code}' "$PAGE_URL/bb.tgz.sha256")" = "200" ]; then
+              echo "serving $PAGE_URL"
+              echo "PAGE_URL=$PAGE_URL" >>"$GITHUB_OUTPUT"
+              exit 0
+            fi
             sleep 15
           done
-          echo "::error::$PAGE_URL/getbb.sh did not appear"
+          echo "Pages did not serve $PAGE_URL/bb.tgz.sha256 in 10 minutes" >&2
           exit 1
 
-      - name: curl, wget and openssl against the deployed site
-        env:
-          PAGE_URL: ${{ needs.deploy.outputs.page_url }}
+      - name: Check what the deployment serves
         run: |
-          # Trim the trailing slash the action reports with.
-          ./test-install-methods.sh --live "${PAGE_URL%/}" --code vN-y_5uA
+          set -euo pipefail
+          PAGE_URL="${{ steps.url.outputs.PAGE_URL }}"
+          # A leading dot in a path is served as any other name; the installer
+          # appends this block to ~/.inputrc, so it has to be reachable.
+          for path in .inputrc bb.tgz bb.tgz.sha256 installbb.sh getbb.sh; do
+            code=$(curl -fsSL -o /dev/null -w '%{http_code}' "$PAGE_URL/$path")
+            echo "$path -> $code"
+            [ "$code" = "200" ] || exit 1
+          done
 
-      - name: The dotfile of readline key bindings is served too
-        env:
-          PAGE_URL: ${{ needs.deploy.outputs.page_url }}
+      - name: Install from the deployment as the page says
         run: |
-          body=$(curl -fsSL "${PAGE_URL%/}/.inputrc")
-          echo "$body" | grep -q 'history-search-backward' || {
-            echo "::error::.inputrc is not served by $PAGE_URL (a static host may hide dotfiles)"
-            exit 1
-          }
-          echo "$body" | head -3
+          set -euo pipefail
+          PAGE_URL="${{ steps.url.outputs.PAGE_URL }}"
+          home=$(mktemp -d)
+          fetch=$(mktemp -d)
+          touch "$home/.bashrc" "$home/.inputrc"
+          curl -sL "$PAGE_URL/bb.tgz" | tar -C "$fetch" -xz
+          # The fetched installer, not the one of this checkout.
+          HOME="$home" sh "$fetch/bb/installbb.sh" --yes vN-y_5uA
+          # The same command again: an existing installation has to survive it.
+          HOME="$home" sh "$fetch/bb/installbb.sh" --yes vN-y_5uA
+          test -f "$home/.bb/theme.sh"
+          test -f "$home/.bb/bb-theme.sh"
+          test -f "$home/.bb/removebb.sh"
+          grep -q BetterBash "$home/.bashrc"
+          grep -q history-search-backward "$home/.inputrc"
+          HOME="$home" bash -c '
+            . "$HOME/.bb/bb.sh" >/dev/null 2>&1 || exit 1
+            __prompt_command
+            case "$PS1" in
+              *"\[\033[1;93m\]"*) echo "the prompt carries the colour of theme vN-y_5uA" ;;
+              *) echo "PS1: $PS1" >&2; exit 1 ;;
+            esac
+          '
+          # The uninstaller travelled with the prompt, so removing needs no fetch.
+          HOME="$home" sh "$home/.bb/removebb.sh"
+          test ! -d "$home/.bb"
+
+      - name: Run the installation tests against the deployment
+        run: ./test-install.sh --live "${{ steps.url.outputs.PAGE_URL }}" --code vN-y_5uA
+
+      - name: Run the legacy install path tests against the deployment
+        run: ./tests/test-legacy-pipe.sh --live "${{ steps.url.outputs.PAGE_URL }}" --code vN-y_5uA

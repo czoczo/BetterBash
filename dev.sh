@@ -15,20 +15,26 @@
 #   --no-frontend        serve the installer files only, without the WebUI
 #
 # There is nothing else to run: BetterBash is the WebUI plus a few shell scripts.
-# The files a user downloads are staged into public/ of the WebUI, so the dev
-# server serves them and the curl and wget install commands point at the dev
-# server itself, exactly as they point at the Pages deployment in production.
-# Only the openssl method, which insists on TLS, gets a second listener: a small
-# HTTPS file server with a self signed certificate in .dev/.
+# The files a user fetches - bb.tgz and, for the legacy path, the loose files - are
+# staged into public/ of the WebUI, so the dev server serves them and the curl and
+# wget commands of the page point at the dev server itself, exactly as they point
+# at the Pages deployment in production. Only the openssl method, which insists on
+# TLS, gets a second listener: a small HTTPS file server with a self signed
+# certificate in .dev/.
 #
-# Changes to prompt/bb.sh, .inputrc or getbb.sh are picked up by restaging: the
-# staging happens once at start, so restart after editing them (or run
-# ./tests/stage-downloads.sh webpage/frontend/public).
+# The git tab of the page clones a tagged release. Locally that would be a tag of
+# a release that has not happened, so it is pointed at the origin and the branch of
+# this checkout instead: the command of the tab then fetches the tree being worked
+# on. Production pins VERSION_APP.txt (webpage/frontend/vite.config.js).
 #
-# Every installation method can be tried against the working copy:
-#   ./test-install-methods.sh
-# against this running dev setup:
-#   ./test-install-methods.sh --live http://localhost:${SITE_PORT}
+# Changes to prompt/*.sh, .inputrc, installbb.sh or getbb.sh are picked up by
+# restaging: the staging happens once at start, so restart after editing them (or
+# run ./tests/stage-downloads.sh webpage/frontend/public).
+#
+# The installation commands can be tried against the working copy:
+#   ./test-install.sh
+# and the legacy path of getbb.sh against this running dev setup:
+#   ./tests/test-legacy-pipe.sh --live http://localhost:${SITE_PORT}
 
 set -euo pipefail
 
@@ -100,6 +106,15 @@ fi
 export VITE_BB_ENV=development
 export VITE_BB_INSTALL_BASE_URL=
 export VITE_BB_TLS_BASE_URL="https://${PUBLIC_HOST}:${TLS_PORT}"
+# The git tab, locally: origin and branch of this checkout rather than a tag.
+if [ -z "${VITE_BB_REPO_URL:-}" ]; then
+  _origin=$(git -C "$REPO_PATH" remote get-url origin 2>/dev/null || true)
+  [ -n "$_origin" ] && export VITE_BB_REPO_URL="$_origin"
+fi
+if [ -z "${VITE_BB_RELEASE_REF:-}" ]; then
+  _branch=$(git -C "$REPO_PATH" symbolic-ref --short HEAD 2>/dev/null || true)
+  [ -n "$_branch" ] && export VITE_BB_RELEASE_REF="$_branch"
+fi
 export VITE_BB_SITE_PORT="$SITE_PORT"
 export VITE_BB_SITE_HOST="$SITE_HOST"
 export VITE_BB_SITE_ALLOWED_HOSTS="$PUBLIC_HOST"
@@ -119,30 +134,43 @@ node "$REPO_ROOT/tests/static-server.mjs" "$SERVE_DIR" "-" "$TLS_PORT" "$CERT" "
 FILES_PID=$!
 
 for _ in $(seq 1 50); do
-  curl -fsS -o /dev/null "https://localhost:${TLS_PORT}/getbb.sh" \
-    --cacert "$CERT" 2>/dev/null && break
+  curl -fsS -o /dev/null "https://localhost:${TLS_PORT}/bb.tgz" --cacert "$CERT" 2>/dev/null && break
   sleep 0.2
 done
+
+# With --no-frontend there is no dev server, so the file server is all there is to
+# report; advertising SITE_PORT would point at nothing.
+if [ "$FRONTEND" != "1" ]; then
+  cat <<EOF
+
+  WebUI        skipped (--no-frontend), nothing listens on ${SITE_PORT}
+  bb.tgz TLS   https://${PUBLIC_HOST}:${TLS_PORT}/bb.tgz   (self signed certificate)
+  files        $SERVE_DIR (staged, generated)
+
+  Try the installation commands against the working copy:  ./test-install.sh
+  The legacy path, one file at a time:                     ./tests/test-legacy-pipe.sh
+
+EOF
+  echo "==> Press Ctrl-C to stop."
+  wait "$FILES_PID"
+  exit 0
+fi
 
 cat <<EOF
 
   WebUI        http://${PUBLIC_HOST}:${SITE_PORT} on ${SITE_HOST}   (Ctrl-C stops both)
-  curl / wget  http://${PUBLIC_HOST}:${SITE_PORT}/getbb.sh   (served by the dev server)
-  openssl      https://${PUBLIC_HOST}:${TLS_PORT}/getbb.sh   (self signed certificate)
+  bb.tgz       http://${PUBLIC_HOST}:${SITE_PORT}/bb.tgz    (served by the dev server)
+  bb.tgz TLS   https://${PUBLIC_HOST}:${TLS_PORT}/bb.tgz    (self signed certificate)
   files        $SERVE_DIR (staged, generated)
 
-  Try every installation method against the working copy:
-    ./test-install-methods.sh
+  Try the installation commands of the page against the working copy:
+    ./test-install.sh
   or against this running setup:
-    ./test-install-methods.sh --live http://localhost:${SITE_PORT}
+    ./test-install.sh --live http://localhost:${SITE_PORT}
+  The legacy path, one file at a time:
+    ./tests/test-legacy-pipe.sh
 
 EOF
-
-if [ "$FRONTEND" != "1" ]; then
-  echo "==> WebUI skipped, installer files on pid ${FILES_PID}. Press Ctrl-C to stop."
-  wait "$FILES_PID"
-  exit 0
-fi
 
 echo "==> Installing WebUI dependencies"
 (cd "$REPO_ROOT/webpage/frontend" && pnpm install --silent)

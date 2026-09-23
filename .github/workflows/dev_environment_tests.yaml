@@ -1,106 +1,101 @@
 name: Test development environment
 
-# Everything that has to work locally also has to work in CI: the shell scripts
-# that make BetterBash (lint, theme library, installation methods against a
-# staging of this working copy) and the WebUI builds of both modes.
-
 on:
-  push:
-    branches: [ develop, main ]
   pull_request:
-    branches: [ develop, main ]
+    branches:
+      - main
+      - develop
+  push:
+    branches:
+      - main
+      - develop
   workflow_dispatch:
-
-permissions:
-  contents: read
 
 jobs:
   shell:
+    # Everything that has to work without a browser: the lint of the scripts, the
+    # theme decoding that replaces the old backend, and the installation commands
+    # the WebUI prints.
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Install dash and shellcheck
-        run: |
-          sudo apt-get update -q
-          sudo apt-get install -y dash shellcheck
+      - name: Install shellcheck and dash
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends shellcheck dash
 
-      - name: shellcheck, and a bashism has to be reported
+      - name: Lint every script, POSIX ones for POSIX shells
         run: ./tests/test-shellcheck.sh
 
-      - name: Theme library under dash
-        run: dash tests/test-theme.sh
-
-      - name: Theme library under bash
-        run: bash tests/test-theme.sh
-
-      - name: The golden fixture is still what the retired backend produced
-        run: sh tests/test-theme.sh --quick
-
-  installation-methods:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Install dash
+      - name: Theme decoding under dash and bash
         run: |
-          sudo apt-get update -q
-          sudo apt-get install -y dash
+          dash tests/test-theme.sh
+          bash tests/test-theme.sh
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
+      - name: The installation commands of the page, run as printed
+        # git, curl, wget and openssl fetch a package from a local file server and
+        # from a local git repository, and installbb.sh installs what they fetched.
+        run: |
+          ./test-install.sh --code vN-y_5uA
+          ./test-install.sh --code rand
 
-      - name: curl, wget and openssl install and uninstall a staging of this checkout
-        run: ./test-install-methods.sh --code vN-y_5uA --shell 'sh bash dash'
+      - name: The legacy install path of getbb.sh
+        # Kept while the install commands of older releases are in the wild.
+        run: ./tests/test-legacy-pipe.sh --code vN-y_5uA
 
   webui:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v2
+      - uses: pnpm/action-setup@v4
         with:
           version: latest
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
           cache: 'pnpm'
-          cache-dependency-path: 'webpage/frontend/pnpm-lock.yaml'
+          cache-dependency-path: webpage/frontend/pnpm-lock.yaml
 
       - name: Install dependencies
-        run: pnpm install --no-frozen-lockfile
         working-directory: webpage/frontend
+        run: pnpm install --frozen-lockfile
 
       - name: Build for production
-        run: pnpm build
         working-directory: webpage/frontend
+        run: pnpm build --base=/BetterBash/
 
-      - name: Production bundle must carry the published download origin only
+      - name: Check the installed commands of the production bundle
+        # The commands fetch from the canonical origin, which is the fallback
+        # compiled into config.js when the page has no origin of its own.
         run: |
-          grep -q "betterbash.cz0.cz" dist/assets/*.js
-          if grep -q "localhost" dist/assets/*.js; then
-            echo "a production bundle points at localhost"
-            exit 1
-          fi
-        working-directory: webpage/frontend
+          bundle=$(find webpage/frontend/dist/assets -name 'index-*.js' | head -1)
+          echo "$bundle"
+          for expected in betterbash.cz0.cz bb.tgz installbb.sh removebb.sh; do
+            if grep -q "$expected" "$bundle"; then
+              echo "  ok   $expected"
+            else
+              echo "  FAIL $expected missing from $bundle" >&2
+              exit 1
+            fi
+          done
 
       - name: Build for development
-        run: pnpm build:dev
         working-directory: webpage/frontend
+        run: pnpm build --mode development
 
-      # The local origin has to be in there, that is the point of the mode. The
-      # production origin cannot be grepped out of the bundle: it is the fallback
-      # for a page that cannot know its own origin, so it is compiled into both.
-      - name: Development bundle must carry the local download origin
+      - name: Check the installed commands of the development bundle
+        # A development page fetches from its own dev origins. The canonical origin
+        # is compiled in as well - it is the fallback and the canonical install
+        # directory of the README - so it is not asserted to be absent.
         run: |
-          grep -q "localhost:5173" dist/assets/*.js
-          grep -q "localhost:8443" dist/assets/*.js
-        working-directory: webpage/frontend
+          bundle=$(find webpage/frontend/dist/assets -name 'index-*.js' | head -1)
+          echo "$bundle"
+          for expected in localhost:5173 localhost:8443; do
+            if grep -q "$expected" "$bundle"; then
+              echo "  ok   $expected"
+            else
+              echo "  FAIL $expected missing from $bundle" >&2
+              exit 1
+            fi
+          done

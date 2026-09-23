@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs'
 import { fileURLToPath, URL } from 'node:url'
 
 import { defineConfig, loadEnv } from 'vite'
@@ -12,6 +13,16 @@ import vueDevTools from 'vite-plugin-vue-devtools'
 // be asked for explicitly ("pnpm dev", "pnpm build:dev").
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
+
+  // Every fetch command of the WebUI is pinned to the release tag of this build,
+  // and VERSION_APP.txt is the single source of that number (release_tag.yaml
+  // creates the tag from it). A build that cannot read it pins `main` instead.
+  let releaseRef = 'main'
+  try {
+    releaseRef = readFileSync(new URL('../../VERSION_APP.txt', import.meta.url), 'utf8').trim() || 'main'
+  } catch {
+    console.warn('vite: no ../../VERSION_APP.txt, install commands will pin main')
+  }
 
   // The dev server is reachable from other machines through ./dev.sh, which
   // exports the interface to listen on and the host clients announce.
@@ -42,6 +53,10 @@ export default defineConfig(({ mode }) => {
     preview: {
       host: siteHost,
       port: sitePort,
+    },
+    define: {
+      // Read by src/config.js as RELEASE_REF.
+      'import.meta.env.VITE_BB_RELEASE_REF': JSON.stringify(releaseRef),
     },
     resolve: {
       alias: {

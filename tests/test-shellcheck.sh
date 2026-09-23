@@ -28,11 +28,12 @@ fi
 
 # The files that have to be usable by any POSIX shell.
 POSIX_SCRIPTS='
+installbb.sh
 getbb.sh
 removebb.sh
-test-install-methods.sh
-prompt/bb-theme.sh
+test-install.sh
 tests/stage-downloads.sh
+tests/test-legacy-pipe.sh
 tests/test-shellcheck.sh
 tests/test-theme.sh
 '

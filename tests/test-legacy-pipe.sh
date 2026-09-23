@@ -1,35 +1,42 @@
 #!/bin/sh
 #
-# BetterBash end to end installation tests.
+# BetterBash tests of the legacy install path: getbb.sh downloading one file at a
+# time from the static host.
 #
-# Every download method of getbb.sh is run against a staging of this working
-# copy, in a throwaway home directory, and the result is checked: the files that
-# land in ~/.bb, the theme that was decoded, the hook in ~/.bashrc, the readline
-# block in ~/.inputrc, and the prompt prompt/bb.sh finally builds. removebb.sh is
-# run afterwards and has to leave nothing behind.
+# This is the path the WebUI no longer prints. It is kept because install commands
+# of older releases are in other people's notes and scripts, and because it is the
+# only path that needs neither git nor tar; getbb.sh is deprecated by installbb.sh
+# and stops being served once that bridge is gone (see README.md), and this suite
+# is what keeps it honest until then.
 #
-#   ./test-install-methods.sh                       # all methods, every shell
-#   ./test-install-methods.sh --code vN-y_5uA       # theme code to install
-#   ./test-install-methods.sh --live URL            # test a deployed site instead
-#   ./test-install-methods.sh --method curl         # one method only
-#   ./test-install-methods.sh --shell dash          # one shell only
-#   ./test-install-methods.sh --keep                # keep the test homes
+# Every download method of getbb.sh is run against a staging of this working copy,
+# in a throwaway home directory, and the result is checked: the files that land in
+# ~/.bb, the theme that was decoded, the hook in ~/.bashrc, the readline block in
+# ~/.inputrc, and the prompt prompt/bb.sh finally builds. removebb.sh is run
+# afterwards and has to leave nothing behind.
+#
+#   ./tests/test-legacy-pipe.sh                     # all methods, every shell
+#   ./tests/test-legacy-pipe.sh --code vN-y_5uA     # theme code to install
+#   ./tests/test-legacy-pipe.sh --live URL          # test a deployed site instead
+#   ./tests/test-legacy-pipe.sh --method curl       # one method only
+#   ./tests/test-legacy-pipe.sh --shell dash        # one shell only
+#   ./tests/test-legacy-pipe.sh --keep              # keep the test homes
 #
 # --live is how this checks a deployment (GitHub Pages) rather than a working
 # copy; it needs no server and no certificate:
 #
-#   ./test-install-methods.sh --live https://betterbash.cz0.cz --code vN-y_5uA
+#   ./tests/test-legacy-pipe.sh --live https://betterbash.cz0.cz --code vN-y_5uA
 #
 # The staging served locally is produced by tests/stage-downloads.sh, the same
-# script the Pages workflow uses, so the layout cannot drift apart from it. A
-# self signed certificate is generated for the openssl method.
+# script the Pages workflow uses, so the layout cannot drift apart from it. A self
+# signed certificate is generated for the openssl method.
 #
-# The commands the WebUI prints are rendered by tests/install-commands.mjs and
-# run verbatim, so "what is on the page" and "what installs" are the same thing.
+# The commands the WebUI prints are not tested here - ./test-install.sh does that,
+# with the fetch methods of the current path.
 
 set -u
 
-REPO_ROOT=$(cd "$(dirname "$0")" && pwd)
+REPO_ROOT=$(cd "$(dirname "$0")/.." && pwd)
 BB_TEST_CODE=${BB_TEST_CODE:-vN-y_5uA}
 BB_TEST_METHODS=${BB_TEST_METHODS:-curl wget openssl}
 BB_TEST_SHELLS=${BB_TEST_SHELLS:-sh bash dash}
@@ -388,64 +395,8 @@ for _shell in $BB_TEST_SHELLS; do
   command -v "$_shell" >/dev/null 2>&1 && PIPE_SHELL=$_shell && break
 done
 
-# src/config.js builds the three commands shown on the page, and
-# tests/install-commands.mjs renders them outside a browser. They are then run
-# verbatim, because the command a user copies has to be the one that installs -
-# not a shell test that only looks similar. Plain node is used for the rendering,
-# which is why a --live run without node skips this.
-if command -v node >/dev/null 2>&1; then
-  # BASES is a space separated list with the plain origin first and, when the
-  # server speaks TLS too, that one last. A --live URL has a single entry.
-  PLAIN_BASE=${BASES%% *}
-  TLS_BASE=${BASES##* }
-
-  for _method in $BB_TEST_METHODS; do
-    if ! node "$REPO_ROOT/tests/install-commands.mjs" --origin "$PLAIN_BASE" \
-      --tls-base-url "$TLS_BASE" --code "$BB_TEST_CODE" --field "$_method" \
-      >"$WORK/$_method.cmd" 2>"$WORK/$_method.err"; then
-      log_error "the page renders no $_method command"
-      sed 's/^/       /' "$WORK/$_method.err"
-      continue
-    fi
-
-    log_info "$PLAIN_BASE: the $_method command exactly as the page prints it"
-    sed 's/^/         /' "$WORK/$_method.cmd"
-    expect_grep "bash -s -- $_method $BB_TEST_CODE" "$WORK/$_method.cmd" \
-      "$_method passes the theme code after --"
-    expect_grep ". ~/.bashrc" "$WORK/$_method.cmd" "$_method reloads the shell"
-
-    _target_home=$(new_home)
-    HOMES="$HOMES $_target_home"
-    # bash and not $PIPE_SHELL: the command is written for the shell it gets
-    # pasted into, which offers `echo -e` and reads ~/.bashrc.
-    if HOME=$_target_home bash -c "$(cat "$WORK/$_method.cmd")" >"$WORK/$_method.log" 2>&1; then
-      log_success "$_method installs with the command of the page"
-    else
-      log_error "$_method failed to install with the command of the page"
-      sed 's/^/       /' "$WORK/$_method.log"
-    fi
-    check_installed_files "$_target_home"
-  done
-
-  # The uninstaller downloads nothing, so it neither needs a theme code nor an
-  # origin of its own.
-  if node "$REPO_ROOT/tests/install-commands.mjs" --origin "$PLAIN_BASE" \
-    --script removebb.sh --field curl >"$WORK/remove.cmd" 2>"$WORK/remove.err"; then
-    node "$REPO_ROOT/tests/install-commands.mjs" --origin "$PLAIN_BASE" \
-      --tls-base-url "$TLS_BASE" --script removebb.sh --field openssl \
-      >"$WORK/remove-openssl.cmd" 2>"$WORK/remove-openssl.err"
-    for _cmd in remove remove-openssl; do
-      # curl pipes the script it downloaded, openssl asks for it by name.
-      expect_grep "bash -s --" "$WORK/$_cmd.cmd" \
-        "the $_cmd command of the page runs the installer without a theme code"
-      expect_grep 'removebb.sh' "$WORK/$_cmd.cmd" "the $_cmd command fetches the uninstaller"
-      expect_not_grep "$BB_TEST_CODE" "$WORK/$_cmd.cmd" \
-        "the $_cmd command of the page does not mention the theme code"
-    done
-  fi
-else
-  log_info 'node is not available, the commands of the page are not checked'
-fi
+# The commands of the current path - the ones the page prints - are rendered and
+# run by ./test-install.sh; this suite only drives getbb.sh directly.
 
 # --- random themes ------------------------------------------------------------
 

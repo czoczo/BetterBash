@@ -170,11 +170,23 @@
 
     <div class="share-section">
       <h3>Quick install/uninstall</h3>
-      
+      <p class="install-note">
+        Each command fetches the BetterBash tree, asks once, and only then runs the
+        installer of that tree - nothing is piped into a shell, and every file it
+        installs is in the fetched directory while you read it.
+      </p>
+
       <!-- Tab navigation -->
       <div class="tab-navigation">
-        <button 
-          class="tab-button" 
+        <button
+          class="tab-button"
+          :class="{ active: activeTab === 'git' }"
+          @click="activeTab = 'git'"
+        >
+          git
+        </button>
+        <button
+          class="tab-button"
           :class="{ active: activeTab === 'curl' }"
           @click="activeTab = 'curl'"
         >
@@ -198,15 +210,32 @@
 
       <!-- Tab content -->
       <div class="tab-content">
+        <div v-show="activeTab === 'git'" class="tab-panel">
+          <div class="color-modifier-checkboxes">
+            <input id="uninstall-toggle-git" type="checkbox" v-model="uninstallFlag" />
+            <label for="uninstall-toggle-git">Uninstall</label>
+            <input id="random-toggle-git" type="checkbox" v-model="randomFlag" />
+            <label for="random-toggle-git" :title="randomToggleHint">🎲 Random</label>
+            <input id="auto-toggle-git" type="checkbox" v-model="autoFlag" />
+            <label for="auto-toggle-git" :title="autoToggleHint">🤖 Auto</label>
+          </div>
+          <div class="share-url-container multiline">
+            <textarea :value="gitInstallUrl" readonly id="installGitCmd" rows="2" @click="selectUrlText"></textarea>
+            <button @click="copyGitCmdToClipboard">Copy command</button>
+          </div>
+        </div>
+
         <div v-show="activeTab === 'curl'" class="tab-panel">
           <div class="color-modifier-checkboxes">
             <input id="uninstall-toggle-curl" type="checkbox" v-model="uninstallFlag" />
             <label for="uninstall-toggle-curl">Uninstall</label>
             <input id="random-toggle-curl" type="checkbox" v-model="randomFlag" />
             <label for="random-toggle-curl" :title="randomToggleHint">🎲 Random</label>
+            <input id="auto-toggle-curl" type="checkbox" v-model="autoFlag" />
+            <label for="auto-toggle-curl" :title="autoToggleHint">🤖 Auto</label>
           </div>
-          <div class="share-url-container">
-            <input type="text" :value="curlInstallUrl" readonly id="installCurlCmd" @click="selectUrlText" />
+          <div class="share-url-container multiline">
+            <textarea :value="curlInstallUrl" readonly id="installCurlCmd" rows="2" @click="selectUrlText"></textarea>
             <button @click="copyCurlCmdToClipboard">Copy command</button>
           </div>
         </div>
@@ -217,9 +246,11 @@
             <label for="uninstall-toggle-wget">Uninstall</label>
             <input id="random-toggle-wget" type="checkbox" v-model="randomFlag" />
             <label for="random-toggle-wget" :title="randomToggleHint">🎲 Random</label>
+            <input id="auto-toggle-wget" type="checkbox" v-model="autoFlag" />
+            <label for="auto-toggle-wget" :title="autoToggleHint">🤖 Auto</label>
           </div>
-          <div class="share-url-container">
-            <input type="text" :value="wgetInstallUrl" readonly id="installWgetCmd" @click="selectUrlText" />
+          <div class="share-url-container multiline">
+            <textarea :value="wgetInstallUrl" readonly id="installWgetCmd" rows="2" @click="selectUrlText"></textarea>
             <button @click="copyWgetCmdToClipboard">Copy command</button>
           </div>
         </div>
@@ -230,6 +261,8 @@
             <label for="uninstall-toggle-openssl">Uninstall</label>
             <input id="random-toggle-openssl" type="checkbox" v-model="randomFlag" />
             <label for="random-toggle-openssl" :title="randomToggleHint">🎲 Random</label>
+            <input id="auto-toggle-openssl" type="checkbox" v-model="autoFlag" />
+            <label for="auto-toggle-openssl" :title="autoToggleHint">🤖 Auto</label>
           </div>
           <div class="share-url-container multiline">
             <textarea :value="opensslInstallUrl" readonly id="installOpensslCmd" @click="selectUrlText" rows="5"></textarea>

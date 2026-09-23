@@ -1,13 +1,20 @@
 #!/usr/bin/env bash
 #
-# BetterBash installer.
+# BetterBash installer of the LEGACY path: it downloads one file at a time.
+#
+# Deprecated by installbb.sh, which copies the prompt out of a tree the user
+# fetched (git clone, or the bb.tgz package) and therefore never pipes a script
+# into a shell. The WebUI prints those commands now. This script is kept for the
+# install commands of older releases that are in other people's notes and
+# scripts - they still work - and it is the only path that needs neither git nor
+# tar. ./tests/test-legacy-pipe.sh keeps it working while it lives here.
 #
 # Downloads the prompt files of this repository and writes the theme chosen in
 # the WebUI to ~/.bb/theme.sh. There is no server side of the theme any more:
 # the theme code travels as an argument of this script, and prompt/bb-theme.sh
 # decodes it on this machine into a file prompt/bb.sh reads.
 #
-# Usage, exactly as the WebUI shows it:
+# Usage, as released before the package path:
 #
 #   curl -sL https://betterbash.cz0.cz/getbb.sh | bash -s -- curl vN-y_5uA
 #   curl -sL https://betterbash.cz0.cz/getbb.sh | bash -s -- curl rand
