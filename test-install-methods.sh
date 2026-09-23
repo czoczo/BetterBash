@@ -125,6 +125,8 @@ WORK=$(mktemp -d)
 SERVER_PID=""
 HOMES=""
 
+# shellcheck disable=SC2317
+# The trap handler looks unreachable to shellcheck.
 cleanup() {
   [ -n "$SERVER_PID" ] && kill "$SERVER_PID" 2>/dev/null
   wait "$SERVER_PID" 2>/dev/null
@@ -185,7 +187,11 @@ else
   else
     _https_port=-
   fi
-  node "$REPO_ROOT/tests/static-server.js" "$STAGE" "$BB_HTTP_PORT" \
+  if ! command -v node >/dev/null 2>&1; then
+    log_error "node is needed to serve the staged files locally (or use --live URL)"
+    exit 1
+  fi
+  node "$REPO_ROOT/tests/static-server.mjs" "$STAGE" "$BB_HTTP_PORT" \
     "$_https_port" "$CERT" "$KEY" >"$WORK/server.log" 2>&1 &
   SERVER_PID=$!
 
@@ -249,6 +255,7 @@ check_theme() {
   fi
 
   # Decode the code with the library that was installed and compare.
+  # shellcheck source=/dev/null
   ( . "$_home/.bb/bb-theme.sh" && bb_theme_decode "$_code" ) >"$WORK/expected-theme" 2>/dev/null
   sed -n '/^PRIMARY_COLOR=/,$p' "$_home/.bb/theme.sh" >"$WORK/actual-theme"
   if diff -q "$WORK/expected-theme" "$WORK/actual-theme" >"$WORK/theme.diff" 2>&1; then
@@ -261,6 +268,7 @@ check_theme() {
   if [ "$2" = "rand" ]; then
     _stored=$(cat "$_home/.bb/theme-code" 2>/dev/null)
     expect_grep '^[A-Za-z0-9_-]\{8\}$' "$_home/.bb/theme-code" "a random install remembers its code"
+    # shellcheck source=/dev/null
     if ( . "$_home/.bb/bb-theme.sh" && bb_theme_decode "$_stored" ) 2>/dev/null |
       diff -q - "$WORK/actual-theme" >/dev/null 2>&1; then
       log_success "the remembered code $_stored decodes to the installed theme"
@@ -302,23 +310,25 @@ check_installed_files() {
   expect_grep 'history-search-backward' "$_home/.inputrc" "readline block added to ~/.inputrc"
 
   # Nothing half written may be left in the directory the prompt is sourced from.
-  _leftovers=$(ls -A "$_home/.bb" | grep -v -E '^(bb\.sh|bb-theme\.sh|git-prompt\.sh|theme\.sh|theme-code)$' || true)
+  _leftovers=$(find "$_home/.bb" -mindepth 1 -maxdepth 1 \
+    ! -name bb.sh ! -name bb-theme.sh ! -name git-prompt.sh \
+    ! -name theme.sh ! -name theme-code 2>/dev/null | sed "s|^$_home/.bb/||")
   if [ -z "$_leftovers" ]; then
-    log_success "~/.bb holds only the files of the installation"
+    log_success ".bb holds only the files of the installation"
   else
-    log_error "~/.bb holds only the files of the installation (found: $_leftovers)"
+    log_error ".bb holds only the files of the installation (found: $_leftovers)"
   fi
 }
 
 check_uninstalled() {
   _home=$1
   if [ -d "$_home/.bb" ]; then
-    log_error "~/.bb removed by removebb.sh"
+    log_error ".bb removed by removebb.sh"
   else
-    log_success "~/.bb removed by removebb.sh"
+    log_success ".bb removed by removebb.sh"
   fi
-  expect_not_grep 'BetterBash' "$_home/.bashrc" "~/.bashrc cleaned"
-  expect_not_grep 'BetterBash' "$_home/.inputrc" "~/.inputrc cleaned"
+  expect_not_grep 'BetterBash' "$_home/.bashrc" ".bashrc cleaned"
+  expect_not_grep 'BetterBash' "$_home/.inputrc" ".inputrc cleaned"
 }
 
 # --- every method and shell --------------------------------------------------
@@ -367,32 +377,72 @@ for _base in $BASES; do
   done
 done
 
-# --- the command of the WebUI, through a pipe --------------------------------
+# --- the commands of the WebUI, run as they are printed ----------------------
 
-# The first shell of the list is enough here: what is under test is the shape of
-# the command the WebUI shows, not the shell that runs it.
+# The first shell of the list is enough for the sections below.
 PIPE_SHELL=""
 for _shell in $BB_TEST_SHELLS; do
   command -v "$_shell" >/dev/null 2>&1 && PIPE_SHELL=$_shell && break
 done
 
-for _base in $BASES; do
-  [ -n "$PIPE_SHELL" ] || break
-  log_info "$_base: the curl pipeline exactly as the WebUI prints it"
-  _target_home=$(new_home)
-  HOMES="$HOMES $_target_home"
-  # BB_BASE_URL is exported for the same reason the WebUI puts the host into the
-  # command: a script arriving through a pipe cannot know where it came from.
-  if HOME=$_target_home BB_BASE_URL=$_base "$PIPE_SHELL" -c \
-    "curl -sL $_base/getbb.sh | $PIPE_SHELL -s -- curl $BB_TEST_CODE" \
-    >"$WORK/pipe.log" 2>&1; then
-    log_success "curl -sL .../getbb.sh | $PIPE_SHELL -s -- curl $BB_TEST_CODE"
-  else
-    log_error "curl -sL .../getbb.sh | $PIPE_SHELL -s -- curl $BB_TEST_CODE"
-    sed 's/^/       /' "$WORK/pipe.log"
+# src/config.js builds the three commands shown on the page, and
+# tests/install-commands.mjs renders them outside a browser. They are then run
+# verbatim, because the command a user copies has to be the one that installs -
+# not a shell test that only looks similar. Plain node is used for the rendering,
+# which is why a --live run without node skips this.
+if command -v node >/dev/null 2>&1; then
+  # BASES is a space separated list with the plain origin first and, when the
+  # server speaks TLS too, that one last. A --live URL has a single entry.
+  PLAIN_BASE=${BASES%% *}
+  TLS_BASE=${BASES##* }
+
+  for _method in $BB_TEST_METHODS; do
+    if ! node "$REPO_ROOT/tests/install-commands.mjs" --origin "$PLAIN_BASE" \
+      --tls-base-url "$TLS_BASE" --code "$BB_TEST_CODE" --field "$_method" \
+      >"$WORK/$_method.cmd" 2>"$WORK/$_method.err"; then
+      log_error "the page renders no $_method command"
+      sed 's/^/       /' "$WORK/$_method.err"
+      continue
+    fi
+
+    log_info "$PLAIN_BASE: the $_method command exactly as the page prints it"
+    sed 's/^/         /' "$WORK/$_method.cmd"
+    expect_grep "bash -s -- $_method $BB_TEST_CODE" "$WORK/$_method.cmd" \
+      "$_method passes the theme code after --"
+    expect_grep ". ~/.bashrc" "$WORK/$_method.cmd" "$_method reloads the shell"
+
+    _target_home=$(new_home)
+    HOMES="$HOMES $_target_home"
+    # bash and not $PIPE_SHELL: the command is written for the shell it gets
+    # pasted into, which offers `echo -e` and reads ~/.bashrc.
+    if HOME=$_target_home bash -c "$(cat "$WORK/$_method.cmd")" >"$WORK/$_method.log" 2>&1; then
+      log_success "$_method installs with the command of the page"
+    else
+      log_error "$_method failed to install with the command of the page"
+      sed 's/^/       /' "$WORK/$_method.log"
+    fi
+    check_installed_files "$_target_home"
+  done
+
+  # The uninstaller downloads nothing, so it neither needs a theme code nor an
+  # origin of its own.
+  if node "$REPO_ROOT/tests/install-commands.mjs" --origin "$PLAIN_BASE" \
+    --script removebb.sh --field curl >"$WORK/remove.cmd" 2>"$WORK/remove.err"; then
+    node "$REPO_ROOT/tests/install-commands.mjs" --origin "$PLAIN_BASE" \
+      --tls-base-url "$TLS_BASE" --script removebb.sh --field openssl \
+      >"$WORK/remove-openssl.cmd" 2>"$WORK/remove-openssl.err"
+    for _cmd in remove remove-openssl; do
+      # curl pipes the script it downloaded, openssl asks for it by name.
+      expect_grep "bash -s --" "$WORK/$_cmd.cmd" \
+        "the $_cmd command of the page runs the installer without a theme code"
+      expect_grep 'removebb.sh' "$WORK/$_cmd.cmd" "the $_cmd command fetches the uninstaller"
+      expect_not_grep "$BB_TEST_CODE" "$WORK/$_cmd.cmd" \
+        "the $_cmd command of the page does not mention the theme code"
+    done
   fi
-  check_installed_files "$_target_home"
-done
+else
+  log_info 'node is not available, the commands of the page are not checked'
+fi
 
 # --- random themes ------------------------------------------------------------
 

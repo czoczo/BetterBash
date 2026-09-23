@@ -3,17 +3,23 @@
 # Where BetterBash keeps its files; getbb.sh installs into the same variable.
 BB_DIR="${BB_DIR:-$HOME/.bb}"
 
+# git-prompt.sh is the upstream prompt helper of git; it is not linted here.
+# shellcheck source=/dev/null
 source "$BB_DIR/git-prompt.sh"
 
 #arrchar=('\u25B2' '\u25B6' '\u25BC' '\u25C0')
 arrchar=('\u25B2' '\u25B6' '\u25BC' '\u25C0' '\u25C6' '\u25CF' '\u25E2' '\u25E3' '\u25E4' '\u25E5' '\u25AC' '\u25AE' '\u25A0')
 arrfg=( 31 32 33 34 35 36 90 97 )
+# Background colours of the arrows, computed by getChar and currently unused by
+# the prompt itself; kept because they can be used in a custom PS1.
+# shellcheck disable=SC2034
 arrbg=( 41 42 43 44 45 46 100 107 )
 
 function getChar {
   #char=$(( n % 4 )) && n=$(( n / 4 ))
   char=$(( n % 13 )) && n=$(( n / 13 ))
   colfg=$(( n % 8 )) && n=$(( n / 8 ))
+  # shellcheck disable=SC2034
   colbg=$(( n % 8 ))
   # mirror horizontal arrows
   if [[ "$1" -eq 1 ]]; then
@@ -67,6 +73,7 @@ PR_LLCORNER="└"
 # older one, where the backend injected the assignments into this file - keeps
 # working.
 BB_THEME_FILE="$BB_DIR/theme.sh"
+# shellcheck source=/dev/null
 [ -f "$BB_THEME_FILE" ] && . "$BB_THEME_FILE"
 
 # Defaults:

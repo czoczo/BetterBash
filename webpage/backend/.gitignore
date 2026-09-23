@@ -1,5 +1,0 @@
-# Checked out by the backend when it serves from a remote clone (production).
-BetterBashRepo
-
-# Binary produced by `go build`.
-/bbb

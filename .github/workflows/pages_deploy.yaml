@@ -1,4 +1,8 @@
-name: Deploy Vue App to GitHub Pages
+name: Deploy WebUI to GitHub Pages
+
+# The WebUI is a static site, and so is everything the installer downloads: the
+# same artifact carries the prompt files, see tests/stage-downloads.sh. There is
+# no server component to build any more.
 
 on:
   push:
@@ -29,7 +33,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '18'
+          node-version: '20'
           cache: 'pnpm'
           cache-dependency-path: 'webpage/frontend/pnpm-lock.yaml'
 
@@ -43,10 +47,26 @@ jobs:
         env:
           NODE_ENV: production
 
+      - name: Stage the files the installer downloads
+        run: ./tests/stage-downloads.sh webpage/frontend/dist
+
+      # The artifact is served as it is, so this is the last moment to notice a
+      # file that would 404 for every user of getbb.sh.
+      - name: Every request getbb.sh makes has to be in the artifact
+        run: |
+          cd webpage/frontend/dist
+          for file in getbb.sh removebb.sh .inputrc prompt/bb.sh prompt/bb-theme.sh prompt/git-prompt.sh; do
+            if [ ! -s "$file" ]; then
+              echo "::error::$file is missing from the Pages artifact"
+              exit 1
+            fi
+          done
+          ls -la . prompt
+
       - name: Setup Pages
         uses: actions/configure-pages@v4
 
-      - name: Upload artifact
+      - name: Upload pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
           path: webpage/frontend/dist
@@ -55,9 +75,52 @@ jobs:
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
+    outputs:
+      page_url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     needs: build
     steps:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
+
+  # Installs and uninstalls BetterBash from the site that has just been deployed.
+  # A Pages CDN takes a moment to answer with the new artifact, so the checks
+  # wait for the installer to appear rather than failing on the first 404.
+  smoke:
+    needs: deploy
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Wait for the deployment to answer
+        env:
+          PAGE_URL: ${{ needs.deploy.outputs.page_url }}
+        run: |
+          for attempt in $(seq 1 20); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' -L "$PAGE_URL/getbb.sh" || echo fail)
+            echo "attempt $attempt: getbb.sh answers $code"
+            [ "$code" = "200" ] && exit 0
+            sleep 15
+          done
+          echo "::error::$PAGE_URL/getbb.sh did not appear"
+          exit 1
+
+      - name: curl, wget and openssl against the deployed site
+        env:
+          PAGE_URL: ${{ needs.deploy.outputs.page_url }}
+        run: |
+          # Trim the trailing slash the action reports with.
+          ./test-install-methods.sh --live "${PAGE_URL%/}" --code vN-y_5uA
+
+      - name: The dotfile of readline key bindings is served too
+        env:
+          PAGE_URL: ${{ needs.deploy.outputs.page_url }}
+        run: |
+          body=$(curl -fsSL "${PAGE_URL%/}/.inputrc")
+          echo "$body" | grep -q 'history-search-backward' || {
+            echo "::error::.inputrc is not served by $PAGE_URL (a static host may hide dotfiles)"
+            exit 1
+          }
+          echo "$body" | head -3

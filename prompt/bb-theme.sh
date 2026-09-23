@@ -146,6 +146,9 @@ bb_theme_is_black() {
 # drawn straight from /dev/urandom filtered to the theme code alphabet, so every
 # one of the 64^8 codes is equally likely. $BB_THEME_RANDOM_FALLBACK (bash only)
 # is used where /dev/urandom is unreadable.
+# The RANDOM of the fallback below is not a POSIX variable; it is only ever read
+# after having been tested for, which is how bash (and only bash) gets here.
+# shellcheck disable=SC3028
 bb_random_theme_code() {
   _bbrc_tries=0
 
@@ -165,7 +168,7 @@ bb_random_theme_code() {
         _bbrc_i=$(( _bbrc_i + 1 ))
       done
     else
-      printf 'bb-theme: no source of randomness (/dev/urandom unreadable, no $RANDOM)\n' >&2
+      printf 'bb-theme: no source of randomness (cannot read /dev/urandom, and this shell has no RANDOM)\n' >&2
       return 1
     fi
 
@@ -195,7 +198,7 @@ bb_theme_resolve() {
   fi
 
   if [ -f "$_bbtr_file" ] && [ "${BB_THEME_REROLL:-0}" != "1" ]; then
-    _bbtr_stored=$(cat "$_bbtr_file" 2>/dev/null | tr -d '\n\r')
+    _bbtr_stored=$(tr -d '\n\r' <"$_bbtr_file" 2>/dev/null)
     if bb_theme_validate "$_bbtr_stored" 2>/dev/null; then
       printf '%s\n' "$_bbtr_stored"
       return 0

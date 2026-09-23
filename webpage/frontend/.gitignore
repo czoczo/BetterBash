@@ -29,3 +29,11 @@ core
 *.sw?
 
 *.tsbuildinfo
+
+# The installer files ./dev.sh stages so that the dev server serves them
+# (tests/stage-downloads.sh). They come from the repository root and are not
+# edited here; the Pages workflow stages them into dist instead.
+/public/getbb.sh
+/public/removebb.sh
+/public/.inputrc
+/public/prompt/

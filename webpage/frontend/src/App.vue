@@ -3,7 +3,7 @@
 <script setup>
 import { ref, computed, watchEffect, onMounted, onBeforeUnmount } from 'vue';
 import { buildAccentPalette, applyAccentPalette } from './theme';
-import { APP_ENV, SITE_HOST, installCommands } from './config';
+import { APP_ENV, installCommands } from './config';
 // default theme vN-y_5uA
 
 // Surfaced in the page so a development build cannot be mistaken for the
@@ -31,8 +31,8 @@ const ENCODING_ORDERED_COLOR_KEYS = [
 // Avatar state
 const showAvatar = ref(true);
 const uninstallFlag = ref(false);
-// Random mode: the install command points at the backend 'rand' endpoint, which
-// serves a freshly drawn theme on every call instead of the one configured here.
+// Random mode: the install command asks for the word "rand" instead of a theme
+// code, so the machine that runs it draws its own theme and remembers it.
 const randomFlag = ref(false);
 
 const activeTab = ref('curl');
@@ -303,23 +303,25 @@ function parseShareCode(code) {
   }
 }
 
-// First URL path segment of the install commands. In random mode it is the
-// backend 'rand' keyword (the theme is then chosen by the server, so the colors
-// selected in the UI are irrelevant for the command), otherwise the usual theme
-// code generated from the current selection.
-const installThemeSegment = computed(() =>
+// Theme code of the install commands. In random mode it is the word "rand", and
+// the machine running the command draws the theme itself, so the colors selected
+// in the UI are irrelevant for that command.
+const installThemeCode = computed(() =>
   randomFlag.value ? 'rand' : generateShareCode(selectedColorAttributes.value, showAvatar.value)
 );
 
 const installScriptName = computed(() => (uninstallFlag.value ? 'removebb.sh' : 'getbb.sh'));
 
 const randomToggleHint =
-  'Random theme mode: every run of the command downloads a different theme picked by the server, so the colors selected above are ignored.';
+  'Random theme mode: the command installs without a theme code and draws one on the machine that runs it, so the colors selected above are ignored. A reinstall keeps that theme until a new one is drawn.';
 
-// Every command is built from the endpoints of the environment the page was
-// built for (see src/config.js and the .env.* files).
+// The commands download from the origin serving this page (see src/config.js);
+// the uninstaller gets no theme code, colors are not its business.
 const currentInstallCommands = computed(() =>
-  installCommands(installThemeSegment.value, installScriptName.value)
+  installCommands({
+    script: installScriptName.value,
+    code: uninstallFlag.value ? null : installThemeCode.value,
+  })
 );
 
 const curlInstallUrl = computed(() => currentInstallCommands.value.curl);
@@ -408,20 +410,17 @@ function loadThemeFromUrl() {
   }
 
   try {
-    // Extract code from URL - handle both hash and path formats
+    // A shared link keeps the theme code in its fragment, and a bare code is
+    // accepted as it is. Install URLs of the retired backend ("/CODE/getbb.sh")
+    // are still understood, because people keep them in bookmarks and notes.
     let code = '';
     const url = loadUrlInput.value.trim();
-    
+
     if (url.includes('#')) {
       code = url.split('#')[1];
-    } else if (url.includes(`${SITE_HOST}/`)) {
-      const parts = url.split(`${SITE_HOST}/`);
-      if (parts.length > 1) {
-        code = parts[1].split(/[?&#]/)[0];
-      }
     } else {
-      // Assume the entire input is the code
-      code = url;
+      const legacy = url.match(/\/([A-Za-z0-9_-]{8})\/(?:getbb|removebb)\.sh/);
+      code = legacy ? legacy[1] : url;
     }
 
     if (!code) {

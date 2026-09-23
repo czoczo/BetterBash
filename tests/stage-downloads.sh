@@ -30,6 +30,9 @@ if [ $# -ne 1 ]; then
 fi
 
 REPO_ROOT=$(cd "$(dirname "$0")/.." && pwd)
+# shellcheck disable=SC1007
+# cd without CPATH: an empty assignment in front of a command, not an assignment
+# to a variable called CPATH.
 DEST=$(CDPATH= cd -- "$(dirname -- "$1")" && pwd)/$(basename -- "$1")
 
 # Paths relative to the repository root, in the layout the installer expects.

@@ -18,6 +18,7 @@
 - :file_folder: Current directory.
 - :traffic_light: Git status (if current directory inside git repository).
 - :scroll: Rapid history search with up/down arrows based on current input.
+- :lock: No service behind it: the prompt, the installer and the theme decoder are shell scripts, and the configurator is a static page.
 
 ## Preview
 <p align="center">
@@ -31,110 +32,123 @@
 Support this project by **giving it a star**. Thanks!
 
 ## :rocket: Install:
-with **curl**
-```
-curl -sL https://bb.cz0.cz/vN-y_5uA/getbb.sh | bash -s curl && . ~/.bashrc
-```
-with **wget**
-```
-wget -q -O - https://bb.cz0.cz/vN-y_5uA/getbb.sh | bash -s wget && . ~/.bashrc
-```
-with **openssl** (no dependencies needed)
-```
-echo -e "GET /vN-y_5uA/getbb.sh HTTP/1.1\r\nHost: bbb-f4hxb4escnacbpe6.westeurope-01.azurewebsites.net\r\nConnection: close\r\n\r\n" \
-| openssl s_client -quiet -connect bbb-f4hxb4escnacbpe6.westeurope-01.azurewebsites.net:443 2>/dev/null \
-| sed '1,/^\r$/d' | bash -s openssl && . ~/.bashrc
-```
-## :wrench: Uninstall:
-bash session needs a restart in order to uninstall to take effect.
+The eight characters after `-- curl` are the theme: `vN-y_5uA` is one colour
+scheme, another code is another scheme, and the word `rand` draws a random theme
+on the machine that runs the command and keeps it there. Configure the code at
+[betterbash.cz0.cz](https://betterbash.cz0.cz), which shows exactly the command
+for what you picked.
 
 with **curl**
 ```
-curl -sL https://bb.cz0.cz/vN-y_5uA/removebb.sh | bash -s curl
+curl -sL https://betterbash.cz0.cz/getbb.sh | bash -s -- curl vN-y_5uA && . ~/.bashrc
 ```
 with **wget**
 ```
-wget -q -O - https://bb.cz0.cz/vN-y_5uA/removebb.sh | bash -s wget
+wget -q -O - https://betterbash.cz0.cz/getbb.sh | bash -s -- wget vN-y_5uA && . ~/.bashrc
 ```
 with **openssl** (no dependencies needed)
 ```
-echo -e "GET /vN-y_5uA/removebb.sh HTTP/1.1\r\nHost: bbb-f4hxb4escnacbpe6.westeurope-01.azurewebsites.net\r\nConnection: close\r\n\r\n" \
-| openssl s_client -quiet -connect bbb-f4hxb4escnacbpe6.westeurope-01.azurewebsites.net:443 2>/dev/null \
-| sed '1,/^\r$/d' | bash -s openssl && . ~/.bashrc
+echo -e "GET /getbb.sh HTTP/1.1\r\nHost: betterbash.cz0.cz\r\nConnection: close\r\n\r\n" \
+| openssl s_client -quiet -connect betterbash.cz0.cz:443 -servername betterbash.cz0.cz 2>/dev/null \
+| sed '1,/^\r$/d' | sed 's/\r$//' | bash -s -- openssl vN-y_5uA && . ~/.bashrc
+```
+## :wrench: Uninstall:
+bash session needs a restart in order to uninstall to take effect. Colours are
+not the uninstaller's business, so it takes no theme code.
+
+with **curl**
+```
+curl -sL https://betterbash.cz0.cz/removebb.sh | bash -s -- curl && . ~/.bashrc
+```
+with **wget**
+```
+wget -q -O - https://betterbash.cz0.cz/removebb.sh | bash -s -- wget && . ~/.bashrc
+```
+with **openssl** (no dependencies needed)
+```
+echo -e "GET /removebb.sh HTTP/1.1\r\nHost: betterbash.cz0.cz\r\nConnection: close\r\n\r\n" \
+| openssl s_client -quiet -connect betterbash.cz0.cz:443 -servername betterbash.cz0.cz 2>/dev/null \
+| sed '1,/^\r$/d' | sed 's/\r$//' | bash -s -- openssl && . ~/.bashrc
 ```
 
 ## :microscope: Development
 
-The application knows two environments. They are selected explicitly, so a
-release can never publish localhost installers by accident.
+Everything BetterBash needs is in this repository, and nothing runs a server:
 
-| | production (default) | development |
-|---|---|---|
-| selected by | `APP_ENV` unset or `production` (also set in the container image) | `APP_ENV=development` (`dev`, `local` also work) |
-| backend | `PORT` (8081 by default), plain HTTP behind the app service's TLS | `http://localhost:8081` and, with a self-signed certificate, `https://localhost:8443` |
-| files served | a clone of [the repository](https://github.com/czoczo/BetterBash), refreshed on `/reload` | the working copy of the repository the backend is run from, never pulled or reset |
-| WebUI | `pnpm build` with `webpage/frontend/.env.production` | `pnpm dev` with `webpage/frontend/.env.development` |
-| install commands | `https://bb.cz0.cz/...` plus the app service host for openssl | `http://localhost:8081/...` plus `localhost:8443` for openssl |
+| Path | What it is |
+|---|---|
+| `prompt/bb.sh` | the prompt itself (bash) |
+| `prompt/bb-theme.sh` | theme library: validates a code, decodes it to the nine prompt colours, draws a random one (`sh`, POSIX) |
+| `prompt/git-prompt.sh` | vendored [git-prompt](https://github.com/git/git/blob/master/contrib/prompt/git-prompt.sh) |
+| `getbb.sh`, `removebb.sh` | installer and uninstaller a user pipes into a shell (`sh`, POSIX) |
+| `.inputrc` | readline bindings for history search on the arrow keys |
+| `webpage/frontend` | the configurator page (Vue, built statically) |
 
-### Run backend and WebUI locally
+The Pages workflow builds the page and stages the installer files next to it, so
+`https://betterbash.cz0.cz/getbb.sh`, `/removebb.sh`, `/prompt/bb.sh` and
+`/.inputrc` are the files of this repository, and the page downloads from its own
+origin. That is what makes both domains of the deployment - `betterbash.cz0.cz`
+and `bb.cz0.cz` - install from themselves.
+
+A theme code is an argument of the installer, never part of a URL, and it is
+decoded by `prompt/bb-theme.sh` on the target machine. `tests/golden/` pins the
+colours of every code that has ever been handed out, so decoding cannot drift.
+
+### Run the WebUI and the downloaded files locally
 ```
-./dev.sh                     # backend on :8081/:8443, WebUI on :5173
-./dev.sh --help              # ports, interfaces, alternative checkout, backend only
+./dev.sh                     # WebUI on :5173, HTTPS file server on :8443
+./dev.sh --help              # ports, interfaces, alternative checkout, files only
 ```
-Changes to `prompt/bb.sh`, `.inputrc` or `getbb.sh` are picked up on the next
-request, because development serves the working copy directly.
+`./dev.sh` stages `getbb.sh`, `removebb.sh`, `.inputrc` and `prompt/` into
+`webpage/frontend/public/` (generated, not in version control), so the dev server
+serves them and the curl and wget commands on the page point at the dev server.
+Only the openssl method, which insists on TLS, gets the second listener with a
+self-signed certificate under `.dev/`. Restart `./dev.sh` after editing the shell
+scripts, or restage them with `./tests/stage-downloads.sh webpage/frontend/public`.
 
-The WebUI dev server listens on **`0.0.0.0`** (`--site-host`), and both backend
-listeners are bound to all interfaces, so a browser on another machine can open
-`http://<this machine>:5173`. What that machine should type into the install
-commands is a separate question, and `--public-host` answers it:
+The WebUI dev server listens on **`0.0.0.0`** (`--site-host`), so a browser on
+another machine can open `http://<this machine>:5173` and install from it. A page
+that is not the canonical origin says in its commands where the rest of the files
+come from (`BB_BASE_URL=... bash -s -- ...`), which is also what makes a local
+checkout install its own files rather than the released ones.
 
-```
-./dev.sh --public-host 192.168.1.7        # or --public-host bb-dev.local
-./test-install-methods.sh --base-host 192.168.1.7
-```
-
-It replaces `localhost` in the advertised backend endpoints, in the backend's
-redirect to the WebUI and in the WebUI's install commands, and allows the name
-through the dev server's host check (plain IPv4 addresses are allowed by Vite
-anyway; an unlisted name answers 403).
-
-### Try every installation method against the local backend
+### Try every installation method
 ```
 ./test-install-methods.sh    # installs and uninstalls with curl, wget and openssl
                              # into throwaway HOMEs, then reports every check
+./test-install-methods.sh --live https://betterbash.cz0.cz   # against a deployment
 ```
-The script starts its own backend on `18081`/`18443`, or uses the one already
-listening there - which is what `./dev.sh` and `--base-host` are for.
-Each method is verified end to end: download of the prompt scripts, theme
-injection, `.inputrc`, `.bashrc`, a `PS1` built by the installed prompt, and the
-clean uninstall.
-
-### Backend options
-
-| Variable | Meaning | Production default | Development default |
-|---|---|---|---|
-| `APP_ENV` / `BB_ENV` | `production` or `development` | `production` | `development` |
-| `PORT` / `BB_HTTP_PORT` | plain HTTP listener | `8081` | `8081` |
-| `BB_HTTPS_PORT` | HTTPS listener (needed by the openssl method) | off | `8443` |
-| `BB_TLS_ENABLED`, `BB_TLS_CERT_FILE`, `BB_TLS_KEY_FILE` | serve TLS; without certificate files a throwaway self-signed one is generated | disabled | enabled, self-signed |
-| `BB_REPO_PATH` | checkout the files are served from | `BetterBashRepo` | `../..` (this repository) |
-| `BB_REPO_URL`, `BB_REPO_BRANCH`, `BB_REPO_LOCAL` | remote clone and branch, or `BB_REPO_LOCAL=true` to serve a working copy | `https://github.com/czoczo/BetterBash`, `main` | local working copy |
-| `BB_REDIRECT_URL` | target of `/` | `https://betterbash.cz0.cz` | `http://localhost:5173` |
-
-### WebUI options
-
-Endpoints come from `webpage/frontend/.env.production` and
-`.env.development` (`VITE_BB_INSTALL_BASE_URL`, `VITE_BB_TLS_HOST`,
-`VITE_BB_TLS_PORT`, `VITE_BB_SITE_URL`), read in `webpage/frontend/src/config.js`
-and falling back to the production values. A non-production build marks itself
-with a badge next to the banner, because its install commands point at the local
-backend.
+It stages the working copy, serves it over HTTP and HTTPS on free ports, and runs
+each method under `sh`, `bash` and `dash`. Every method is verified end to end:
+download of the prompt scripts, the decoded theme, `.inputrc`, the `~/.bashrc`
+hook, a `PS1` built by the installed prompt, the commands exactly as the page
+prints them, and the clean uninstall.
 
 ### Tests
 ```
-cd webpage/backend && go test ./...   # endpoints of both environments included
+./tests/test-theme.sh        # decoder against the golden fixtures, under dash and bash
+./test-install-methods.sh    # installation methods, see above
+./tests/test-shellcheck.sh   # shellcheck over every script, in its own dialect
 ```
+
+### WebUI options
+
+Endpoints come from `webpage/frontend/.env.production` and `.env.development`
+(`VITE_BB_INSTALL_BASE_URL`, `VITE_BB_TLS_BASE_URL`), read in
+`webpage/frontend/src/config.js`. Empty means *download from the origin that
+served this page*, which is what production does. A non-production build marks
+itself with a badge next to the banner, because its commands point at the local
+server.
+
+### Hosting
+
+`.github/workflows/pages_deploy.yaml` builds the page, stages the installer files
+and deploys both to GitHub Pages, then waits for the new artifact and runs the
+installation tests against it (`--live`). The domains answer from there; TLS is
+the host's job. The Azure container app that used to serve
+`https://bb.cz0.cz/<code>/getbb.sh` keeps answering those older commands for a
+while, because a static host cannot rewrite a path - once its traffic drops to
+zero it can be deleted together with its registry and its DNS records.
 
 ## :bar_chart: Star History
 

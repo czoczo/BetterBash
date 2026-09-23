@@ -119,6 +119,9 @@ golden_matches() {
 validation() {
   printf '==> validation\n'
 
+  # Some of these are meant to look like shell syntax: they are input, and the
+  # decoder must not react to any of them.
+  # shellcheck disable=SC2016
   for _code in '' 'rand' 'vN-y_5u' 'vN-y_5uA!' 'vN-y_5uA/' 'vN-y_5uA+' \
                'vN y_5uA' 'vN-y_5uAB' 'AAAAAAAA=' '..' '/etc/passwd' '$(id)' "'; rm -rf /;'"; do
     if bb_theme_decode "$_code" >"$WORK/val.out" 2>"$WORK/val.err"; then
@@ -231,6 +234,7 @@ resolve_and_write() {
     sed 's/^/       /' "$WORK/write.diff" | head -20
   fi
 
+  # shellcheck source=/dev/null
   if ( . "$_dir/theme.sh" >/dev/null 2>&1 && [ -n "${PRIMARY_COLOR:-}" ] && [ -n "${AVATAR:-}" ] ); then
     ok "theme.sh is sourceable and defines the components"
   else
@@ -242,6 +246,8 @@ resolve_and_write() {
   _second=$(bb_theme_resolve "$BB_THEME_RANDOM" "$_codefile")
   check "a second rand install keeps the stored code" test "$_second" = "$_first"
 
+  # Read by bb_theme_resolve through the environment.
+  # shellcheck disable=SC2034
   BB_THEME_REROLL=1
   _third=$(bb_theme_resolve "$BB_THEME_RANDOM" "$_codefile")
   unset BB_THEME_REROLL
@@ -263,6 +269,7 @@ _show() {
 
 # --- run ----------------------------------------------------------------
 
+# shellcheck source=../prompt/bb-theme.sh
 . "$LIB"
 
 printf 'BetterBash theme library tests (%s)\n' "$(basename "$0")"
