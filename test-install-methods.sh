@@ -8,7 +8,7 @@
 # block in ~/.inputrc, and the prompt prompt/bb.sh finally builds. removebb.sh is
 # run afterwards and has to leave nothing behind.
 #
-#   ./test-install-methods.sh                       # all methods, both shells
+#   ./test-install-methods.sh                       # all methods, every shell
 #   ./test-install-methods.sh --code vN-y_5uA       # theme code to install
 #   ./test-install-methods.sh --live URL            # test a deployed site instead
 #   ./test-install-methods.sh --method curl         # one method only
@@ -23,6 +23,9 @@
 # The staging served locally is produced by tests/stage-downloads.sh, the same
 # script the Pages workflow uses, so the layout cannot drift apart from it. A
 # self signed certificate is generated for the openssl method.
+#
+# The commands the WebUI prints are rendered by tests/install-commands.mjs and
+# run verbatim, so "what is on the page" and "what installs" are the same thing.
 
 set -u
 
