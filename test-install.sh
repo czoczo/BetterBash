@@ -24,8 +24,9 @@
 #   * installbb.sh refusing a tree it should not copy (planted, incomplete, faked)
 #   * installbb.sh working from a script, under sh, bash and dash, and the
 #     uninstaller working from ~/.bb without fetching anything
-#   * the theme rules: rand keeps its code, a reroll draws a new one, another code
-#     replaces it, and an upgrade removes files this release no longer writes
+#   * the theme rules: rand draws a different theme every time, a reinstall
+#     without a code keeps the theme of the machine, another code replaces it,
+#     and an upgrade removes files this release no longer writes
 #
 # The staging served locally is produced by tests/stage-downloads.sh, the same
 # script the Pages workflow uses, so the layout cannot drift apart from it. The git
@@ -708,28 +709,58 @@ done
 
 # --- the theme rules ---------------------------------------------------------
 
-log_info 'the theme of a machine survives a reinstall, and a reroll replaces it'
+log_info 'rand draws a new theme every time, and a reinstall without a code keeps it'
 _home=$(new_home)
 HOMES="$HOMES $_home"
-theme_line() {
-  sed -n 's/^ *theme *\([A-Za-z0-9_-]\{8\}\).*/\1/p' "$1"
+stored_code() {
+  cat "$1/.bb/theme-code" 2>/dev/null
 }
-HOME=$_home sh "$TREE/installbb.sh" --repo "$TREE" rand >"$WORK/rand1.log" 2>&1
-HOME=$_home sh "$TREE/installbb.sh" --repo "$TREE" rand >"$WORK/rand2.log" 2>&1
-_first=$(theme_line "$WORK/rand1.log")
-_second=$(theme_line "$WORK/rand2.log")
-HOME=$_home BB_THEME_REROLL=1 sh "$TREE/installbb.sh" --repo "$TREE" rand >"$WORK/rand3.log" 2>&1
-_third=$(theme_line "$WORK/rand3.log")
 
-if [ -n "$_first" ] && [ "$_first" = "$_second" ]; then
-  log_success "two random installs keep the theme $_first of the first one"
+# A draw is a draw, not a lookup of what the machine already has: six runs of the
+# same command have to wear six themes. Reading the stored code back here is what
+# made `installbb.sh rand` install - repeatedly, and silently - the theme of some
+# earlier install instead of a random one.
+_rand_seen=$WORK/rand-codes
+: >"$_rand_seen"
+_i=0
+while [ "$_i" -lt 6 ]; do
+  HOME=$_home sh "$TREE/installbb.sh" --repo "$TREE" rand >"$WORK/rand-$_i.log" 2>&1
+  printf '%s\n' "$(stored_code "$_home")" >>"$_rand_seen"
+  _i=$((_i + 1))
+done
+_rand_runs=$(sed '/^$/d' "$_rand_seen" | wc -l)
+_rand_themes=$(sort -u "$_rand_seen" | wc -l)
+if [ "$_rand_runs" = 6 ] && [ "$_rand_themes" = 6 ]; then
+  log_success "six rand installs draw six different themes ($(tr '\n' ' ' <"$_rand_seen"))"
 else
-  log_error "two random installs keep one theme (got '$_first' then '$_second')"
+  log_error "six rand installs draw six different themes ($(tr '\n' ' ' <"$_rand_seen"), $_rand_themes distinct)"
 fi
-if [ -n "$_third" ] && [ "$_third" != "$_first" ]; then
-  log_success "a reroll draws a new theme ($_third)"
+expect_grep 'new theme on every run' "$WORK/rand-0.log" 'and says the theme was drawn here'
+
+# The theme of the machine is only kept when nothing asked for a new one.
+_first=$(stored_code "$_home")
+HOME=$_home sh "$TREE/installbb.sh" --repo "$TREE" >"$WORK/keep1.log" 2>&1
+if [ -n "$_first" ] && [ "$(stored_code "$_home")" = "$_first" ]; then
+  log_success "the word rand leaves a theme a reinstall without a code keeps ($_first)"
 else
-  log_error "a reroll draws a new theme (got '$_third')"
+  log_error "a reinstall without a code keeps the theme of rand (got '$(stored_code "$_home")' after '$_first')"
+fi
+expect_grep 'kept from' "$WORK/keep1.log" 'and says the theme was kept from this machine'
+
+HOME=$_home sh "$TREE/installbb.sh" --repo "$TREE" keep >"$WORK/keep2.log" 2>&1
+if [ "$(stored_code "$_home")" = "$_first" ]; then
+  log_success 'the word keep names the theme of this machine explicitly'
+else
+  log_error "the word keep names the theme of this machine explicitly (got '$(stored_code "$_home")' after '$_first')"
+fi
+
+# The way older releases asked for a new theme, without the word rand.
+HOME=$_home BB_THEME_REROLL=1 sh "$TREE/installbb.sh" --repo "$TREE" >"$WORK/reroll.log" 2>&1
+_third=$(stored_code "$_home")
+if [ -n "$_third" ] && [ "$_third" != "$_first" ]; then
+  log_success "BB_THEME_REROLL=1 draws a new theme too ($_third)"
+else
+  log_error "BB_THEME_REROLL=1 draws a new theme too (got '$_third' after '$_first')"
 fi
 check_theme "$_home" rand
 

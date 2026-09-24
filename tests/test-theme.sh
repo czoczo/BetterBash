@@ -243,19 +243,44 @@ resolve_and_write() {
 
   check "no leftover .new files" test ! -e "$_dir/theme.sh.new" -a ! -e "$_dir/theme-code.new"
 
-  _second=$(bb_theme_resolve "$BB_THEME_RANDOM" "$_codefile")
-  check "a second rand install keeps the stored code" test "$_second" = "$_first"
+  # What a machine already wears is what "keep" and no code stand for.
+  check "bb_theme_stored reads the code back" test "$(bb_theme_stored "$_codefile")" = "$_first"
+  _kept=$(bb_theme_resolve "$BB_THEME_KEEP" "$_codefile")
+  check "keep resolves to the stored code" test "$_kept" = "$_first"
+  _noarg=$(bb_theme_resolve '' "$_codefile")
+  check "no code at all resolves to the stored code" test "$_noarg" = "$_first"
 
-  # Read by bb_theme_resolve through the environment.
+  # The point of rand: it is a draw, not a lookup of what is already there.
+  _second=$(bb_theme_resolve "$BB_THEME_RANDOM" "$_codefile")
+  check "a second rand draws a code" bb_theme_validate "$_second"
+  check "a second rand draws another theme than $_first" test "$_second" != "$_first"
+
+  # Ten draws in a row, each of them against the code the previous one left
+  # behind: no run of rand may come back with the theme it is replacing.
+  _same=0 _tries=0
+  while [ "$_tries" -lt 10 ]; do
+    _again=$(bb_theme_resolve "$BB_THEME_RANDOM" "$_codefile")
+    [ "$_again" = "$_second" ] && _same=$((_same + 1))
+    bb_theme_write "$_again" "$_dir" && _second=$_again
+    _tries=$((_tries + 1))
+  done
+  check "rand never redraws the theme it is replacing" test "$_same" = 0
+
+  # Read by bb_theme_resolve through the environment, for the callers of older
+  # releases that only ever knew this way of asking for a new theme.
   # shellcheck disable=SC2034
   BB_THEME_REROLL=1
-  _third=$(bb_theme_resolve "$BB_THEME_RANDOM" "$_codefile")
+  _third=$(bb_theme_resolve '' "$_codefile")
   unset BB_THEME_REROLL
-  check "BB_THEME_REROLL=1 draws a different code" test "$_third" != "$_first"
+  check "BB_THEME_REROLL=1 with no code draws a different code" test "$_third" != "$_second"
 
   printf 'not a code\n' >"$_codefile"
   _fourth=$(bb_theme_resolve "$BB_THEME_RANDOM" "$_codefile")
   check "a corrupt theme-code file falls back to a fresh draw" bb_theme_validate "$_fourth"
+  _fifth=$(bb_theme_resolve '' "$_codefile")
+  check "a corrupt theme-code file falls back to a fresh draw without a code too" \
+    bb_theme_validate "$_fifth"
+  check "bb_theme_stored says nothing about a corrupt file" test -z "$(bb_theme_stored "$_codefile" 2>/dev/null)"
 
   check_fail "bb_theme_write refuses a missing directory" bb_theme_write 'vN-y_5uA' "$WORK/nope"
 }

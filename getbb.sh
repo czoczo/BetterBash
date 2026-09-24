@@ -23,8 +23,12 @@
 # Options, in any order after the download method:
 #
 #   <code>            theme code from the WebUI, or the word "rand" for a theme
-#                     drawn on this machine and remembered in ~/.bb/theme-code
-#   --reroll          draw a new random theme instead of keeping the stored one
+#                     drawn on this machine - a new one on every run, never the
+#                     one ~/.bb/theme-code already holds - or the word "keep"
+#                     for the theme this machine has, which is also what a
+#                     command without a code means
+#   --reroll          accepted for compatibility: it means the same as the word
+#                     "rand", which draws a new theme all by itself now
 #   --base-url URL    download from another origin (a development checkout, the
 #                     repository mirror, the other domain of the WebUI)
 #   --dir DIR         install the prompt files into DIR (default ~/.bb)
@@ -48,12 +52,15 @@ printHelp() {
   exit 0
 }
 
-# A theme code is eight characters of the theme code alphabet, or the word that
-# stands for "draw one here". Anything else in the argument list is a mistake and
-# has to be refused before a single request goes out.
+# A theme code is eight characters of the theme code alphabet, or one of the two
+# words that stand for "draw one here" and "the theme this machine already has".
+# Anything else in the argument list is a mistake and has to be refused before a
+# single request goes out.
 is_theme_code() {
+  # The words are spelled out, because this runs before bb-theme.sh is sourced
+  # and its constants are only BB_THEME_RANDOM and BB_THEME_KEEP there.
   case $1 in
-    rand) return 0 ;;
+    rand | keep) return 0 ;;
     ????????)
       case $1 in
         *[!A-Za-z0-9_-]*) return 1 ;;
@@ -79,7 +86,7 @@ while [ $# -gt 0 ]; do
         exit 2
       fi
       if ! is_theme_code "$1"; then
-        printf 'getbb: %s is not a theme code (eight characters of A-Za-z0-9_-, or "rand"; see --help)\n' "$1" >&2
+        printf 'getbb: %s is not a theme code (eight characters of A-Za-z0-9_-, "rand" or "keep"; see --help)\n' "$1" >&2
         exit 2
       fi
       BB_CODE=$1
@@ -212,12 +219,20 @@ fi
 if ! fetch_file "prompt/bb.sh" "$BB_DIR/bb.sh" "__prompt_command"; then exit 1; fi
 if ! fetch_file "prompt/git-prompt.sh" "$BB_DIR/git-prompt.sh" "__git_ps1"; then exit 1; fi
 
-# The theme: the code from the command line, or the one this machine already
-# has, or a freshly drawn random one. A random theme is kept across reinstalls,
-# --reroll (BB_THEME_REROLL=1) asks for a new one.
+# What the machine already wears, so the summary at the end can say whether this
+# run kept it or replaced it. Read quietly: bb_theme_resolve reads the same file
+# and is the one that reports an unusable code in it.
+BB_PREV_CODE=$(tr -d '\n\r' <"$BB_DIR/theme-code" 2>/dev/null)
+
+# The theme: a command without a code keeps the theme of this machine, the word
+# "rand" asks for a new draw, and so does the --reroll (BB_THEME_REROLL=1) of
+# older releases.
 BB_THEME_REROLL=${BB_THEME_REROLL:-0}
 export BB_THEME_REROLL
-[ -n "$BB_CODE" ] || BB_CODE=$BB_THEME_RANDOM
+[ -n "$BB_CODE" ] || BB_CODE=$BB_THEME_KEEP
+if [ "$BB_CODE" = "$BB_THEME_KEEP" ] && [ "$BB_THEME_REROLL" = 1 ]; then
+  BB_CODE=$BB_THEME_RANDOM
+fi
 
 if ! BB_RESOLVED=$(bb_theme_resolve "$BB_CODE" "$BB_DIR/theme-code"); then
   printf 'getbb: could not resolve the theme %s\n' "$BB_CODE" >&2
@@ -259,11 +274,19 @@ if ! grep -q "BetterBash" "$HOME/.bashrc" 2>/dev/null; then
   fi
 fi
 
-if [ "$BB_CODE" = "$BB_THEME_RANDOM" ]; then
-  BB_THEME_NOTE="remembered in $BB_DIR/theme-code"
-else
-  BB_THEME_NOTE="from the WebUI"
-fi
+case $BB_CODE in
+  "$BB_THEME_RANDOM")
+    BB_THEME_NOTE="drawn here, as a new theme on every run"
+    ;;
+  "$BB_THEME_KEEP")
+    if [ -n "$BB_PREV_CODE" ] && [ "$BB_RESOLVED" = "$BB_PREV_CODE" ]; then
+      BB_THEME_NOTE="kept from $BB_DIR/theme-code"
+    else
+      BB_THEME_NOTE="drawn here, the first theme of this machine"
+    fi
+    ;;
+  *) BB_THEME_NOTE="from the WebUI" ;;
+esac
 
 cat <<EOF
 

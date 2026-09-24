@@ -37,9 +37,12 @@ whether to go on (answer `y`, or `n` and nothing at all happened beyond a
 directory in `/tmp`), then **install** from what was fetched. Nothing is piped
 into a shell, so the fetched scripts can be read before they are run.
 
-The eight characters of the theme are `vN-y_5uA`: one code, one colour scheme,
-and the word `rand` draws a random theme on the machine that runs the command and
-keeps it there. Configure it at [betterbash.cz0.cz](https://betterbash.cz0.cz),
+The eight characters of the theme are `vN-y_5uA`: one code, one colour scheme.
+The word `rand` draws a random theme on the machine that runs the command, and a
+**new one on every run** - run the command again and you get another theme, so
+`rand` is also how a reroll is asked for. A command that names no theme at all
+keeps whatever this machine already wears. Configure it at
+[betterbash.cz0.cz](https://betterbash.cz0.cz),
 which prints these commands for what you picked - including the tag of the
 release it points at, which is worth knowing when you update.
 

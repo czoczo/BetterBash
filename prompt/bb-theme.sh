@@ -15,6 +15,7 @@
 #
 #   sh prompt/bb-theme.sh decode vN-y_5uA
 #   sh prompt/bb-theme.sh random
+#   sh prompt/bb-theme.sh resolve rand ~/.bb/theme-code
 #   sh prompt/bb-theme.sh write vN-y_5uA ~/.bb
 #
 # Every name starting with _bbt_ is internal and clobbered by these functions.
@@ -23,8 +24,13 @@
 BB_THEME_KEYS='PRIMARY_COLOR SECONDARY_COLOR ROOT_COLOR TIME_COLOR ERR_COLOR SEPARATOR_COLOR BORDCOL PATH_COLOR'
 
 # The word the WebUI puts in an install command instead of a code, meaning
-# "pick a theme on this machine and keep it".
+# "draw a theme here". Every run of it draws a new one, so the word is also how
+# a reroll is asked for.
 BB_THEME_RANDOM='rand'
+
+# The word that means "the theme this machine already has", which is what an
+# install command naming no code asks for: reinstalling must not change colours.
+BB_THEME_KEEP='keep'
 
 # Characters a theme code may consist of, and its length.
 BB_THEME_ALPHABET='ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_-'
@@ -183,30 +189,75 @@ bb_random_theme_code() {
   done
 }
 
+# bb_theme_stored CODE_FILE
+# Prints the code CODE_FILE holds when it holds a usable one, and nothing when
+# it does not exist, is empty or holds something unusable. Saying nothing is the
+# answer of a machine that has no theme yet, so it is never a failure; only a
+# file with a broken code in it is worth a word on stderr.
+bb_theme_stored() {
+  _bbts_file=$1
+
+  [ -f "$_bbts_file" ] || return 0
+  _bbts_code=$(tr -d '\n\r' <"$_bbts_file" 2>/dev/null)
+  [ -n "$_bbts_code" ] || return 0
+
+  if bb_theme_validate "$_bbts_code" 2>/dev/null; then
+    printf '%s\n' "$_bbts_code"
+  else
+    printf 'bb-theme: stored theme code in %s is not usable\n' "$_bbts_file" >&2
+  fi
+  return 0
+}
+
 # bb_theme_resolve CODE CODE_FILE
-# Prints the code to install: CODE as it is, except for BB_THEME_RANDOM, which
-# becomes the code stored in CODE_FILE (kept across reinstalls) or a fresh
-# random one. BB_THEME_REROLL=1 forces a new random code.
+# Prints the code to install:
+#
+#   a code of eight characters    that code;
+#   BB_THEME_RANDOM ("rand")      a freshly drawn code, never the one CODE_FILE
+#                                 already holds, so installing with rand twice
+#                                 gives two different themes;
+#   BB_THEME_KEEP ("keep"), or no CODE
+#                                 the code CODE_FILE holds, or a freshly drawn
+#                                 one on a machine that has no theme yet.
+#
+# The code printed here is what bb_theme_write stores in CODE_FILE, which is how
+# the next plain reinstall knows which theme to keep. BB_THEME_REROLL=1 with no
+# code means the same as "rand": it is how older releases asked for a new theme,
+# and it still does.
 bb_theme_resolve() {
   _bbtr_code=$1
   _bbtr_file=$2
 
-  if [ "$_bbtr_code" != "$BB_THEME_RANDOM" ]; then
-    bb_theme_validate "$_bbtr_code" || return 1
-    printf '%s\n' "$_bbtr_code"
-    return 0
+  if [ -z "$_bbtr_code" ] && [ "${BB_THEME_REROLL:-0}" = "1" ]; then
+    _bbtr_code=$BB_THEME_RANDOM
   fi
+  _bbtr_stored=$(bb_theme_stored "$_bbtr_file")
 
-  if [ -f "$_bbtr_file" ] && [ "${BB_THEME_REROLL:-0}" != "1" ]; then
-    _bbtr_stored=$(tr -d '\n\r' <"$_bbtr_file" 2>/dev/null)
-    if bb_theme_validate "$_bbtr_stored" 2>/dev/null; then
-      printf '%s\n' "$_bbtr_stored"
-      return 0
-    fi
-    printf 'bb-theme: stored theme code in %s is not usable, drawing a new one\n' "$_bbtr_file" >&2
-  fi
-
-  bb_random_theme_code
+  case $_bbtr_code in
+    "$BB_THEME_RANDOM")
+      _bbtr_drawn=$(bb_random_theme_code) || return 1
+      # Redraw when the code that came up is the theme already worn here. One
+      # chance in 2^48 says this never happens; "rand" promises a different
+      # theme, so it is not left to chance.
+      _bbtr_again=0
+      while [ "$_bbtr_drawn" = "$_bbtr_stored" ] && [ "$_bbtr_again" -lt 3 ]; do
+        _bbtr_again=$(( _bbtr_again + 1 ))
+        _bbtr_drawn=$(bb_random_theme_code) || return 1
+      done
+      printf '%s\n' "$_bbtr_drawn"
+      ;;
+    "$BB_THEME_KEEP" | "")
+      if [ -n "$_bbtr_stored" ]; then
+        printf '%s\n' "$_bbtr_stored"
+        return 0
+      fi
+      bb_random_theme_code
+      ;;
+    *)
+      bb_theme_validate "$_bbtr_code" || return 1
+      printf '%s\n' "$_bbtr_code"
+      ;;
+  esac
 }
 
 # bb_theme_write CODE DIR
@@ -246,8 +297,9 @@ if [ "${0##*/}" = "bb-theme.sh" ]; then
   case ${1:-} in
     decode) bb_theme_decode "${2:-}" ;;
     random) bb_random_theme_code ;;
+    stored) bb_theme_stored "${2:-}" ;;
     resolve) bb_theme_resolve "${2:-}" "${3:-}" ;;
     write) bb_theme_write "${2:-}" "${3:-}" ;;
-    *) printf 'usage: %s {decode CODE | random | resolve CODE CODE_FILE | write CODE DIR}\n' "$0" >&2; exit 2 ;;
+    *) printf 'usage: %s {decode CODE | random | stored CODE_FILE | resolve CODE CODE_FILE | write CODE DIR}\n' "$0" >&2; exit 2 ;;
   esac
 fi

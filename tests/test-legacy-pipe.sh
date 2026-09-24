@@ -277,13 +277,13 @@ check_theme() {
 
   if [ "$2" = "rand" ]; then
     _stored=$(cat "$_home/.bb/theme-code" 2>/dev/null)
-    expect_grep '^[A-Za-z0-9_-]\{8\}$' "$_home/.bb/theme-code" "a random install remembers its code"
+    expect_grep '^[A-Za-z0-9_-]\{8\}$' "$_home/.bb/theme-code" "a random install stores the code it drew"
     # shellcheck source=/dev/null
     if ( . "$_home/.bb/bb-theme.sh" && bb_theme_decode "$_stored" ) 2>/dev/null |
       diff -q - "$WORK/actual-theme" >/dev/null 2>&1; then
-      log_success "the remembered code $_stored decodes to the installed theme"
+      log_success "the code the draw stored ($_stored) decodes to the installed theme"
     else
-      log_error "the remembered code $_stored decodes to the installed theme"
+      log_error "the code the draw stored ($_stored) decodes to the installed theme"
     fi
   fi
 
@@ -401,7 +401,7 @@ done
 # --- random themes ------------------------------------------------------------
 
 for _base in $BASES; do
-  log_info "$_base: a random theme is drawn once and kept"
+  log_info "$_base: every random install draws another theme"
   _target_home=$(new_home)
   HOMES="$HOMES $_target_home"
   _script=$SCRIPT_GET
@@ -412,19 +412,30 @@ for _base in $BASES; do
   _first=$(cat "$_target_home/.bb/theme-code" 2>/dev/null)
   HOME=$_target_home "$_shell" "$_script" --base-url "$_base" curl rand >"$WORK/rand2.log" 2>&1
   _second=$(cat "$_target_home/.bb/theme-code" 2>/dev/null)
-  HOME=$_target_home BB_THEME_REROLL=1 "$_shell" "$_script" --base-url "$_base" curl rand \
-    >"$WORK/rand3.log" 2>&1
+  HOME=$_target_home "$_shell" "$_script" --base-url "$_base" curl rand >"$WORK/rand3.log" 2>&1
   _third=$(cat "$_target_home/.bb/theme-code" 2>/dev/null)
 
-  if [ -n "$_first" ] && [ "$_first" = "$_second" ]; then
-    log_success "two random installs keep the theme $_first of the first one"
+  if [ -n "$_first" ] && [ -n "$_second" ] && [ "$_first" != "$_second" ] &&
+    [ -n "$_third" ] && [ "$_third" != "$_first" ] && [ "$_third" != "$_second" ]; then
+    log_success "three random installs draw three themes ($_first, $_second, $_third)"
   else
-    log_error "two random installs keep one theme (got '$_first' then '$_second')"
+    log_error "three random installs draw three themes (got '$_first', '$_second', '$_third')"
   fi
-  if [ -n "$_third" ] && [ "$_third" != "$_first" ]; then
-    log_success "BB_THEME_REROLL=1 draws a new theme ($_third)"
+
+  # keep, and the --reroll of the commands that are already in the wild.
+  HOME=$_target_home "$_shell" "$_script" --base-url "$_base" curl keep >"$WORK/keep.log" 2>&1
+  if [ "$(cat "$_target_home/.bb/theme-code" 2>/dev/null)" = "$_third" ]; then
+    log_success "the word keep leaves the theme of this machine alone ($_third)"
   else
-    log_error "BB_THEME_REROLL=1 draws a new theme (got '$_third')"
+    log_error "the word keep leaves the theme of this machine alone (got '$(cat "$_target_home/.bb/theme-code" 2>/dev/null)' after '$_third')"
+  fi
+  HOME=$_target_home BB_THEME_REROLL=1 "$_shell" "$_script" --base-url "$_base" curl \
+    >"$WORK/reroll.log" 2>&1
+  _fourth=$(cat "$_target_home/.bb/theme-code" 2>/dev/null)
+  if [ -n "$_fourth" ] && [ "$_fourth" != "$_third" ]; then
+    log_success "BB_THEME_REROLL=1 draws a new theme ($_fourth)"
+  else
+    log_error "BB_THEME_REROLL=1 draws a new theme (got '$_fourth' after '$_third')"
   fi
   check_theme "$_target_home" rand
   break

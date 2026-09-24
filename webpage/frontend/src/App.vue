@@ -32,7 +32,8 @@ const ENCODING_ORDERED_COLOR_KEYS = [
 const showAvatar = ref(true);
 const uninstallFlag = ref(false);
 // Random mode: the install command asks for the word "rand" instead of a theme
-// code, so the machine that runs it draws its own theme and remembers it.
+// code, so the machine that runs it draws its own theme - and draws a new one
+// every time the command is run again.
 const randomFlag = ref(false);
 // Automatic mode: the command drops the question it asks before running the
 // installer. It is meant for scripts and containers, where nobody can answer.
@@ -307,8 +308,8 @@ function parseShareCode(code) {
 }
 
 // Theme code of the install commands. In random mode it is the word "rand", and
-// the machine running the command draws the theme itself, so the colors selected
-// in the UI are irrelevant for that command.
+// the machine running the command draws the theme itself every time it runs, so
+// the colors selected in the UI are irrelevant for that command.
 const installThemeCode = computed(() =>
   randomFlag.value ? 'rand' : generateShareCode(selectedColorAttributes.value, showAvatar.value)
 );
@@ -317,7 +318,7 @@ const installThemeCode = computed(() =>
 const installKind = computed(() => (uninstallFlag.value ? 'uninstall' : 'install'));
 
 const randomToggleHint =
-  'Random theme mode: the command installs without a theme code and draws one on the machine that runs it, so the colors selected above are ignored. A reinstall keeps that theme until a new one is drawn.';
+  'Random theme mode: the command carries the word "rand" instead of a theme code, so the machine that runs it draws its own theme - a different one on every run, which makes running the command again a reroll. The colors selected above are ignored; turn this off to install a theme you can see here, and run a command without a code to keep the theme a machine already has.';
 
 const autoToggleHint =
   'Automatic mode: the command drops the question it asks before running the installer. Without the question nothing can be answered, so it is the variant for scripts and containers; an interactive shell should keep being asked.';
