@@ -119,9 +119,8 @@ export function confirmClause(kind = 'install', stage = STAGE_DIR) {
 function installerClause({ kind = 'install', code = null, auto = false, stage = STAGE_DIR } = {}) {
   const script = kind === 'uninstall' ? UNINSTALLER : INSTALLER;
   const args = [];
-  // The question lives in the command line, so --yes only records that there was
-  // deliberately none; automation keeps one shape either way.
-  if (auto) args.push('--yes');
+  // Nothing is passed for the question: it lives in the command line, so dropping
+  // it (auto) removes it from there and leaves no trace in the installer call.
   if (code && kind !== 'uninstall') args.push(code);
   return `sh ${stage}/${script}${args.length ? ` ${args.join(' ')}` : ''}`;
 }
@@ -150,7 +149,8 @@ function endpointOf(url) {
  * The four fetch commands of the WebUI.
  *
  * `kind` is install or uninstall, `code` the theme code for an install, `auto`
- * drops the question (see confirmClause) and passes --yes to the installer.
+ * drops the question (see confirmClause); the installer is called the same either
+ * way.
  */
 export function installCommands({ kind = 'install', code = null, auto = false } = {}) {
   const stage = STAGE_DIR;

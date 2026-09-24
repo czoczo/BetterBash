@@ -572,7 +572,7 @@ _home=$(new_home)
 HOMES="$HOMES $_home"
 fresh_stage
 if printf 'y' | HOME=$_home bash -c \
-  "curl -sL $PLAIN_BASE/nope.tgz | tar -C '$FETCH_PARENT' -xz && sh '$STAGE_DIR/installbb.sh' --yes $BB_TEST_CODE" \
+  "curl -sL $PLAIN_BASE/nope.tgz | tar -C '$FETCH_PARENT' -xz && sh '$STAGE_DIR/installbb.sh' $BB_TEST_CODE" \
   >"$WORK/nopackage.log" 2>&1; then
   log_error 'an origin serving no package installs nothing'
 else
@@ -595,7 +595,7 @@ mkdir -p "$_planted" && tar -C "$_planted" -xzf "$PKG" || exit 1
 chmod -R a+w "$_planted/bb"
 _home=$(new_home)
 HOMES="$HOMES $_home"
-if HOME=$_home sh "$_planted/bb/installbb.sh" --yes "$BB_TEST_CODE" >"$WORK/planted.log" 2>&1; then
+if HOME=$_home sh "$_planted/bb/installbb.sh" "$BB_TEST_CODE" >"$WORK/planted.log" 2>&1; then
   log_error 'a tree other users can write to is refused'
 else
   log_success 'a tree other users can write to is refused'
@@ -609,7 +609,7 @@ cp "$REPO_ROOT/prompt/bb.sh" "$_incomplete/prompt/" || exit 1
 cp "$REPO_ROOT/installbb.sh" "$_incomplete/" || exit 1
 _home=$(new_home)
 HOMES="$HOMES $_home"
-if HOME=$_home sh "$_incomplete/installbb.sh" --yes "$BB_TEST_CODE" >"$WORK/incomplete.log" 2>&1; then
+if HOME=$_home sh "$_incomplete/installbb.sh" "$BB_TEST_CODE" >"$WORK/incomplete.log" 2>&1; then
   log_error 'an incomplete tree is refused'
 else
   log_success 'an incomplete tree is refused'
@@ -629,7 +629,7 @@ cp "$TREE/prompt/bb-theme.sh" "$TREE/prompt/git-prompt.sh" "$_fake/prompt/" || e
 printf 'echo not a prompt\n' >"$_fake/prompt/bb.sh"
 _home=$(new_home)
 HOMES="$HOMES $_home"
-if HOME=$_home sh "$_fake/installbb.sh" --yes "$BB_TEST_CODE" >"$WORK/fake.log" 2>&1; then
+if HOME=$_home sh "$_fake/installbb.sh" "$BB_TEST_CODE" >"$WORK/fake.log" 2>&1; then
   log_error 'a file that is not the BetterBash file it claims to be is refused'
 else
   log_success 'a file that is not the BetterBash file it claims to be is refused'
@@ -640,7 +640,7 @@ expect_grep 'not the BetterBash file' "$WORK/fake.log" 'and says which one'
 for _bad in 'nope' 'vN-y_5uA/' '../../etc/passwd' ''; do
   _home=$(new_home)
   HOMES="$HOMES $_home"
-  if HOME=$_home sh "$TREE/installbb.sh" --repo "$TREE" --yes "$_bad" >"$WORK/bad.log" 2>&1; then
+  if HOME=$_home sh "$TREE/installbb.sh" --repo "$TREE" "$_bad" >"$WORK/bad.log" 2>&1; then
     log_error "'$_bad' is refused"
   else
     log_success "'$_bad' is refused"
@@ -659,7 +659,7 @@ mkdir -p "$_noinputrc" && tar -C "$_noinputrc" -xzf "$PKG" || exit 1
 rm "$_noinputrc/bb/.inputrc"
 _home=$(new_home)
 HOMES="$HOMES $_home"
-if HOME=$_home sh "$_noinputrc/bb/installbb.sh" --yes "$BB_TEST_CODE" >"$WORK/noinputrc.log" 2>&1; then
+if HOME=$_home sh "$_noinputrc/bb/installbb.sh" "$BB_TEST_CODE" >"$WORK/noinputrc.log" 2>&1; then
   log_success 'a tree without .inputrc installs the prompt'
 else
   log_error 'a tree without .inputrc installs the prompt'
@@ -686,7 +686,7 @@ for _shell in $BB_TEST_SHELLS; do
   tar -C "$_tree" -xzf "$PKG" --strip-components=1 || exit 1
   _home=$(new_home)
   HOMES="$HOMES $_home"
-  if HOME=$_home "$_shell" "$_tree/installbb.sh" --yes "$BB_TEST_CODE" >"$WORK/$_shell.log" 2>&1; then
+  if HOME=$_home "$_shell" "$_tree/installbb.sh" "$BB_TEST_CODE" >"$WORK/$_shell.log" 2>&1; then
     log_success "$_shell runs installbb.sh"
   else
     log_error "$_shell failed to run installbb.sh"
@@ -714,11 +714,11 @@ HOMES="$HOMES $_home"
 theme_line() {
   sed -n 's/^ *theme *\([A-Za-z0-9_-]\{8\}\).*/\1/p' "$1"
 }
-HOME=$_home sh "$TREE/installbb.sh" --repo "$TREE" --yes rand >"$WORK/rand1.log" 2>&1
-HOME=$_home sh "$TREE/installbb.sh" --repo "$TREE" --yes rand >"$WORK/rand2.log" 2>&1
+HOME=$_home sh "$TREE/installbb.sh" --repo "$TREE" rand >"$WORK/rand1.log" 2>&1
+HOME=$_home sh "$TREE/installbb.sh" --repo "$TREE" rand >"$WORK/rand2.log" 2>&1
 _first=$(theme_line "$WORK/rand1.log")
 _second=$(theme_line "$WORK/rand2.log")
-HOME=$_home BB_THEME_REROLL=1 sh "$TREE/installbb.sh" --repo "$TREE" --yes rand >"$WORK/rand3.log" 2>&1
+HOME=$_home BB_THEME_REROLL=1 sh "$TREE/installbb.sh" --repo "$TREE" rand >"$WORK/rand3.log" 2>&1
 _third=$(theme_line "$WORK/rand3.log")
 
 if [ -n "$_first" ] && [ "$_first" = "$_second" ]; then
@@ -736,9 +736,9 @@ check_theme "$_home" rand
 log_info 'a reinstall with another code replaces the theme, one without keeps it'
 _home=$(new_home)
 HOMES="$HOMES $_home"
-HOME=$_home sh "$TREE/installbb.sh" --repo "$TREE" --yes "$BB_TEST_CODE" >"$WORK/re1.log" 2>&1
+HOME=$_home sh "$TREE/installbb.sh" --repo "$TREE" "$BB_TEST_CODE" >"$WORK/re1.log" 2>&1
 _first_theme=$(cat "$_home/.bb/theme-code" 2>/dev/null)
-HOME=$_home sh "$TREE/installbb.sh" --repo "$TREE" --yes >"$WORK/re2.log" 2>&1
+HOME=$_home sh "$TREE/installbb.sh" --repo "$TREE" >"$WORK/re2.log" 2>&1
 if [ -n "$_first_theme" ] && [ "$_first_theme" = "$(cat "$_home/.bb/theme-code" 2>/dev/null)" ]; then
   log_success "a reinstall without a code keeps theme $_first_theme"
 else
@@ -749,7 +749,7 @@ if [ "$BB_TEST_CODE" != rand ] && [ "$_first_theme" != "$BB_TEST_CODE" ]; then
 else
   log_success "the theme of $BB_TEST_CODE is the one written"
 fi
-HOME=$_home sh "$TREE/installbb.sh" --repo "$TREE" --yes q-_8Ttne >"$WORK/re3.log" 2>&1
+HOME=$_home sh "$TREE/installbb.sh" --repo "$TREE" q-_8Ttne >"$WORK/re3.log" 2>&1
 if grep -q 'q-_8Ttne' "$_home/.bb/theme-code" 2>/dev/null; then
   log_success 'a reinstall with another code replaces the theme'
 else
@@ -760,11 +760,11 @@ check_theme "$_home" q-_8Ttne
 log_info 'an upgrade removes files this release no longer writes'
 _home=$(new_home)
 HOMES="$HOMES $_home"
-HOME=$_home sh "$TREE/installbb.sh" --repo "$TREE" --yes "$BB_TEST_CODE" >"$WORK/upgrade.log" 2>&1
+HOME=$_home sh "$TREE/installbb.sh" --repo "$TREE" "$BB_TEST_CODE" >"$WORK/upgrade.log" 2>&1
 # A name ~/.bb used to hold and this release does not write, put there by hand;
 # the next install has to take it away.
 : >"$_home/.bb/inputrc"
-HOME=$_home sh "$TREE/installbb.sh" --repo "$TREE" --yes "$BB_TEST_CODE" >"$WORK/upgrade2.log" 2>&1
+HOME=$_home sh "$TREE/installbb.sh" --repo "$TREE" "$BB_TEST_CODE" >"$WORK/upgrade2.log" 2>&1
 if [ -e "$_home/.bb/inputrc" ]; then
   log_error 'a retired file is removed by the next install'
 else

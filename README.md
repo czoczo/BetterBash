@@ -62,8 +62,8 @@ printf 'GET /bb.tgz HTTP/1.1\r\nHost: betterbash.cz0.cz\r\nConnection: close\r\n
 | sed '1,/^\r$/d' | tar -C /tmp -xz && read -p"install BetterBash from /tmp/bb? [y/N] " -n1 && [[ $REPLY == [Yy] ]] && sh /tmp/bb/installbb.sh vN-y_5uA && . ~/.bashrc
 ```
 The question is written for bash (`[[ ]]`); for a script or a container, tick
-**Auto** on the page and the command answers itself by running
-`installbb.sh --yes`.
+**Auto** on the page and the command has no question in it at all, so nothing is
+left to answer.
 
 `bb.tgz` unpacks a directory named `bb`, so `/tmp` is where it lands and `/tmp/bb`
 is what you say yes to. `/tmp` is shared with every other user of the machine, so

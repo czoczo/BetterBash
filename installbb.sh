@@ -25,8 +25,6 @@
 #                     script is in, which is what the commands above give)
 #   --dir DIR         install the prompt files into DIR (default ~/.bb)
 #   --reroll          draw a new random theme instead of keeping the stored one
-#   --yes             accepted and ignored: the question of the command line is
-#                     asked there, so automation keeps one shape for both
 #   --no-inputrc      leave ~/.inputrc alone
 #   -h, --help        this text
 #
@@ -93,7 +91,6 @@ while [ $# -gt 0 ]; do
     --dir) BB_DIR=${2:-}; shift ;;
     --code) BB_CODE=${2:-}; shift ;;
     --reroll) BB_THEME_REROLL=1 ;;
-    --yes | -y) ;;
     --no-inputrc) BB_INPUTRC=0 ;;
     -h | --help) printHelp ;;
     *)
