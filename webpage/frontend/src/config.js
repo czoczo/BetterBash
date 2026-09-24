@@ -2,9 +2,11 @@
 //
 // BetterBash is a static site and its installer is a tree of files, not a
 // script that downloads things. The commands below fetch that tree - with git, or
-// with the package tests/stage-downloads.sh builds into the same deployment - and
-// then run installbb.sh from it, which copies the prompt into ~/.bb. Nothing is
-// piped into a shell, and every command asks once before it runs anything.
+// with the package tests/stage-downloads.sh builds into the same deployment - into
+// ~/.bb/bb, and then source the prompt of the tree, which installs the tree into
+// ~/.bb the first time it is sourced and puts the prompt on the shell that asked.
+// Nothing is piped into a shell, and every command asks once before it runs
+// anything.
 //
 //   pnpm build     -> production endpoints, the package fetched from the serving origin
 //   pnpm dev       -> ./dev.sh serves the staged package from public/ on the dev server
@@ -82,52 +84,74 @@ export const PACKAGE_PATH = 'bb.tgz';
 export const PACKAGE_CHECKSUM_PATH = 'bb.tgz.sha256';
 
 /**
- * Where every fetch method leaves the tree, so the rest of the command is the
- * same for git, curl, wget and openssl. /tmp/bb is a shared name on purpose (the
- * alternative is a longer command); installbb.sh refuses a tree it is not the
- * owner of, and the README shows the mktemp -d variant for anyone who prefers a
- * private one.
- *
- * VITE_BB_STAGE_DIR exists for the tests: they may not write into the /tmp of the
- * machine running them. The page never sets it, so what it shows stays /tmp/bb.
+ * Where BetterBash lives, written the way it should be typed into a shell. `~` is
+ * left unexpanded on purpose: it is the shell running the command that knows whose
+ * home directory this is, which is also what lets a test run the very same command
+ * in a throwaway HOME.
  */
-export const STAGE_DIR = fromEnv('VITE_BB_STAGE_DIR') || '/tmp/bb';
+export const BB_DIR = fromEnv('VITE_BB_DIR') || '~/.bb';
 
-// Where tar unpacks the package: the bb/ prefix inside it creates STAGE_DIR.
-const EXTRACT_DIR = STAGE_DIR.replace(/\/[^/]+$/, '') || '/';
+/**
+ * Where every fetch method leaves the tree, so the rest of the command is the
+ * same for git, curl, wget and openssl: inside ~/.bb, and never on top of the
+ * files a shell already sources. installbb.sh refuses a tree it is not the owner
+ * of, and a fetched tree installs nothing until it is sourced (see install-pending
+ * and prompt/bb.sh).
+ */
+export const STAGE_DIR = `${BB_DIR}/bb`;
 
-const INSTALLER = 'installbb.sh';
+// Where tar unpacks the package: bb.tgz carries `.bb/bb/…`, so unpacking it into
+// the home directory of the shell creates ~/.bb and the tree inside it.
+const EXTRACT_DIR = BB_DIR.replace(/\/[^/]+$/, '') || '/';
+
+const PROMPT = 'bb.sh';
 const UNINSTALLER = 'removebb.sh';
 
 /**
- * The question the command asks before it runs anything. Answering anything but
- * y leaves the fetched files on disk and installs nothing; without a terminal the
- * question cannot be answered at all, which is what the `auto` variant of the
- * command is for.
+ * The question the command asks before it runs anything, about the directory it is
+ * about to work in. Answering anything but y leaves the fetched files on disk and
+ * installs nothing; without a terminal the question cannot be answered at all,
+ * which is what the `auto` variant of the command is for.
  */
-export function confirmClause(kind = 'install', stage = STAGE_DIR) {
+export function confirmClause(kind = 'install', dir = STAGE_DIR) {
   const label = kind === 'uninstall' ? 'remove' : 'install';
-  return `read -p"${label} BetterBash from ${stage}? [y/N] " -n1 && [[ $REPLY == [Yy] ]] && `;
+  return `read -p"${label} BetterBash from ${dir}? [y/N] " -n1 && [[ $REPLY == [Yy] ]] && `;
 }
 
 /**
- * What the fetched tree is asked to do: install the theme, or uninstall.
+ * What the fetched tree is asked to do: source its prompt. A fetched tree carries
+ * the file install-pending, and the first sourcing of prompt/bb.sh in such a tree
+ * installs the tree and takes the flag away, so the same sourcing both installs
+ * BetterBash and puts the prompt on the shell that asked for it - there is no
+ * second step to reload the shell into, and every later sourcing of that file is
+ * only a prompt.
+ *
  * `code` is the theme code (or the word "rand", which lets the machine draw its
- * own theme) and is left out for the uninstaller, which does not care about
- * colours. The installer never downloads, so it needs no origin of its own.
+ * own theme); it is an argument of the sourcing.
  */
-function installerClause({ kind = 'install', code = null, auto = false, stage = STAGE_DIR } = {}) {
-  const script = kind === 'uninstall' ? UNINSTALLER : INSTALLER;
-  const args = [];
+function installClause({ code = null, stage = STAGE_DIR } = {}) {
+  const args = [`. ${stage}/prompt/${PROMPT}`];
   // Nothing is passed for the question: it lives in the command line, so dropping
-  // it (auto) removes it from there and leaves no trace in the installer call.
-  if (code && kind !== 'uninstall') args.push(code);
-  return `sh ${stage}/${script}${args.length ? ` ${args.join(' ')}` : ''}`;
+  // it (auto) removes it from there and leaves no trace in the install call.
+  if (code) args.push(code);
+  return args.join(' ');
 }
 
-function commandTail({ kind = 'install', auto = false, stage = STAGE_DIR } = {}) {
-  const confirm = auto ? '' : confirmClause(kind, stage);
-  return ` && ${confirm}`;
+/** The question and the install, appended to a fetch command. */
+function fetchTail({ code = null, auto = false, stage = STAGE_DIR } = {}) {
+  const confirm = auto ? '' : confirmClause('install', stage);
+  return ` && ${confirm}${installClause({ code, stage })}`;
+}
+
+/**
+ * Removing BetterBash, which needs no fetch and is therefore the same command for
+ * every method: ~/.bb holds the uninstaller of the version it was installed from,
+ * together with the tree the last install command left there. Nothing has to be
+ * downloaded to take it away; a shell has to be restarted for the change to show.
+ */
+export function uninstallCommand({ auto = false } = {}) {
+  const confirm = auto ? '' : confirmClause('uninstall', BB_DIR);
+  return `${confirm}sh ${BB_DIR}/${UNINSTALLER}`;
 }
 
 /** Host and port of a URL, for the hand written request of the openssl method. */
@@ -149,25 +173,30 @@ function endpointOf(url) {
  * The four fetch commands of the WebUI.
  *
  * `kind` is install or uninstall, `code` the theme code for an install, `auto`
- * drops the question (see confirmClause); the installer is called the same either
- * way.
+ * drops the question (see confirmClause). Every install method fetches into
+ * ~/.bb/bb and ends the same way, so only the first part of a command differs
+ * between git, curl, wget and openssl; removing needs no fetch, so all four methods
+ * show one and the same uninstall command.
  */
 export function installCommands({ kind = 'install', code = null, auto = false } = {}) {
-  const stage = STAGE_DIR;
-  const tail = `${commandTail({ kind, auto, stage })}${installerClause({ kind, code, auto, stage })} && . ~/.bashrc`;
+  if (kind === 'uninstall') {
+    const command = uninstallCommand({ auto });
+    return { git: command, curl: command, wget: command, openssl: command };
+  }
+  const tail = fetchTail({ code, auto });
 
   return {
-    git: `git clone -q --depth 1 --branch ${RELEASE_REF} ${REPO_URL} ${stage}${tail}`,
+    git: `git clone -q --depth 1 --branch ${RELEASE_REF} ${REPO_URL} ${STAGE_DIR}${tail}`,
     curl:
       `curl -sL ${INSTALL_BASE_URL}/${PACKAGE_PATH} | tar -C ${EXTRACT_DIR} -xz${tail}`,
     wget:
       `wget -q -O - ${INSTALL_BASE_URL}/${PACKAGE_PATH} | tar -C ${EXTRACT_DIR} -xz${tail}`,
-    openssl: opensslCommand({ kind, code, auto }),
+    openssl: opensslCommand({ code, auto }),
   };
 }
 
 /**
- * The dependency free fetch command: a raw HTTP request through openssl
+ * The dependency free fetch command of an install: a raw HTTP request through openssl
  * s_client, which is why the host, the port and the path have to be spelled out.
  * -servername is not optional - a shared front proxy answers many host names from
  * one address - and only the headers are removed afterwards. The carriage returns
@@ -179,13 +208,12 @@ export function installCommands({ kind = 'install', code = null, auto = false } 
  * `echo -e` with a literal "-e" and there is no reason to require bash for a
  * request (only the question the command asks needs bash).
  */
-export function opensslCommand({ kind = 'install', code = null, auto = false } = {}) {
-  const stage = STAGE_DIR;
+export function opensslCommand({ code = null, auto = false } = {}) {
   const { host, port } = endpointOf(TLS_BASE_URL);
   // Only a non standard port belongs in the Host header.
   const hostHeader = port === '443' ? host : `${host}:${port}`;
 
-  const tail = `${commandTail({ kind, auto, stage })}${installerClause({ kind, code, auto, stage })} && . ~/.bashrc`;
+  const tail = fetchTail({ code, auto });
 
   // Joined with plain newlines, so copying the command out of the page gives the
   // shell exactly what is shown.

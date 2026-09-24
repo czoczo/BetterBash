@@ -1,0 +1,19 @@
+A BetterBash tree with this file in it has been fetched but not installed.
+
+The fetch commands of the WebUI leave a tree in ~/.bb/bb. Nothing reads or runs
+anything from that directory until it is asked to: sourcing prompt/bb.sh from
+inside the tree installs the tree into ~/.bb and deletes this file, so the second
+sourcing of that file only builds the prompt. Installing it later is only that:
+
+    . ~/.bb/bb/prompt/bb.sh          # keeps the theme of this machine
+    . ~/.bb/bb/prompt/bb.sh rand     # draws a new theme here
+
+Answered the question with n? Nothing was installed and nothing will be. The tree
+is a directory of files, readable, and it changes no shell until someone sources
+it; a shell that starts later only mentions it, it does not install it. Running
+installbb.sh of the tree directly (a script, a container) installs it too, and takes
+this file away as well.
+
+To remove a tree that was fetched and left alone:
+
+    rm -rf ~/.bb/bb

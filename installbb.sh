@@ -4,18 +4,28 @@
 #
 # Nothing is downloaded here. The prompt files are copied out of a BetterBash
 # tree that an ordinary command of your own fetched (git clone, or the tarball of
-# a release through curl, wget or openssl), so every file that reaches ~/.bb can
-# be read next to this script before it is run.
+# a release through curl, wget or openssl) and that landed in ~/.bb/bb, so every
+# file that reaches ~/.bb can be read next to this script before it is run.
 #
 # Usage, exactly as the WebUI shows it:
 #
-#   curl -sL https://betterbash.cz0.cz/bb.tgz | tar -C /tmp -xz \
-#     && read -p"install BetterBash from /tmp/bb? [y/N] " -n1 && [[ $REPLY == [Yy] ]] \
-#     && sh /tmp/bb/installbb.sh vN-y_5uA && . ~/.bashrc
+#   curl -sL https://betterbash.cz0.cz/bb.tgz | tar -C ~ -xz \
+#     && read -p"install BetterBash from ~/.bb/bb? [y/N] " -n1 && [[ $REPLY == [Yy] ]] \
+#     && . ~/.bb/bb/prompt/bb.sh vN-y_5uA
 #
-#   git clone -q --depth 1 --branch 0.1.3 https://github.com/czoczo/BetterBash /tmp/bb \
-#     && read -p"install BetterBash from /tmp/bb? [y/N] " -n1 && [[ $REPLY == [Yy] ]] \
-#     && sh /tmp/bb/installbb.sh vN-y_5uA && . ~/.bashrc
+#   git clone -q --depth 1 --branch 0.1.3 https://github.com/czoczo/BetterBash ~/.bb/bb \
+#     && read -p"install BetterBash from ~/.bb/bb? [y/N] " -n1 && [[ $REPLY == [Yy] ]] \
+#     && . ~/.bb/bb/prompt/bb.sh vN-y_5uA
+#
+# The command ends by sourcing prompt/bb.sh of the fetched tree, and that is what
+# runs this script: a fetched tree carries install-pending, and the first time its
+# prompt/bb.sh is sourced it installs the tree and takes the flag away, so the
+# next sourcing of that file only builds the prompt (see prompt/bb.sh).
+#
+# This script can also be run directly, which is what a script, a container or a
+# shell that is not bash uses, because prompt/bb.sh is bash:
+#
+#   sh ~/.bb/bb/installbb.sh vN-y_5uA
 #
 # Options, in any order:
 #
@@ -33,14 +43,11 @@
 #   -h, --help        this text
 #
 # Nothing here needs bash: the script is POSIX shell, and is tested under dash
-# too, so `sh /tmp/bb/installbb.sh <code>` works. The question asked before it is
+# too, so `sh ~/.bb/bb/installbb.sh <code>` works. The question asked before it is
 # run is a bash line, because that is the shell it gets pasted into.
-
-set -u
 
 BB_DIR="${BB_DIR:-$HOME/.bb}"
 BB_REPO="${BB_REPO:-}"
-BB_CODE="${BB_THEME:-}"
 BB_INPUTRC=1
 
 # The payload of a release: source path in the fetched tree, a colon, and the
@@ -56,28 +63,33 @@ VERSION_APP.txt:version'
 # install, so an upgrade cannot leave a stale file that nothing reads.
 BB_RETIRED='inputrc'
 
-# What proves a tree is what it claims to be. A directory under /tmp is offered
-# by the world, so the copy step waits for the files to be the BetterBash files
-# of a release before a single byte is written into the home directory.
-require_marker() {
-  if ! grep -q "$2" "$BB_REPO/$1"; then
+# The file that tells a tree it has not been installed yet. It is removed here,
+# by the install that the first sourcing of prompt/bb.sh in that tree is.
+BB_PENDING='install-pending'
+
+# bb_require_marker PATH MARKER
+bb_require_marker() {
+  if ! grep -q "$2" "$1"; then
     printf 'installbb: %s is not the BetterBash file it should be (no %s in it)\n' \
-      "$BB_REPO/$1" "$2" >&2
+      "$1" "$2" >&2
     return 1
   fi
 }
 
-printHelp() {
-  # The usage block is the comment above, so help stays in one place.
+bb_print_help() {
+  # The usage block is the comment above, so help stays in one place. Asking for
+  # help is not an installation, so it is remembered rather than exited from:
+  # sourced into someone's shell, this file must never end that shell.
   awk 'NR <= 2 { next } /^#/ { sub(/^# ?/, ""); print; next } { exit }' "$0"
-  exit 0
+  BB_HELP=1
+  return 0
 }
 
 # A theme code is eight characters of the theme code alphabet, or one of the two
 # words that stand for "draw one here" and "the theme this machine already has".
 # Anything else in the argument list is a mistake and has to be refused before
 # anything is written.
-is_theme_code() {
+bb_is_theme_code() {
   # The words are spelled out, because this runs before bb-theme.sh is sourced
   # and its constants are only BB_THEME_RANDOM and BB_THEME_KEEP there.
   case $1 in
@@ -92,72 +104,64 @@ is_theme_code() {
   esac
 }
 
-while [ $# -gt 0 ]; do
-  case $1 in
-    --repo) BB_REPO=${2:-}; shift ;;
-    --dir) BB_DIR=${2:-}; shift ;;
-    --code) BB_CODE=${2:-}; shift ;;
-    --reroll) BB_THEME_REROLL=1 ;;
-    --no-inputrc) BB_INPUTRC=0 ;;
-    -h | --help) printHelp ;;
-    *)
-      if [ -n "$BB_CODE" ]; then
-        printf 'installbb: unexpected argument: %s (see --help)\n' "$1" >&2
-        exit 2
-      fi
-      if ! is_theme_code "$1"; then
-        printf 'installbb: %s is not a theme code (eight characters of A-Za-z0-9_-, "rand" or "keep"; see --help)\n' "$1" >&2
-        exit 2
-      fi
-      BB_CODE=$1
-      ;;
-  esac
-  shift
-done
+# bb_parse_options, after bb_install has taken the tree out of the arguments.
+bb_parse_options() {
+  BB_HELP=0
+  BB_CODE=${BB_THEME:-}
+  BB_INPUTRC=1
 
-if [ ! -d "$HOME" ]; then
-  printf 'installbb: no home directory to install into\n' >&2
-  exit 2
-fi
-
-# --- the tree to copy from ---------------------------------------------------
-
-# The directory this script was run from is the fetched tree: `sh /tmp/bb/installbb.sh`
-# from any working directory points at /tmp/bb, which is what the commands of the
-# WebUI extract to. --repo overrides it (the tests use that).
-if [ -z "$BB_REPO" ]; then
-  case $0 in
-    */*) BB_REPO=$(cd -- "$(dirname -- "$0")" 2>/dev/null && pwd -P) ;;
-    *) BB_REPO=$(pwd -P) ;;
-  esac
-fi
+  while [ $# -gt 0 ]; do
+    case $1 in
+      --repo) BB_REPO=${2:-}; shift ;;
+      --dir) BB_DIR=${2:-}; shift ;;
+      --code) BB_CODE=${2:-}; shift ;;
+      --reroll) BB_THEME_REROLL=1 ;;
+      --no-inputrc) BB_INPUTRC=0 ;;
+      -h | --help) bb_print_help ;;
+      *)
+        if [ -n "$BB_CODE" ]; then
+          printf 'installbb: unexpected argument: %s (see --help)\n' "$1" >&2
+          return 2
+        fi
+        if ! bb_is_theme_code "$1"; then
+          printf 'installbb: %s is not a theme code (eight characters of A-Za-z0-9_-, "rand" or "keep"; see --help)\n' "$1" >&2
+          return 2
+        fi
+        BB_CODE=$1
+        ;;
+    esac
+    shift
+  done
+  return 0
+}
 
 # uid_of PATH and mode_of PATH: GNU and BSD stat, and "" when neither answers. An
 # empty answer means "this system cannot tell", which is reported and never
 # treated as a refusal.
-uid_of() { stat -c %u "$1" 2>/dev/null || stat -f %u "$1" 2>/dev/null || printf ''; }
-mode_of() { stat -c %A "$1" 2>/dev/null || stat -f %Sp "$1" 2>/dev/null || printf ''; }
+bb_uid_of() { stat -c %u "$1" 2>/dev/null || stat -f %u "$1" 2>/dev/null || printf ''; }
+bb_mode_of() { stat -c %A "$1" 2>/dev/null || stat -f %Sp "$1" 2>/dev/null || printf ''; }
 
-# The world can write into /tmp, so a tree found there has to belong to the user
-# running the installation and must not be writable by anybody else. Both the
-# directory and every file that is about to be copied.
-is_own_tree() {
+# bb_is_own_tree: the tree has to belong to the user running the installation and
+# must not be writable by anybody else. Both the directory and every file that is
+# about to be copied. ~/.bb/bb is written by the user's own fetch, but ~/.bb is a
+# directory too, and a tree is not installed just because it has the right name.
+bb_is_own_tree() {
   _want=$(id -u)
   _uncheckable=0
 
   # The directory of the tree first, then every file that is about to be copied.
-  _got=$(uid_of "$BB_REPO")
+  _got=$(bb_uid_of "$BB_REPO")
   if [ -z "$_got" ]; then
     _uncheckable=1
   elif [ "$_got" != "$_want" ]; then
     printf 'installbb: %s belongs to uid %s, not to you (%s)\n' "$BB_REPO" "$_got" "$_want" >&2
-    printf 'installbb: refusing to install files you did not fetch (mktemp -d avoids a shared /tmp name)\n' >&2
+    printf 'installbb: refusing to install files you did not fetch\n' >&2
     return 1
   fi
 
   for _pair in $BB_PAYLOAD; do
     _path=$BB_REPO/${_pair%%:*}
-    _got=$(uid_of "$_path")
+    _got=$(bb_uid_of "$_path")
     if [ -z "$_got" ]; then
       _uncheckable=1
       continue
@@ -168,13 +172,13 @@ is_own_tree() {
     fi
   done
 
-  _mode=$(mode_of "$BB_REPO")
+  _mode=$(bb_mode_of "$BB_REPO")
   if [ -n "$_mode" ]; then
     # The last three characters of -rw-r--r-- are the bits of everyone else.
     case $(printf '%s' "$_mode" | cut -c 8-10) in
       *w*)
         printf 'installbb: %s is writable by other users (%s)\n' "$BB_REPO" "$_mode" >&2
-        printf 'installbb: refusing to install files anyone could have changed (mktemp -d avoids a shared /tmp name)\n' >&2
+        printf 'installbb: refusing to install files anyone could have changed\n' >&2
         return 1
         ;;
     esac
@@ -182,7 +186,7 @@ is_own_tree() {
 
   for _pair in $BB_PAYLOAD; do
     _path=$BB_REPO/${_pair%%:*}
-    _mode=$(mode_of "$_path")
+    _mode=$(bb_mode_of "$_path")
     [ -n "$_mode" ] || continue
     case $(printf '%s' "$_mode" | cut -c 8-10) in
       *w*)
@@ -197,10 +201,10 @@ is_own_tree() {
   return 0
 }
 
-# verify_tree: every payload file has to be there, non empty, and carry the
+# bb_verify_tree: every payload file has to be there, non empty, and carry the
 # marker only the real file carries. A tarball that came back as an error page,
 # or a half extracted tree, fails here rather than half installing a prompt.
-verify_tree() {
+bb_verify_tree() {
   if [ ! -d "$BB_REPO" ]; then
     printf 'installbb: no BetterBash tree at %s (see --help)\n' "$BB_REPO" >&2
     return 1
@@ -218,146 +222,229 @@ verify_tree() {
     fi
   done
 
-  require_marker "prompt/bb-theme.sh" "^bb_theme_decode" || return 1
-  require_marker "prompt/bb.sh" "__prompt_command" || return 1
-  require_marker "prompt/git-prompt.sh" "__git_ps1" || return 1
-  require_marker "removebb.sh" "BetterBash uninstallation completed" || return 1
+  bb_require_marker "$BB_REPO/prompt/bb-theme.sh" "^bb_theme_decode" || return 1
+  bb_require_marker "$BB_REPO/prompt/bb.sh" "__prompt_command" || return 1
+  bb_require_marker "$BB_REPO/prompt/git-prompt.sh" "__git_ps1" || return 1
+  bb_require_marker "$BB_REPO/removebb.sh" "BetterBash uninstallation completed" || return 1
 
-  is_own_tree
+  bb_is_own_tree
 }
 
-if ! verify_tree; then
-  exit 1
-fi
+# bb_copy_payload: the tree into ~/.bb, one file at a time.
+bb_copy_payload() {
+  mkdir -p "$BB_DIR" || {
+    printf 'installbb: cannot create %s\n' "$BB_DIR" >&2
+    return 1
+  }
 
-# --- copy --------------------------------------------------------------------
+  for _pair in $BB_PAYLOAD; do
+    _src=${_pair%%:*}
+    _dst=${_pair#*:}
+    # Copied aside and moved, so a file that cannot be read leaves the previous
+    # installation untouched instead of an empty one.
+    if ! cp "$BB_REPO/$_src" "$BB_DIR/$_dst.part" 2>/dev/null; then
+      printf 'installbb: could not read %s\n' "$BB_REPO/$_src" >&2
+      rm -f "$BB_DIR/$_dst.part"
+      return 1
+    fi
+    if ! mv -f "$BB_DIR/$_dst.part" "$BB_DIR/$_dst"; then
+      printf 'installbb: could not write %s\n' "$BB_DIR/$_dst" >&2
+      rm -f "$BB_DIR/$_dst.part"
+      return 1
+    fi
+  done
 
-# The decoder travels with the prompt, and it is sourced from the fetched tree
-# rather than from ~/.bb, so the theme of this run does not depend on the copy
-# having happened yet.
-# shellcheck source=/dev/null
-. "$BB_REPO/prompt/bb-theme.sh"
-
-mkdir -p "$BB_DIR" || {
-  printf 'installbb: cannot create %s\n' "$BB_DIR" >&2
-  exit 1
+  for _retired in $BB_RETIRED; do
+    rm -f "$BB_DIR/$_retired"
+  done
+  return 0
 }
 
-BB_VERSION=$(sed -n '1p' "$BB_REPO/VERSION_APP.txt" 2>/dev/null)
-[ -n "$BB_VERSION" ] || BB_VERSION=unknown
+# bb_install_theme: the decoder travels with the prompt, and it is sourced from
+# the fetched tree rather than from ~/.bb, so the theme of this run does not
+# depend on the copy having happened yet.
+bb_install_theme() {
+  # shellcheck source=/dev/null
+  . "$BB_REPO/prompt/bb-theme.sh" || {
+    printf 'installbb: could not read the theme library of %s\n' "$BB_REPO" >&2
+    return 1
+  }
 
-for _pair in $BB_PAYLOAD; do
-  _src=${_pair%%:*}
-  _dst=${_pair#*:}
-  # Copied aside and moved, so a file that cannot be read leaves the previous
-  # installation untouched instead of an empty one.
-  if ! cp "$BB_REPO/$_src" "$BB_DIR/$_dst.part" 2>/dev/null; then
-    printf 'installbb: could not read %s\n' "$BB_REPO/$_src" >&2
-    rm -f "$BB_DIR/$_dst.part"
-    exit 1
+  # What the machine already wears, so the summary at the end can say whether this
+  # run kept it or replaced it. Read quietly: bb_theme_resolve reads the same file
+  # and is the one that reports an unusable code in it.
+  # A shell reports a redirection of its own on its own stderr, so the file has to
+  # be there before it is read from.
+  BB_PREV_CODE=''
+  if [ -f "$BB_DIR/theme-code" ]; then
+    BB_PREV_CODE=$(tr -d '\n\r' <"$BB_DIR/theme-code" 2>/dev/null)
   fi
-  if ! mv -f "$BB_DIR/$_dst.part" "$BB_DIR/$_dst"; then
-    printf 'installbb: could not write %s\n' "$BB_DIR/$_dst" >&2
-    rm -f "$BB_DIR/$_dst.part"
-    exit 1
+
+  # A command without a code keeps the theme of this machine; the word "rand" asks
+  # for a new draw, and so does the --reroll (BB_THEME_REROLL=1) of older releases.
+  BB_THEME_REROLL=${BB_THEME_REROLL:-0}
+  export BB_THEME_REROLL
+  [ -n "$BB_CODE" ] || BB_CODE=$BB_THEME_KEEP
+  if [ "$BB_CODE" = "$BB_THEME_KEEP" ] && [ "$BB_THEME_REROLL" = 1 ]; then
+    BB_CODE=$BB_THEME_RANDOM
   fi
-done
 
-for _retired in $BB_RETIRED; do
-  rm -f "$BB_DIR/$_retired"
-done
-
-# --- the theme ---------------------------------------------------------------
-
-# What the machine already wears, so the summary at the end can say whether this
-# run kept it or replaced it. Read quietly: bb_theme_resolve reads the same file
-# and is the one that reports an unusable code in it.
-BB_PREV_CODE=$(tr -d '\n\r' <"$BB_DIR/theme-code" 2>/dev/null)
-
-# A command without a code keeps the theme of this machine; the word "rand" asks
-# for a new draw, and so does the --reroll (BB_THEME_REROLL=1) of older releases.
-BB_THEME_REROLL=${BB_THEME_REROLL:-0}
-export BB_THEME_REROLL
-[ -n "$BB_CODE" ] || BB_CODE=$BB_THEME_KEEP
-if [ "$BB_CODE" = "$BB_THEME_KEEP" ] && [ "$BB_THEME_REROLL" = 1 ]; then
-  BB_CODE=$BB_THEME_RANDOM
-fi
-
-if ! BB_RESOLVED=$(bb_theme_resolve "$BB_CODE" "$BB_DIR/theme-code"); then
-  printf 'installbb: could not resolve the theme %s\n' "$BB_CODE" >&2
-  exit 1
-fi
-
-if ! bb_theme_write "$BB_RESOLVED" "$BB_DIR"; then
-  printf 'installbb: could not write the theme to %s\n' "$BB_DIR" >&2
-  exit 1
-fi
-
-# Readline bindings are a convenience; the prompt works without them. The block
-# comes from .inputrc of the fetched tree and is appended once. Failing here is
-# not fatal, but it is reported, because the arrow keys are what people notice.
-BB_INPUTRC_ACTION=skipped
-if [ "$BB_INPUTRC" = "1" ]; then
-  if grep -q "BetterBash" "$HOME/.inputrc" 2>/dev/null; then
-    BB_INPUTRC_ACTION=kept
-  elif [ ! -f "$BB_REPO/.inputrc" ]; then
-    BB_INPUTRC_ACTION=missing
-  elif cat "$BB_REPO/.inputrc" >>"$HOME/.inputrc"; then
-    BB_INPUTRC_ACTION=added
-  else
-    BB_INPUTRC_ACTION=failed
+  if ! BB_RESOLVED=$(bb_theme_resolve "$BB_CODE" "$BB_DIR/theme-code"); then
+    printf 'installbb: could not resolve the theme %s\n' "$BB_CODE" >&2
+    return 1
   fi
-fi
-case $BB_INPUTRC_ACTION in
-  added) BB_INPUTRC_NOTE="history search added to ~/.inputrc" ;;
-  kept) BB_INPUTRC_NOTE="history search already in ~/.inputrc" ;;
-  missing) BB_INPUTRC_NOTE="NOT installed, no .inputrc in $BB_REPO" ;;
-  failed) BB_INPUTRC_NOTE="NOT installed, ~/.inputrc could not be written" ;;
-  skipped) BB_INPUTRC_NOTE="not requested (--no-inputrc)" ;;
-esac
 
-# The hook in ~/.bashrc is the block every release of BetterBash writes, so the
-# removebb.sh of any release finds it again - and so does the one that ships in
-# ~/.bb of this one.
-BB_BASHRC_BLOCK=$(cat <<-'END'
+  bb_theme_write "$BB_RESOLVED" "$BB_DIR" || {
+    printf 'installbb: could not write the theme to %s\n' "$BB_DIR" >&2
+    return 1
+  }
+  return 0
+}
+
+# bb_install_inputrc: readline bindings are a convenience; the prompt works
+# without them. The block comes from .inputrc of the fetched tree and is appended
+# once. Failing here is not fatal, but it is reported, because the arrow keys are
+# what people notice.
+bb_install_inputrc() {
+  BB_INPUTRC_ACTION=skipped
+  if [ "$BB_INPUTRC" = "1" ]; then
+    if grep -q "BetterBash" "$HOME/.inputrc" 2>/dev/null; then
+      BB_INPUTRC_ACTION=kept
+    elif [ ! -f "$BB_REPO/.inputrc" ]; then
+      BB_INPUTRC_ACTION=missing
+    elif cat "$BB_REPO/.inputrc" >>"$HOME/.inputrc"; then
+      BB_INPUTRC_ACTION=added
+    else
+      BB_INPUTRC_ACTION=failed
+    fi
+  fi
+  case $BB_INPUTRC_ACTION in
+    added) BB_INPUTRC_NOTE="history search added to ~/.inputrc" ;;
+    kept) BB_INPUTRC_NOTE="history search already in ~/.inputrc" ;;
+    missing) BB_INPUTRC_NOTE="NOT installed, no .inputrc in $BB_REPO" ;;
+    failed) BB_INPUTRC_NOTE="NOT installed, ~/.inputrc could not be written" ;;
+    skipped) BB_INPUTRC_NOTE="not requested (--no-inputrc)" ;;
+  esac
+}
+
+# bb_install_bashrc: the hook in ~/.bashrc is the block every release of
+# BetterBash writes, so the removebb.sh of any release finds it again - and so
+# does the one that ships in ~/.bb of this one.
+bb_install_bashrc() {
+  BB_BASHRC_BLOCK=$(cat <<-'END'
 	# BetterBash
 	[ -f "$HOME/.bb/bb.sh" ] && . "$HOME/.bb/bb.sh"
 	bind -f ~/.inputrc
 END
 )
 
-BB_BASHRC_ACTION=kept
-if ! grep -q "BetterBash" "$HOME/.bashrc" 2>/dev/null; then
-  if printf '%s\n' "$BB_BASHRC_BLOCK" >>"$HOME/.bashrc"; then
-    BB_BASHRC_ACTION=added
-  else
-    printf 'installbb: could not write to %s/.bashrc\n' "$HOME" >&2
-  fi
-fi
-
-case $BB_CODE in
-  "$BB_THEME_RANDOM")
-    BB_THEME_NOTE="drawn here, as a new theme on every run"
-    ;;
-  "$BB_THEME_KEEP")
-    if [ -n "$BB_PREV_CODE" ] && [ "$BB_RESOLVED" = "$BB_PREV_CODE" ]; then
-      BB_THEME_NOTE="kept from $BB_DIR/theme-code"
+  BB_BASHRC_ACTION=kept
+  if ! grep -q "BetterBash" "$HOME/.bashrc" 2>/dev/null; then
+    if printf '%s\n' "$BB_BASHRC_BLOCK" >>"$HOME/.bashrc"; then
+      BB_BASHRC_ACTION=added
     else
-      BB_THEME_NOTE="drawn here, the first theme of this machine"
+      printf 'installbb: could not write to %s/.bashrc\n' "$HOME" >&2
     fi
-    ;;
-  *) BB_THEME_NOTE="from the WebUI" ;;
-esac
+  fi
+}
 
-cat <<EOF
+bb_theme_note() {
+  case $BB_CODE in
+    "$BB_THEME_RANDOM")
+      printf 'drawn here, as a new theme on every run'
+      ;;
+    "$BB_THEME_KEEP")
+      if [ -n "$BB_PREV_CODE" ] && [ "$BB_RESOLVED" = "$BB_PREV_CODE" ]; then
+        printf 'kept from %s/theme-code' "$BB_DIR"
+      else
+        printf 'drawn here, the first theme of this machine'
+      fi
+      ;;
+    *) printf 'from the WebUI' ;;
+  esac
+}
+
+# bb_reload_note: what the shell that asked has to do next. When a fetched tree is
+# installed by its own prompt/bb.sh - which is how every command of the page ends -
+# that very shell is building the prompt as this prints, so there is nothing left to
+# reload in it. Run directly, by a script that has no prompt of its own, the shell
+# the script runs in does have to reload.
+bb_reload_note() {
+  if [ "${BB_SOURCED_BY_PROMPT:-0}" = 1 ]; then
+    printf 'this shell wears it now; other sessions pick it up as they start'
+  else
+    printf 'reload the shell, or run: . ~/.bashrc'
+  fi
+}
+
+# bb_install TREE [option ...]
+# Installs the tree TREE into ~/.bb. Returns non zero without writing anything
+# when the tree is not what a BetterBash tree should be. Sourcing this file from a
+# shell only defines these functions, which is how prompt/bb.sh of a fetched tree
+# installs the tree it lives in; run directly, bb_install is called below.
+bb_install() {
+  BB_REPO=${1:-}
+  shift 2>/dev/null || true
+
+  if ! bb_parse_options "$@"; then
+    return 2
+  fi
+  if [ "$BB_HELP" = 1 ]; then
+    return 0
+  fi
+
+  if [ ! -d "$HOME" ]; then
+    printf 'installbb: no home directory to install into\n' >&2
+    return 2
+  fi
+
+  if ! bb_verify_tree; then
+    return 1
+  fi
+
+  bb_copy_payload || return 1
+  bb_install_theme || return 1
+  bb_install_inputrc
+  bb_install_bashrc
+
+  BB_VERSION=$(sed -n '1p' "$BB_REPO/VERSION_APP.txt" 2>/dev/null)
+  [ -n "$BB_VERSION" ] || BB_VERSION=unknown
+
+  # The tree has been installed, so it is no longer pending: the flag goes, and
+  # with it the promise that sourcing prompt/bb.sh in that tree installs anything.
+  # The tree itself stays where it is, next to what was installed from it.
+  rm -f "$BB_REPO/$BB_PENDING"
+
+  cat <<EOF
 
 BetterBash $BB_VERSION ${BB_BASHRC_ACTION} in ~/.bashrc
   from     $BB_REPO
-  theme    $BB_RESOLVED ($BB_THEME_NOTE)
+  theme    $BB_RESOLVED ($(bb_theme_note))
   colors   $BB_DIR/theme.sh
   prompt   $BB_DIR/bb.sh
   readline $BB_INPUTRC_NOTE
   remove   sh $BB_DIR/removebb.sh
 
-Reload the shell, or run: . ~/.bashrc
+$(bb_reload_note)
 EOF
+  return 0
+}
+
+# Run directly rather than sourced: the same test bb-theme.sh uses, so that
+# `. installbb.sh` from prompt/bb.sh defines functions and changes nothing else -
+# not the current directory, not the options, not the environment of the shell
+# that sourced it.
+if [ "${0##*/}" = "installbb.sh" ]; then
+  set -u
+  # The directory this script was run from is the fetched tree: `sh ~/.bb/bb/installbb.sh`
+  # from any working directory points at ~/.bb/bb, which is where the commands of
+  # the WebUI extract to. --repo overrides it (the tests use that).
+  if [ -z "$BB_REPO" ]; then
+    case $0 in
+      */*) BB_REPO=$(cd -- "$(dirname -- "$0")" 2>/dev/null && pwd -P) ;;
+      *) BB_REPO=$(pwd -P) ;;
+    esac
+  fi
+  bb_install "$BB_REPO" "$@"
+  exit $?
+fi

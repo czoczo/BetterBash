@@ -321,11 +321,13 @@ const randomToggleHint =
   'Random theme mode: the command carries the word "rand" instead of a theme code, so the machine that runs it draws its own theme - a different one on every run, which makes running the command again a reroll. The colors selected above are ignored; turn this off to install a theme you can see here, and run a command without a code to keep the theme a machine already has.';
 
 const autoToggleHint =
-  'Automatic mode: the command drops the question it asks before running the installer. Without the question nothing can be answered, so it is the variant for scripts and containers; an interactive shell should keep being asked.';
+  'Automatic mode: the command drops the question it asks before installing anything. Without the question nothing can be answered, so it is the variant for scripts and containers; an interactive shell should keep being asked.';
 
-// Every command fetches from the origin serving this page and then installs from
-// the tree it fetched (see src/config.js); the uninstaller gets no theme code,
-// colors are not its business.
+// Every install command fetches from the origin serving this page into ~/.bb/bb and
+// ends by sourcing the prompt of that tree, which installs it (see src/config.js).
+// Removing needs no fetch at all, so the four methods show one and the same
+// uninstall command; the uninstaller gets no theme code, colors are not its
+// business.
 const currentInstallCommands = computed(() =>
   installCommands({
     kind: installKind.value,

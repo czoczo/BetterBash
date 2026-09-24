@@ -47,15 +47,20 @@ jobs:
         run: |
           set -euo pipefail
           dist=webpage/frontend/dist
-          for path in bb.tgz bb.tgz.sha256 installbb.sh removebb.sh getbb.sh .inputrc \
+          # What is served loose is what the legacy getbb.sh path downloads; the
+          # current path fetches bb.tgz and nothing else.
+          for path in bb.tgz bb.tgz.sha256 getbb.sh removebb.sh .inputrc \
                       prompt/bb-theme.sh prompt/bb.sh prompt/git-prompt.sh; do
             if [ ! -s "$dist/$path" ]; then
               echo "$dist/$path is missing, so an installation command would 404" >&2
               exit 1
             fi
           done
+          # install-pending is the flag inside a fetched tree, and the only thing
+          # in the package that is not also published as a file of its own.
           missing=
-          for path in $(tar -tzf "$dist/bb.tgz" | sed '/^bb\/$/d; s|^bb/||'); do
+          for path in $(tar -tzf "$dist/bb.tgz" | sed '/^\.bb\/$/d; /^\.bb\/bb\/$/d; s|^\.bb/bb/||'); do
+            [ "$path" = install-pending ] && continue
             [ -f "$dist/$path" ] || missing="$missing $path"
           done
           if [ -n "$missing" ]; then
@@ -110,7 +115,7 @@ jobs:
           PAGE_URL="${{ steps.url.outputs.PAGE_URL }}"
           # A leading dot in a path is served as any other name; the installer
           # appends this block to ~/.inputrc, so it has to be reachable.
-          for path in .inputrc bb.tgz bb.tgz.sha256 installbb.sh getbb.sh; do
+          for path in .inputrc bb.tgz bb.tgz.sha256 getbb.sh; do
             code=$(curl -fsSL -o /dev/null -w '%{http_code}' "$PAGE_URL/$path")
             echo "$path -> $code"
             [ "$code" = "200" ] || exit 1
@@ -119,15 +124,20 @@ jobs:
       - name: Install from the deployment as the page says
         run: |
           set -euo pipefail
-          PAGE_URL="${{ steps.url.outputs.PAGE_URL }}"
+          export PAGE_URL="${{ steps.url.outputs.PAGE_URL }}"
           home=$(mktemp -d)
-          fetch=$(mktemp -d)
           touch "$home/.bashrc" "$home/.inputrc"
-          curl -sL "$PAGE_URL/bb.tgz" | tar -C "$fetch" -xz
-          # The fetched installer, not the one of this checkout.
-          HOME="$home" sh "$fetch/bb/installbb.sh" vN-y_5uA
-          # The same command again: an existing installation has to survive it.
-          HOME="$home" sh "$fetch/bb/installbb.sh" vN-y_5uA
+          # The command of the page, in a home of its own: the package is unpacked
+          # into ~, so the tree lands in ~/.bb/bb, and the prompt of that tree is
+          # sourced, which installs it and colours this very shell.
+          fetch_and_source() {
+            HOME="$home" bash -c 'curl -sL "$PAGE_URL/bb.tgz" | tar -C ~ -xz && . ~/.bb/bb/prompt/bb.sh vN-y_5uA'
+          }
+          fetch_and_source
+          test ! -f "$home/.bb/bb/install-pending"
+          # The same command again: a tree that was installed installs nothing
+          # again, and an existing installation has to survive it.
+          fetch_and_source
           test -f "$home/.bb/theme.sh"
           test -f "$home/.bb/bb-theme.sh"
           test -f "$home/.bb/removebb.sh"
