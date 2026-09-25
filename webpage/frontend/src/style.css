@@ -29,8 +29,8 @@ li {
 /* Rendered only in non production builds, whose install commands point at the
    local backend instead of the published one. */
 .env-badge {
- /* display: inline-block;*/
-  float: right;;
+  /* Floated in front of the star button, so the header stays one row tall. */
+  float: right;
   padding: 1px 8px;
   margin: 0 0 0 8px;
   border: 1px solid var(--primary-color);
