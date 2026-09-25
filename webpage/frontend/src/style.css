@@ -22,12 +22,17 @@ li {
 .github-column {
   text-align: right;
 }
+.ghlink {
+  display: inline;
+}
+
 /* Rendered only in non production builds, whose install commands point at the
    local backend instead of the published one. */
 .env-badge {
-  display: inline-block;
-  margin-top: 8px;
+ /* display: inline-block;*/
+  float: right;;
   padding: 1px 8px;
+  margin: 0 0 0 8px;
   border: 1px solid var(--primary-color);
   border-radius: 4px;
   color: var(--primary-color);
@@ -46,6 +51,7 @@ li {
   margin: 0 auto;
   background-color: #1e1e1e;
   color: #f0f0f0;
+  margin-top: 10px;
 }
 /* Accent colours (--primary-*) are defined with fallbacks in assets/main.css
    and redefined at runtime from PRIMARY_COLOR. */
