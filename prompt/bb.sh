@@ -4,20 +4,24 @@
 BB_DIR="${BB_DIR:-$HOME/.bb}"
 
 # --- a fetched tree installs itself, once ------------------------------------
-# The fetch commands of the WebUI leave a BetterBash tree in ~/.bb/bb and nothing
-# else about it happens there until that tree is asked to install itself, which is
-# what sourcing its prompt/bb.sh does. A tree that has not been installed carries
-# the file install-pending next to it, so the flag - and not a guess about whether
-# this file is the installed one or a fetched one - is what says: install, then
-# build the prompt. The flag is removed by the install, so every later sourcing of
-# this file costs one test for a file that is not there.
+# The fetch commands of the WebUI leave a BetterBash tree in ~/.bb and nothing else
+# about it happens there until that tree is asked to install itself, which is what
+# sourcing its prompt/bb.sh does. A tree that has not been installed carries the
+# file install-pending next to it, so the flag - and not a guess about whether this
+# file is the installed one or a fetched one - is what says: install, then build the
+# prompt. The flag is removed by the install, so every later sourcing of this file
+# costs one test for a file that is not there.
 #
 # The install is run in a subshell on purpose: installbb.sh defines functions and
 # options a shell of its own, and the shell that ends up wearing the prompt should
 # not be the one that installed it.
 #
-# Only a tree under $BB_DIR installs, which is the second test: a checkout of this
-# project worked on, or any other copy of these files, stays a directory of files.
+# Only the tree that $BB_DIR itself is installs, which is the second test: a
+# checkout of this project worked on, or any other copy of these files, stays a
+# directory of files. The two copies of this file that a machine holds - the
+# installed prompt ~/.bb/bb.sh and ~/.bb/prompt/bb.sh of the tree it was copied out
+# of - are told apart by the directory above them: one level up from the tree's
+# prompt is ~/.bb, one level up from the installed copy is the home directory.
 #
 # The tree is found from this file, so it is the tree whose prompt was sourced -
 # wherever that was, and with whatever name.
@@ -27,20 +31,20 @@ case $BB_SELF in
   # Sourced by its bare name, from inside prompt/ of the tree itself.
   *) BB_TREE=$(cd -- "$(pwd -P)/.." 2>/dev/null && pwd -P) ;;
 esac
-if [ -f "$BB_TREE/install-pending" ] && [ "$BB_TREE" = "$BB_DIR/bb" ]; then
+if [ -f "$BB_TREE/install-pending" ] && [ "$BB_TREE" = "$BB_DIR" ]; then
   # BB_SOURCED_BY_PROMPT tells the installer that the shell it installed for is the
   # shell asking, i.e. the one that is about to build its prompt here.
   if ! (. "$BB_TREE/installbb.sh" && BB_SOURCED_BY_PROMPT=1 bb_install "$BB_TREE" ${1:+"$1"}); then
     printf 'BetterBash: the tree in %s did not install, so the prompt is not loaded\n' "$BB_TREE" >&2
     return 1
   fi
-elif [ -f "$BB_DIR/bb/install-pending" ] && [ -f "$BB_DIR/bb/prompt/bb.sh" ]; then
+elif [ -f "$BB_DIR/install-pending" ] && [ -f "$BB_DIR/prompt/bb.sh" ]; then
   # The installed prompt found a tree that was fetched and left alone - because
   # the question was answered with n, or because nobody ran it. It is not
   # installed by a shell starting, so it is only mentioned, once per shell.
   case $- in
     *i*)
-      printf 'BetterBash: %s/bb was fetched but not installed; install it with: . %s/bb/prompt/bb.sh\n' \
+      printf 'BetterBash: %s was fetched but not installed; install it with: . %s/prompt/bb.sh\n' \
         "$BB_DIR" "$BB_DIR" >&2
       ;;
   esac

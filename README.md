@@ -33,11 +33,11 @@ Support this project by **giving it a star**. Thanks!
 
 ## :rocket: Install:
 Every command does the same three things: **fetch** the BetterBash tree into
-`~/.bb/bb`, **ask** whether to go on (answer `y`, or `n` and nothing happened
-beyond a directory of readable files), then **source the prompt of what was
-fetched**, which installs the tree into `~/.bb` and puts it on the prompt of that
-very shell. Nothing is piped into a shell, so the fetched scripts can be read
-before they are run.
+`~/.bb`, **ask** whether to go on (answer `y`, or `n` and nothing happened beyond a
+directory of readable files), then **source the prompt of what was fetched**, which
+installs the tree into `~/.bb` - the directory it was fetched into - and puts it on
+the prompt of that very shell. Nothing is piped into a shell, so the fetched scripts
+can be read before they are run.
 
 The eight characters of the theme are `vN-y_5uA`: one code, one colour scheme.
 The word `rand` draws a random theme on the machine that runs the command, and a
@@ -50,42 +50,52 @@ release it points at, which is worth knowing when you update.
 
 with **git**
 ```
-git clone -q --depth 1 --branch 0.1.3 https://github.com/czoczo/BetterBash ~/.bb/bb && read -p"install BetterBash from ~/.bb/bb? [y/N] " -n1 && [[ $REPLY == [Yy] ]] && . ~/.bb/bb/prompt/bb.sh vN-y_5uA
+git clone -q --depth 1 --branch 0.1.3 https://github.com/czoczo/BetterBash ~/.bb && read -p"install BetterBash from ~/.bb? [y/N] " -n1 && [[ $REPLY == [Yy] ]] && . ~/.bb/prompt/bb.sh vN-y_5uA
 ```
 with **curl**
 ```
-curl -sL https://betterbash.cz0.cz/bb.tgz | tar -C ~ -xz && read -p"install BetterBash from ~/.bb/bb? [y/N] " -n1 && [[ $REPLY == [Yy] ]] && . ~/.bb/bb/prompt/bb.sh vN-y_5uA
+mkdir -p ~/.bb && curl -sL https://betterbash.cz0.cz/bb.tgz | tar -C ~/.bb -xz && read -p"install BetterBash from ~/.bb? [y/N] " -n1 && [[ $REPLY == [Yy] ]] && . ~/.bb/prompt/bb.sh vN-y_5uA
 ```
 with **wget**
 ```
-wget -q -O - https://betterbash.cz0.cz/bb.tgz | tar -C ~ -xz && read -p"install BetterBash from ~/.bb/bb? [y/N] " -n1 && [[ $REPLY == [Yy] ]] && . ~/.bb/bb/prompt/bb.sh vN-y_5uA
+mkdir -p ~/.bb && wget -q -O - https://betterbash.cz0.cz/bb.tgz | tar -C ~/.bb -xz && read -p"install BetterBash from ~/.bb? [y/N] " -n1 && [[ $REPLY == [Yy] ]] && . ~/.bb/prompt/bb.sh vN-y_5uA
 ```
 with **openssl** (needs no git, curl or wget)
 ```
-printf 'GET /bb.tgz HTTP/1.1\r\nHost: betterbash.cz0.cz\r\nConnection: close\r\n\r\n' \
+mkdir -p ~/.bb && printf 'GET /bb.tgz HTTP/1.1\r\nHost: betterbash.cz0.cz\r\nConnection: close\r\n\r\n' \
 | openssl s_client -quiet -connect betterbash.cz0.cz:443 -servername betterbash.cz0.cz 2>/dev/null \
-| sed '1,/^\r$/d' | tar -C ~ -xz && read -p"install BetterBash from ~/.bb/bb? [y/N] " -n1 && [[ $REPLY == [Yy] ]] && . ~/.bb/bb/prompt/bb.sh vN-y_5uA
+| sed '1,/^\r$/d' | tar -C ~/.bb -xz && read -p"install BetterBash from ~/.bb? [y/N] " -n1 && [[ $REPLY == [Yy] ]] && . ~/.bb/prompt/bb.sh vN-y_5uA
 ```
 The question is written for bash (`[[ ]]`); for a script or a container, tick
 **Auto** on the page and the command has no question in it at all, so nothing is
-left to answer (there, `sh ~/.bb/bb/installbb.sh vN-y_5uA` installs without
+left to answer (there, `sh ~/.bb/installbb.sh vN-y_5uA` installs without
 sourcing anything, because a script is not the shell that wants the prompt).
 
-`bb.tgz` unpacks to `.bb/bb`, so `tar -C ~ -xz` creates `~/.bb` around the tree and
-`~/.bb/bb` is what you say yes to. The tree installs nothing by itself: it carries
-a file named `install-pending`, and the **first** sourcing of its `prompt/bb.sh`
-installs the tree and takes that file away. That is why the last thing the command
-does is to source the prompt - it is the install and the activation in one step,
-and no `. ~/.bashrc` is needed. Every later sourcing of that file is only a prompt,
-and the flag is what says so; a `prompt/bb.sh` of a tree that was installed already
-knows it never installs anything.
+`bb.tgz` holds the tree at its own root, so `tar -C ~/.bb -xz` unpacks it into
+`~/.bb` and `~/.bb` is what you say yes to - the archive carries no directory of
+its own, the command names the one it wants. `mkdir -p` is in the command because
+tar wants the directory it unpacks into to exist, which `git clone` needs no help
+with. The tree installs nothing by itself: it carries a file named `install-pending`,
+and the **first** sourcing of its `prompt/bb.sh` installs the tree and takes that
+file away. That is why the last thing the command does is to source the prompt - it
+is the install and the activation in one step, and no `. ~/.bashrc` is needed. Every
+later sourcing of that file is only a prompt, and the flag is what says so; a
+`prompt/bb.sh` of a tree that was installed already knows it never installs
+anything.
+
+The install does not make a directory of its own either: it writes `bb.sh`,
+`bb-theme.sh`, `git-prompt.sh`, `removebb.sh`, `theme.sh`, `theme-code` and `version`
+into `~/.bb`, next to the `prompt/` and `installbb.sh` it copied them out of. Two
+copies of the prompt live there and do different jobs: `~/.bb/prompt/bb.sh` is the
+tree's own, sourced once by the install command, and `~/.bb/bb.sh` is the installed
+one, which `~/.bashrc` sources in every shell after it.
 
 Answering `n` leaves the fetched tree where it is, still pending: read it, and run
-`. ~/.bb/bb/prompt/bb.sh` later if you decide (with no theme word, it keeps the
-theme of the machine). Nothing in it installs itself at a later shell start - a
-shell that starts only mentions it - and `rm -rf ~/.bb/bb` takes it away. A tree is
-still checked before it is copied: `installbb.sh` refuses one that anyone but you
-can write, and copies only the files it knows instead of the whole tree.
+`. ~/.bb/prompt/bb.sh` later if you decide (with no theme word, it keeps the theme
+of the machine). Nothing in it installs itself at a later shell start - a shell that
+starts only mentions it - and `rm -rf ~/.bb` takes it away. A tree is still checked
+before it is copied: `installbb.sh` refuses one that anyone but you can write, and
+copies only the files it knows instead of the whole tree.
 
 ## :wrench: Uninstall:
 The uninstaller is installed with the prompt, so removing needs no theme code and
@@ -93,10 +103,10 @@ nothing is fetched - the page prints this one command under all four methods:
 ```
 sh ~/.bb/removebb.sh
 ```
-It takes `~/.bb` with it, including `~/.bb/bb`, the tree the last install command
-left there. A bash session needs a restart for it to take effect. A machine that
-fetched BetterBash but never installed it has nothing to uninstall: `rm -rf ~/.bb/bb`
-is enough.
+It takes `~/.bb` with it, the fetched tree of the last install command included, and
+the two blocks it added to `~/.bashrc` and `~/.inputrc`. A bash session needs a
+restart for it to take effect. A machine that fetched BetterBash but never installed
+it has nothing to uninstall: `rm -rf ~/.bb` is enough.
 
 ## :microscope: Development
 
@@ -107,7 +117,7 @@ Everything BetterBash needs is in this repository, and nothing runs a server:
 | `prompt/bb.sh` | the prompt itself (bash) |
 | `prompt/bb-theme.sh` | theme library: validates a code, decodes it to the nine prompt colours, draws a random one (`sh`, POSIX) |
 | `prompt/git-prompt.sh` | vendored [git-prompt](https://github.com/git/git/blob/master/contrib/prompt/git-prompt.sh) |
-| `installbb.sh` | installer: copies the prompt out of a fetched tree into `~/.bb`; sourced by `prompt/bb.sh` of that tree, run directly by a script (`sh`, POSIX) |
+| `installbb.sh` | installer: copies the prompt out of a fetched tree into `~/.bb`, the directory the tree itself was fetched into; sourced by `prompt/bb.sh` of that tree, run directly by a script (`sh`, POSIX) |
 | `install-pending` | the flag inside a fetched tree: its first `prompt/bb.sh` sourcing installs it, and this file is what the install takes away |
 | `removebb.sh` | uninstaller, installed with the prompt so removing needs no fetch (`sh`, POSIX) |
 | `getbb.sh` | installer of the legacy path, downloading one file at a time (`sh`, POSIX) |
@@ -116,9 +126,11 @@ Everything BetterBash needs is in this repository, and nothing runs a server:
 
 The Pages workflow builds the page and stages `bb.tgz` next to it, so
 `https://betterbash.cz0.cz/bb.tgz` holds exactly `prompt/`, `installbb.sh`,
-`removebb.sh`, `VERSION_APP.txt`, `.inputrc` and `install-pending`, unpacked to
-`.bb/bb`, and the page fetches from its own origin. That is what makes both domains of the deployment - `betterbash.cz0.cz`
-and `bb.cz0.cz` - install from themselves. The same files are staged loose as
+`removebb.sh`, `VERSION_APP.txt`, `.inputrc` and `install-pending` - the tree at the
+root of the archive, with no directory of its own, so it unpacks straight into the
+`~/.bb` a command names - and the page fetches from its own origin. That is what
+makes both domains of the deployment - `betterbash.cz0.cz` and `bb.cz0.cz` - install
+from themselves. The same files are staged loose as
 well, which is what the legacy `getbb.sh` path downloads.
 
 A theme code is an argument of the installer, never part of a URL, and it is

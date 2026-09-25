@@ -3,8 +3,9 @@
 # BetterBash uninstaller.
 #
 # Removes the ~/.bb directory (prompt, theme library, decoded theme, the random
-# theme code and the fetched tree of the last install, which lives in ~/.bb/bb) and
-# the two blocks BetterBash added to ~/.bashrc and ~/.inputrc. POSIX shell.
+# theme code, and the fetched tree of the last install, which sits in ~/.bb itself
+# rather than in a directory under it) and the two blocks BetterBash added to
+# ~/.bashrc and ~/.inputrc. POSIX shell.
 #
 # It runs from ~/.bb of an installed machine, so removing needs no fetch; the fetch
 # commands of the WebUI run the copy that came with the package instead.

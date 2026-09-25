@@ -5,9 +5,9 @@
 # The commands under test are the ones the WebUI prints. They are rendered by
 # tests/install-commands.mjs (that is src/config.js, the code of the page) and run
 # verbatim, so "what is on the page" and "what installs" cannot drift apart. Every
-# command fetches the BetterBash tree with one of its four methods into ~/.bb/bb,
-# asks whether to go on, and then sources prompt/bb.sh of the tree it fetched,
-# which installs the tree and puts the prompt on that shell.
+# command fetches the BetterBash tree with one of its four methods into ~/.bb, asks
+# whether to go on, and then sources prompt/bb.sh of the tree it fetched, which
+# installs the tree into that same directory and puts the prompt on that shell.
 #
 #   ./test-install.sh                       # every method, every check
 #   ./test-install.sh --code vN-y_5uA       # theme code to install
@@ -110,13 +110,17 @@ new_home() {
 
 # The fetched tree of a home, and the flag that tells it has not been installed
 # yet: install-pending, a file of the repository that both the package and a git
-# clone carry. The fetch commands of the page land the tree there, in the home of
-# whoever ran them, so no test needs a directory of the machine it runs on.
-tree_of() { printf '%s/.bb/bb' "$1"; }
-flag_of() { printf '%s/.bb/bb/install-pending' "$1"; }
+# clone carry. The fetch commands of the page land the tree in ~/.bb itself, in the
+# home of whoever ran them, so no test needs a directory of the machine it runs on -
+# and one level, since the tree is not kept apart from what is installed out of it.
+tree_of() { printf '%s/.bb' "$1"; }
+flag_of() { printf '%s/.bb/install-pending' "$1"; }
 
-# fetch_into HOME: what `tar -C ~ -xz` of the page does, in the home of a test.
-fetch_into() { tar -C "$1" -xz <"$PKG"; }
+# fetch_into HOME: what `mkdir -p ~/.bb && … | tar -C ~/.bb -xz` of the page does,
+# in the home of a test.
+fetch_into() {
+  mkdir -p "$1/.bb" && tar -C "$1/.bb" -xz <"$PKG";
+}
 
 while [ $# -gt 0 ]; do
   case $1 in
@@ -217,14 +221,14 @@ else
   # The git method, without a network: the package itself becomes a tagged
   # repository, so the fixture holds exactly the files a release carries.
   log_info "building a local git fixture tagged $RELEASE_REF"
-  # One component taken off here, two in the sections below: the fixture wants the
-  # bb/ directory of the package, the sections want its contents.
-  mkdir -p "$WORK/git" && tar -C "$WORK/git" -xzf "$PKG" --strip-components=1 || exit 1
-  git -C "$WORK/git/bb" init -q || exit 1
-  git -C "$WORK/git/bb" -c user.name=bb -c user.email=bb@example add -A || exit 1
-  git -C "$WORK/git/bb" -c user.name=bb -c user.email=bb@example commit -qm "BetterBash $RELEASE_REF" || exit 1
-  git -C "$WORK/git/bb" tag "$RELEASE_REF" || exit 1
-  git clone -q --bare "$WORK/git/bb" "$WORK/git/repo.git" || exit 1
+  # The package holds the tree at its own root, so unpacking it into a directory of
+  # the test gives the fixture exactly what a release carries.
+  mkdir -p "$WORK/git/tree" && tar -C "$WORK/git/tree" -xzf "$PKG" || exit 1
+  git -C "$WORK/git/tree" init -q || exit 1
+  git -C "$WORK/git/tree" -c user.name=bb -c user.email=bb@example add -A || exit 1
+  git -C "$WORK/git/tree" -c user.name=bb -c user.email=bb@example commit -qm "BetterBash $RELEASE_REF" || exit 1
+  git -C "$WORK/git/tree" tag "$RELEASE_REF" || exit 1
+  git clone -q --bare "$WORK/git/tree" "$WORK/git/repo.git" || exit 1
   REPO_URL=file://$WORK/git/repo.git
 
   # TLS for the openssl method, with a certificate valid for one day and for
@@ -283,9 +287,9 @@ else
   log_info "serving $PLAIN_BASE${TLS_BASE:+ and $TLS_BASE}"
 fi
 
-# One extracted tree for the sections that want the installer of a release: the
-# .bb/bb prefix of the package is taken off, so $TREE is what ~/.bb/bb becomes.
-mkdir -p "$WORK/tree" && tar -C "$WORK/tree" -xzf "$PKG" --strip-components=2 || exit 1
+# One extracted tree for the sections that want the installer of a release: the tree
+# is at the root of the package, so $TREE is what ~/.bb becomes.
+mkdir -p "$WORK/tree" && tar -C "$WORK/tree" -xzf "$PKG" || exit 1
 TREE=$WORK/tree
 
 # render FIELD KIND OUT [CODE]
@@ -338,16 +342,20 @@ check_installed_files() {
   expect_grep 'history-search-backward' "$_home/.inputrc" "readline block added to ~/.inputrc"
 
   # Nothing half written may be left in the directory the prompt is sourced from.
-  # The fetched tree itself may sit in .bb/bb, next to what was made from it: an
-  # install does not delete the files it is being sourced out of.
+  # The fetched tree sits in .bb itself, next to what was made from it: an install
+  # does not delete the files it is being sourced out of, so both sets of names are
+  # listed here and anything else is a leftover. `.git` belongs to the git method,
+  # which clones its tree into ~/.bb and leaves the repository of it there.
   _leftovers=$(find "$_home/.bb" -mindepth 1 -maxdepth 1 \
-    ! -name bb ! -name bb.sh ! -name bb-theme.sh ! -name git-prompt.sh \
+    ! -name bb.sh ! -name bb-theme.sh ! -name git-prompt.sh \
     ! -name removebb.sh ! -name version ! -name theme.sh ! -name theme-code \
+    ! -name prompt ! -name installbb.sh ! -name VERSION_APP.txt ! -name .inputrc \
+    ! -name .git \
     2>/dev/null | sed "s|^$_home/.bb/||")
   if [ -z "$_leftovers" ]; then
-    log_success ".bb holds only the installed files and the fetched tree in .bb/bb"
+    log_success ".bb holds only the installed files and the fetched tree it came with"
   else
-    log_error ".bb holds only the installed files and the fetched tree in .bb/bb (found: $_leftovers)"
+    log_error ".bb holds only the installed files and the fetched tree it came with (found: $_leftovers)"
   fi
 }
 
@@ -451,13 +459,13 @@ for _method in $BB_TEST_METHODS; do
   # fetched: that sourcing is what installs the tree, and what colours the shell.
   expect_grep "prompt/bb.sh $BB_TEST_CODE" "$WORK/$_method.install.cmd" \
     "$_method hands the theme code to the prompt it sources"
-  expect_grep 'tar -C ~ -xz\|git clone' "$WORK/$_method.install.cmd" \
-    "$_method fetches into the home directory of the shell"
+  expect_grep 'tar -C ~/.bb -xz\|git clone' "$WORK/$_method.install.cmd" \
+    "$_method unpacks into ~/.bb, not into a directory of its own"
   # Nothing of a fetched tree may end up in a directory the home directory of the
   # user has no say over.
   # shellcheck disable=SC2088  # the command of the page names ~ literally on purpose
-  expect_grep '~/.bb/bb' "$WORK/$_method.install.cmd" \
-    "$_method leaves the tree in ~/.bb/bb, in the home of the shell that ran it"
+  expect_grep '~/.bb/prompt/bb.sh' "$WORK/$_method.install.cmd" \
+    "$_method leaves the tree in ~/.bb, in the home of the shell that ran it"
   expect_not_grep 'bash -s' "$WORK/$_method.install.cmd" "$_method does not pipe a script into a shell"
 
   if run_command "$WORK/$_method.install.cmd" "$_home" y "$WORK/$_method.install.log"; then
@@ -475,9 +483,19 @@ for _method in $BB_TEST_METHODS; do
   # The fetched tree is not eaten by the install: it stays where it was fetched,
   # which is what lets the files be read after the fact.
   if [ -f "$(tree_of "$_home")/prompt/bb.sh" ] && [ -f "$(tree_of "$_home")/installbb.sh" ]; then
-    log_success "$_method leaves the fetched tree in .bb/bb, next to what was installed"
+    log_success "$_method leaves the fetched tree in .bb, next to what was installed"
   else
-    log_error "$_method leaves the fetched tree in .bb/bb, next to what was installed"
+    log_error "$_method leaves the fetched tree in .bb, next to what was installed"
+  fi
+
+  # One level, and one directory for both: the tree the command fetched and the
+  # prompt installed out of it are contents of ~/.bb, so a machine ends up with two
+  # prompts - ~/.bb/prompt/bb.sh, which the command sourced, and the installed
+  # ~/.bb/bb.sh, which ~/.bashrc sources from then on.
+  if [ -f "$_home/.bb/prompt/bb.sh" ] && [ -f "$_home/.bb/bb.sh" ]; then
+    log_success "$_method installs into the directory it fetched the tree into"
+  else
+    log_error "$_method installs into the directory it fetched the tree into"
   fi
 
   if [ -f "$_home/.bb/version" ] && [ "$(sed -n '1p' "$_home/.bb/version")" = "$RELEASE_REF" ]; then
@@ -531,7 +549,10 @@ for _answer in 'n' 'x' ''; do
   # A second attempt of the same command in the same home has to stay possible,
   # so a refused question must not have half written anything: the fetched tree may
   # be there, nothing else.
-  _refused=$(find "$_home/.bb" -mindepth 1 -maxdepth 1 ! -name bb 2>/dev/null | sed "s|^$_home/.bb/||")
+  _refused=$(find "$_home/.bb" -mindepth 1 -maxdepth 1 \
+    ! -name install-pending ! -name installbb.sh ! -name removebb.sh \
+    ! -name .inputrc ! -name VERSION_APP.txt ! -name prompt \
+    2>/dev/null | sed "s|^$_home/.bb/||")
   if [ -z "$_refused" ]; then
     log_success "$_what leaves nothing but the fetched tree behind"
   else
@@ -568,7 +589,7 @@ else
 fi
 
 # Sourcing the prompt of the tree is the install, and it also colours this shell.
-if HOME=$_home bash -c ". ~/.bb/bb/prompt/bb.sh $BB_TEST_CODE" >"$WORK/flag1.log" 2>&1; then
+if HOME=$_home bash -c ". ~/.bb/prompt/bb.sh $BB_TEST_CODE" >"$WORK/flag1.log" 2>&1; then
   log_success 'sourcing the prompt of a fetched tree installs it'
 else
   log_error 'sourcing the prompt of a fetched tree installs it'
@@ -600,7 +621,7 @@ if [ -f "$(flag_of "$_home")" ] && grep -q sentinel "$_home/.bb/version"; then
 else
   log_error 'a later shell does not install a tree that was fetched and left alone'
 fi
-if grep -q 'not installed' "$WORK/flag3.log" && grep -q 'bb/prompt/bb.sh' "$WORK/flag3.log"; then
+if grep -q 'not installed' "$WORK/flag3.log" && grep -q '\.bb/prompt/bb.sh' "$WORK/flag3.log"; then
   log_success 'the installed prompt says a fetched tree is waiting, and how to install it'
 else
   log_error 'the installed prompt says a fetched tree is waiting, and how to install it'
@@ -609,7 +630,7 @@ fi
 
 # Installing it afterwards is only the sourcing of its prompt, without a code: the
 # theme of the machine is kept.
-if HOME=$_home bash -c '. ~/.bb/bb/prompt/bb.sh' >"$WORK/flag4.log" 2>&1 \
+if HOME=$_home bash -c '. ~/.bb/prompt/bb.sh' >"$WORK/flag4.log" 2>&1 \
   && [ ! -e "$(flag_of "$_home")" ] && grep -q "$RELEASE_REF" "$_home/.bb/version"; then
   log_success 'answering yes later is only the sourcing of the prompt of the tree'
 else
@@ -618,12 +639,13 @@ else
 fi
 
 # Sourcing a checkout of this project is never an install, even though the tree of
-# a checkout carries the pending flag too: only the tree under ~/.bb is a tree the
-# commands of the page fetched.
+# a checkout carries the pending flag too, and even though it has the same shape as
+# the ~/.bb of a machine: only the directory ~/.bb itself is a tree the commands of
+# the page fetched.
 _home=$(new_home)
 HOMES="$HOMES $_home"
 fetch_into "$_home"
-HOME=$_home bash -c ". ~/.bb/bb/prompt/bb.sh $BB_TEST_CODE" >/dev/null 2>&1
+HOME=$_home bash -c ". ~/.bb/prompt/bb.sh $BB_TEST_CODE" >/dev/null 2>&1
 printf 'sentinel\n' >"$_home/.bb/version"
 HOME=$_home bash -c "cd '$REPO_ROOT' && . prompt/bb.sh" >/dev/null 2>"$WORK/devcopy.log"
 if grep -q sentinel "$_home/.bb/version"; then
@@ -697,7 +719,7 @@ log_info 'an origin that does not answer with the package'
 _home=$(new_home)
 HOMES="$HOMES $_home"
 if printf 'y' | HOME=$_home bash -c \
-  "curl -sL $PLAIN_BASE/nope.tgz | tar -C ~ -xz && . ~/.bb/bb/prompt/bb.sh $BB_TEST_CODE" \
+  "mkdir -p ~/.bb && curl -sL $PLAIN_BASE/nope.tgz | tar -C ~/.bb -xz && . ~/.bb/prompt/bb.sh $BB_TEST_CODE" \
   >"$WORK/nopackage.log" 2>&1; then
   log_error 'an origin serving no package installs nothing'
 else
@@ -717,11 +739,11 @@ log_info 'installbb.sh refuses a tree it should not copy from'
 # directory anybody with access to the machine could have edited, so files that are
 # writable by someone else are not installed.
 _planted=$WORK/planted
-mkdir -p "$_planted" && tar -C "$_planted" -xzf "$PKG" --strip-components=1 || exit 1
-chmod -R a+w "$_planted/bb"
+mkdir -p "$_planted" && tar -C "$_planted" -xzf "$PKG" || exit 1
+chmod -R a+w "$_planted"
 _home=$(new_home)
 HOMES="$HOMES $_home"
-if HOME=$_home sh "$_planted/bb/installbb.sh" "$BB_TEST_CODE" >"$WORK/planted.log" 2>&1; then
+if HOME=$_home sh "$_planted/installbb.sh" "$BB_TEST_CODE" >"$WORK/planted.log" 2>&1; then
   log_error 'a tree other users can write to is refused'
 else
   log_success 'a tree other users can write to is refused'
@@ -729,7 +751,7 @@ fi
 expect_grep 'writable by other users' "$WORK/planted.log" 'and says why'
 
 # An incomplete tree: a directory that holds some of a release.
-_incomplete=$WORK/incomplete/bb
+_incomplete=$WORK/incomplete
 mkdir -p "$_incomplete/prompt" || exit 1
 cp "$REPO_ROOT/prompt/bb.sh" "$_incomplete/prompt/" || exit 1
 cp "$REPO_ROOT/installbb.sh" "$_incomplete/" || exit 1
@@ -747,7 +769,7 @@ else
 fi
 
 # A file of the right name that is not the file it claims to be.
-_fake=$WORK/fake/bb
+_fake=$WORK/fake
 mkdir -p "$_fake/prompt" || exit 1
 cp "$TREE/installbb.sh" "$TREE/removebb.sh" "$_fake/" || exit 1
 cp "$TREE/VERSION_APP.txt" "$_fake/" || exit 1
@@ -781,11 +803,11 @@ done
 # A tree without the readline block: ~/.inputrc is a convenience, so its absence
 # must cost the binding and nothing else.
 _noinputrc=$WORK/noinputrc
-mkdir -p "$_noinputrc" && tar -C "$_noinputrc" -xzf "$PKG" --strip-components=1 || exit 1
-rm "$_noinputrc/bb/.inputrc"
+mkdir -p "$_noinputrc" && tar -C "$_noinputrc" -xzf "$PKG" || exit 1
+rm "$_noinputrc/.inputrc"
 _home=$(new_home)
 HOMES="$HOMES $_home"
-if HOME=$_home sh "$_noinputrc/bb/installbb.sh" "$BB_TEST_CODE" >"$WORK/noinputrc.log" 2>&1; then
+if HOME=$_home sh "$_noinputrc/installbb.sh" "$BB_TEST_CODE" >"$WORK/noinputrc.log" 2>&1; then
   log_success 'a tree without .inputrc installs the prompt'
 else
   log_error 'a tree without .inputrc installs the prompt'
@@ -809,7 +831,7 @@ for _shell in $BB_TEST_SHELLS; do
   _tree=$WORK/tree-of-$_shell
   rm -rf "$_tree"
   mkdir -p "$_tree" || exit 1
-  tar -C "$_tree" -xzf "$PKG" --strip-components=2 || exit 1
+  tar -C "$_tree" -xzf "$PKG" || exit 1
   _home=$(new_home)
   HOMES="$HOMES $_home"
   if HOME=$_home "$_shell" "$_tree/installbb.sh" "$BB_TEST_CODE" >"$WORK/$_shell.log" 2>&1; then

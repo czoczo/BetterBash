@@ -1,12 +1,15 @@
 A BetterBash tree with this file in it has been fetched but not installed.
 
-The fetch commands of the WebUI leave a tree in ~/.bb/bb. Nothing reads or runs
-anything from that directory until it is asked to: sourcing prompt/bb.sh from
-inside the tree installs the tree into ~/.bb and deletes this file, so the second
-sourcing of that file only builds the prompt. Installing it later is only that:
+The fetch commands of the WebUI leave a tree in ~/.bb itself - one level, the
+directory the command names. Nothing reads or runs anything from that directory
+until it is asked to: sourcing prompt/bb.sh from inside the tree installs it and
+deletes this file, so the second sourcing of that file only builds the prompt. The
+install writes no directory of its own either; its files land in ~/.bb next to the
+`prompt/` and `installbb.sh` they were copied out of. Installing the tree later is
+only that:
 
-    . ~/.bb/bb/prompt/bb.sh          # keeps the theme of this machine
-    . ~/.bb/bb/prompt/bb.sh rand     # draws a new theme here
+    . ~/.bb/prompt/bb.sh          # keeps the theme of this machine
+    . ~/.bb/prompt/bb.sh rand     # draws a new theme here
 
 Answered the question with n? Nothing was installed and nothing will be. The tree
 is a directory of files, readable, and it changes no shell until someone sources
@@ -16,4 +19,8 @@ this file away as well.
 
 To remove a tree that was fetched and left alone:
 
-    rm -rf ~/.bb/bb
+    rm -rf ~/.bb
+
+which is the whole of BetterBash on a machine that never installed one. On a
+machine that did, ~/.bb holds the installed prompt as well, and removing it removes
+both; `sh ~/.bb/removebb.sh` takes the ~/.bashrc and ~/.inputrc blocks with it.

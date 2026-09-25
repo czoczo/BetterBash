@@ -127,14 +127,14 @@ jobs:
           export PAGE_URL="${{ steps.url.outputs.PAGE_URL }}"
           home=$(mktemp -d)
           touch "$home/.bashrc" "$home/.inputrc"
-          # The command of the page, in a home of its own: the package is unpacked
-          # into ~, so the tree lands in ~/.bb/bb, and the prompt of that tree is
-          # sourced, which installs it and colours this very shell.
+          # The command of the page, in a home of its own: the package holds the
+          # tree at its own root, so it lands in ~/.bb itself, and the prompt of
+          # that tree is sourced, which installs it and colours this very shell.
           fetch_and_source() {
-            HOME="$home" bash -c 'curl -sL "$PAGE_URL/bb.tgz" | tar -C ~ -xz && . ~/.bb/bb/prompt/bb.sh vN-y_5uA'
+            HOME="$home" bash -c 'mkdir -p ~/.bb && curl -sL "$PAGE_URL/bb.tgz" | tar -C ~/.bb -xz && . ~/.bb/prompt/bb.sh vN-y_5uA'
           }
           fetch_and_source
-          test ! -f "$home/.bb/bb/install-pending"
+          test ! -f "$home/.bb/install-pending"
           # The same command again: a tree that was installed installs nothing
           # again, and an existing installation has to survive it.
           fetch_and_source
@@ -143,11 +143,16 @@ jobs:
           test -f "$home/.bb/removebb.sh"
           grep -q BetterBash "$home/.bashrc"
           grep -q history-search-backward "$home/.inputrc"
+          # The prompt has to wear the theme, and which colour that is belongs to
+          # the theme: read it from the installed theme.sh rather than naming one
+          # here, since a prompt only shows some of its colours (the colour of root,
+          # for instance, comes out when the prompt belongs to root).
           HOME="$home" bash -c '
             . "$HOME/.bb/bb.sh" >/dev/null 2>&1 || exit 1
             __prompt_command
+            . "$HOME/.bb/theme.sh"
             case "$PS1" in
-              *"\[\033[1;93m\]"*) echo "the prompt carries the colour of theme vN-y_5uA" ;;
+              *"$PRIMARY_COLOR"*) echo "the prompt carries the colour of theme vN-y_5uA" ;;
               *) echo "PS1: $PS1" >&2; exit 1 ;;
             esac
           '

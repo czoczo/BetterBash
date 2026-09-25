@@ -4,18 +4,22 @@
 #
 # Nothing is downloaded here. The prompt files are copied out of a BetterBash
 # tree that an ordinary command of your own fetched (git clone, or the tarball of
-# a release through curl, wget or openssl) and that landed in ~/.bb/bb, so every
-# file that reaches ~/.bb can be read next to this script before it is run.
+# a release through curl, wget or openssl) and that landed in ~/.bb, so every file
+# that reaches ~/.bb can be read next to this script before it is run.
 #
 # Usage, exactly as the WebUI shows it:
 #
-#   curl -sL https://betterbash.cz0.cz/bb.tgz | tar -C ~ -xz \
-#     && read -p"install BetterBash from ~/.bb/bb? [y/N] " -n1 && [[ $REPLY == [Yy] ]] \
-#     && . ~/.bb/bb/prompt/bb.sh vN-y_5uA
+#   mkdir -p ~/.bb && curl -sL https://betterbash.cz0.cz/bb.tgz | tar -C ~/.bb -xz \
+#     && read -p"install BetterBash from ~/.bb? [y/N] " -n1 && [[ $REPLY == [Yy] ]] \
+#     && . ~/.bb/prompt/bb.sh vN-y_5uA
 #
-#   git clone -q --depth 1 --branch 0.1.3 https://github.com/czoczo/BetterBash ~/.bb/bb \
-#     && read -p"install BetterBash from ~/.bb/bb? [y/N] " -n1 && [[ $REPLY == [Yy] ]] \
-#     && . ~/.bb/bb/prompt/bb.sh vN-y_5uA
+#   git clone -q --depth 1 --branch 0.1.3 https://github.com/czoczo/BetterBash ~/.bb \
+#     && read -p"install BetterBash from ~/.bb? [y/N] " -n1 && [[ $REPLY == [Yy] ]] \
+#     && . ~/.bb/prompt/bb.sh vN-y_5uA
+#
+# The tree is fetched into ~/.bb itself, one level, and it is installed into that
+# same directory: the files of the tree and the files copied out of it live next to
+# each other, and only the names of the latter are what a shell sources.
 #
 # The command ends by sourcing prompt/bb.sh of the fetched tree, and that is what
 # runs this script: a fetched tree carries install-pending, and the first time its
@@ -25,7 +29,7 @@
 # This script can also be run directly, which is what a script, a container or a
 # shell that is not bash uses, because prompt/bb.sh is bash:
 #
-#   sh ~/.bb/bb/installbb.sh vN-y_5uA
+#   sh ~/.bb/installbb.sh vN-y_5uA
 #
 # Options, in any order:
 #
@@ -43,7 +47,7 @@
 #   -h, --help        this text
 #
 # Nothing here needs bash: the script is POSIX shell, and is tested under dash
-# too, so `sh ~/.bb/bb/installbb.sh <code>` works. The question asked before it is
+# too, so `sh ~/.bb/installbb.sh <code>` works. The question asked before it is
 # run is a bash line, because that is the shell it gets pasted into.
 
 BB_DIR="${BB_DIR:-$HOME/.bb}"
@@ -51,8 +55,11 @@ BB_REPO="${BB_REPO:-}"
 BB_INPUTRC=1
 
 # The payload of a release: source path in the fetched tree, a colon, and the
-# name it gets in ~/.bb. The layout in ~/.bb stays as flat as it has ever been,
-# so the hook of every released BetterBash keeps working.
+# name it gets in ~/.bb. The layout in ~/.bb stays as flat as it has ever been, so
+# the hook of every released BetterBash keeps working. The fetched tree is ~/.bb
+# itself now, so `prompt/bb.sh` and the `bb.sh` copied out of it are two files of
+# one directory: the prompt of the tree, which the command of the page sources once,
+# and the installed prompt, which ~/.bashrc sources from then on.
 BB_PAYLOAD='prompt/bb-theme.sh:bb-theme.sh
 prompt/bb.sh:bb.sh
 prompt/git-prompt.sh:git-prompt.sh
@@ -143,8 +150,8 @@ bb_mode_of() { stat -c %A "$1" 2>/dev/null || stat -f %Sp "$1" 2>/dev/null || pr
 
 # bb_is_own_tree: the tree has to belong to the user running the installation and
 # must not be writable by anybody else. Both the directory and every file that is
-# about to be copied. ~/.bb/bb is written by the user's own fetch, but ~/.bb is a
-# directory too, and a tree is not installed just because it has the right name.
+# about to be copied. ~/.bb is written by the user's own fetch as well as by the
+# install, and a tree is not installed just because it has the right name.
 bb_is_own_tree() {
   _want=$(id -u)
   _uncheckable=0
@@ -230,7 +237,10 @@ bb_verify_tree() {
   bb_is_own_tree
 }
 
-# bb_copy_payload: the tree into ~/.bb, one file at a time.
+# bb_copy_payload: the tree into ~/.bb, one file at a time. The tree usually is
+# ~/.bb, so the files of the tree are copied onto the names a shell sources, and the
+# copy aside plus the move are what keep an install that cannot read a source from
+# leaving an empty file where a working prompt was.
 bb_copy_payload() {
   mkdir -p "$BB_DIR" || {
     printf 'installbb: cannot create %s\n' "$BB_DIR" >&2
@@ -436,9 +446,10 @@ EOF
 # that sourced it.
 if [ "${0##*/}" = "installbb.sh" ]; then
   set -u
-  # The directory this script was run from is the fetched tree: `sh ~/.bb/bb/installbb.sh`
-  # from any working directory points at ~/.bb/bb, which is where the commands of
-  # the WebUI extract to. --repo overrides it (the tests use that).
+  # The directory this script was run from is the fetched tree: `sh
+  # ~/.bb/installbb.sh` from any working directory points at ~/.bb, which is where
+  # the commands of the WebUI fetch to, and where they install from. --repo
+  # overrides it (the tests use that).
   if [ -z "$BB_REPO" ]; then
     case $0 in
       */*) BB_REPO=$(cd -- "$(dirname -- "$0")" 2>/dev/null && pwd -P) ;;

@@ -3,8 +3,9 @@
 // BetterBash is a static site and its installer is a tree of files, not a
 // script that downloads things. The commands below fetch that tree - with git, or
 // with the package tests/stage-downloads.sh builds into the same deployment - into
-// ~/.bb/bb, and then source the prompt of the tree, which installs the tree into
-// ~/.bb the first time it is sourced and puts the prompt on the shell that asked.
+// ~/.bb itself, and then source the prompt of the tree, which installs the tree
+// into ~/.bb the first time it is sourced and puts the prompt on the shell that
+// asked.
 // Nothing is piped into a shell, and every command asks once before it runs
 // anything.
 //
@@ -88,21 +89,20 @@ export const PACKAGE_CHECKSUM_PATH = 'bb.tgz.sha256';
  * left unexpanded on purpose: it is the shell running the command that knows whose
  * home directory this is, which is also what lets a test run the very same command
  * in a throwaway HOME.
+ *
+ * It is also where every fetch method leaves the tree, so the rest of a command is
+ * the same for git, curl, wget and openssl. Nothing is unpacked into ~ and no
+ * directory of its own is made under it: the fetched tree sits in ~/.bb, `prompt/`
+ * and `installbb.sh` next to the `bb.sh` copied out of them. installbb.sh refuses a
+ * tree it is not the owner of, and a fetched tree installs nothing until it is
+ * sourced (see install-pending and prompt/bb.sh).
  */
 export const BB_DIR = fromEnv('VITE_BB_DIR') || '~/.bb';
 
-/**
- * Where every fetch method leaves the tree, so the rest of the command is the
- * same for git, curl, wget and openssl: inside ~/.bb, and never on top of the
- * files a shell already sources. installbb.sh refuses a tree it is not the owner
- * of, and a fetched tree installs nothing until it is sourced (see install-pending
- * and prompt/bb.sh).
- */
-export const STAGE_DIR = `${BB_DIR}/bb`;
-
-// Where tar unpacks the package: bb.tgz carries `.bb/bb/…`, so unpacking it into
-// the home directory of the shell creates ~/.bb and the tree inside it.
-const EXTRACT_DIR = BB_DIR.replace(/\/[^/]+$/, '') || '/';
+// bb.tgz holds the tree at its own root, so the destination is written on the
+// command line instead of being carried inside the archive: `tar -C ~/.bb` wants
+// that directory to exist, unlike `git clone`, which creates it.
+const MAKE_BB_DIR = `mkdir -p ${BB_DIR} && `;
 
 const PROMPT = 'bb.sh';
 const UNINSTALLER = 'removebb.sh';
@@ -113,7 +113,7 @@ const UNINSTALLER = 'removebb.sh';
  * installs nothing; without a terminal the question cannot be answered at all,
  * which is what the `auto` variant of the command is for.
  */
-export function confirmClause(kind = 'install', dir = STAGE_DIR) {
+export function confirmClause(kind = 'install', dir = BB_DIR) {
   const label = kind === 'uninstall' ? 'remove' : 'install';
   return `read -p"${label} BetterBash from ${dir}? [y/N] " -n1 && [[ $REPLY == [Yy] ]] && `;
 }
@@ -129,8 +129,8 @@ export function confirmClause(kind = 'install', dir = STAGE_DIR) {
  * `code` is the theme code (or the word "rand", which lets the machine draw its
  * own theme); it is an argument of the sourcing.
  */
-function installClause({ code = null, stage = STAGE_DIR } = {}) {
-  const args = [`. ${stage}/prompt/${PROMPT}`];
+function installClause({ code = null, dir = BB_DIR } = {}) {
+  const args = [`. ${dir}/prompt/${PROMPT}`];
   // Nothing is passed for the question: it lives in the command line, so dropping
   // it (auto) removes it from there and leaves no trace in the install call.
   if (code) args.push(code);
@@ -138,9 +138,9 @@ function installClause({ code = null, stage = STAGE_DIR } = {}) {
 }
 
 /** The question and the install, appended to a fetch command. */
-function fetchTail({ code = null, auto = false, stage = STAGE_DIR } = {}) {
-  const confirm = auto ? '' : confirmClause('install', stage);
-  return ` && ${confirm}${installClause({ code, stage })}`;
+function fetchTail({ code = null, auto = false, dir = BB_DIR } = {}) {
+  const confirm = auto ? '' : confirmClause('install', dir);
+  return ` && ${confirm}${installClause({ code, dir })}`;
 }
 
 /**
@@ -174,7 +174,7 @@ function endpointOf(url) {
  *
  * `kind` is install or uninstall, `code` the theme code for an install, `auto`
  * drops the question (see confirmClause). Every install method fetches into
- * ~/.bb/bb and ends the same way, so only the first part of a command differs
+ * ~/.bb and ends the same way, so only the first part of a command differs
  * between git, curl, wget and openssl; removing needs no fetch, so all four methods
  * show one and the same uninstall command.
  */
@@ -186,11 +186,11 @@ export function installCommands({ kind = 'install', code = null, auto = false } 
   const tail = fetchTail({ code, auto });
 
   return {
-    git: `git clone -q --depth 1 --branch ${RELEASE_REF} ${REPO_URL} ${STAGE_DIR}${tail}`,
+    git: `git clone -q --depth 1 --branch ${RELEASE_REF} ${REPO_URL} ${BB_DIR}${tail}`,
     curl:
-      `curl -sL ${INSTALL_BASE_URL}/${PACKAGE_PATH} | tar -C ${EXTRACT_DIR} -xz${tail}`,
+      `${MAKE_BB_DIR}curl -sL ${INSTALL_BASE_URL}/${PACKAGE_PATH} | tar -C ${BB_DIR} -xz${tail}`,
     wget:
-      `wget -q -O - ${INSTALL_BASE_URL}/${PACKAGE_PATH} | tar -C ${EXTRACT_DIR} -xz${tail}`,
+      `${MAKE_BB_DIR}wget -q -O - ${INSTALL_BASE_URL}/${PACKAGE_PATH} | tar -C ${BB_DIR} -xz${tail}`,
     openssl: opensslCommand({ code, auto }),
   };
 }
@@ -218,8 +218,8 @@ export function opensslCommand({ code = null, auto = false } = {}) {
   // Joined with plain newlines, so copying the command out of the page gives the
   // shell exactly what is shown.
   return (
-    `printf 'GET /${PACKAGE_PATH} HTTP/1.1\\r\\nHost: ${hostHeader}\\r\\nConnection: close\\r\\n\\r\\n' \\\n` +
+    `${MAKE_BB_DIR}printf 'GET /${PACKAGE_PATH} HTTP/1.1\\r\\nHost: ${hostHeader}\\r\\nConnection: close\\r\\n\\r\\n' \\\n` +
     `| openssl s_client -quiet -connect ${host}:${port} -servername ${host} 2>/dev/null \\\n` +
-    `| sed '1,/^\\r$/d' | tar -C ${EXTRACT_DIR} -xz${tail}`
+    `| sed '1,/^\\r$/d' | tar -C ${BB_DIR} -xz${tail}`
   );
 }

@@ -323,7 +323,7 @@ const randomToggleHint =
 const autoToggleHint =
   'Automatic mode: the command drops the question it asks before installing anything. Without the question nothing can be answered, so it is the variant for scripts and containers; an interactive shell should keep being asked.';
 
-// Every install command fetches from the origin serving this page into ~/.bb/bb and
+// Every install command fetches from the origin serving this page into ~/.bb and
 // ends by sourcing the prompt of that tree, which installs it (see src/config.js).
 // Removing needs no fetch at all, so the four methods show one and the same
 // uninstall command; the uninstaller gets no theme code, colors are not its

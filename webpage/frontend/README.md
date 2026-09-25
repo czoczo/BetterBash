@@ -25,8 +25,9 @@ a badge next to the banner.
 Variables (all prefixed with `VITE_`, see the env files): `VITE_BB_ENV`,
 `VITE_BB_INSTALL_BASE_URL`, `VITE_BB_TLS_BASE_URL`, `VITE_BB_REPO_URL`,
 `VITE_BB_RELEASE_REF` (injected from `VERSION_APP.txt` by `vite.config.js`),
-`VITE_BB_STAGE_DIR` (where the fetched tree lands, `/tmp/bb`; the tests name their
-own), `VITE_BB_SITE_PORT`, `VITE_BB_SITE_HOST`, `VITE_BB_SITE_ALLOWED_HOSTS`.
+`VITE_BB_DIR` (where BetterBash lives and where the fetched tree lands, `~/.bb`; the
+tests name their own), `VITE_BB_SITE_PORT`, `VITE_BB_SITE_HOST`,
+`VITE_BB_SITE_ALLOWED_HOSTS`.
 
 The local endpoints belong to the dev server and the HTTPS file server started by
 `./dev.sh` from the repository root (see the
@@ -36,8 +37,9 @@ The local endpoints belong to the dev server and the HTTPS file server started b
 
 `installbb.sh`, `removebb.sh`, `getbb.sh` (legacy), `.inputrc` and `prompt/` live in
 the repository root. `tests/stage-downloads.sh` stages them next to the built page
-and packs them into `bb.tgz` - the package the fetch commands download, with the
-directory `bb` inside so it unpacks where the command says it will. The Pages
+and packs them into `bb.tgz` - the package the fetch commands download, holding the
+tree at the root of the archive, so `tar -C ~/.bb -xz` unpacks it into exactly the
+directory the command says. The Pages
 workflow stages into `dist`, `pnpm stage` into `public`, where the dev server serves
 them from.
 

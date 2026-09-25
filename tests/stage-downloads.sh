@@ -6,13 +6,14 @@
 #
 # Two things are produced in DEST, and both from the same list of files:
 #
-#   bb.tgz          the tree the install commands of the WebUI fetch, under a
-#                   .bb/bb/ prefix, so `curl -sL .../bb.tgz | tar -C ~ -xz` leaves
-#                   ~/.bb and the tree in ~/.bb/bb - the destination directory
-#                   itself, created by tar, with the fetched tree inside it rather
-#                   than on top of whatever prompt ~/.bashrc already sources. The
-#                   commands fetch exactly this, from the origin that served the
-#                   page, and bb.tgz.sha256 carries its checksum.
+#   bb.tgz          the tree the install commands of the WebUI fetch, holding that
+#                   tree at the root of the archive, so
+#                   `curl -sL .../bb.tgz | tar -C ~/.bb -xz` is the tree in ~/.bb -
+#                   one level, the directory the command names. The destination is
+#                   written on the command line rather than carried inside the
+#                   package, which is what lets the package be unpacked anywhere.
+#                   The commands fetch exactly this, from the origin that served
+#                   the page, and bb.tgz.sha256 carries its checksum.
 #   loose files     getbb.sh and the prompt files of the legacy path, which still
 #                   downloads one file at a time from the origin root.
 #
@@ -47,9 +48,9 @@ REPO_ROOT=$(cd "$(dirname "$0")/.." && pwd)
 # to a variable called CPATH.
 DEST=$(CDPATH= cd -- "$(dirname -- "$1")" && pwd)/$(basename -- "$1")
 
-# The tree the install commands fetch. The package is this list under a .bb/bb/
-# prefix, and it is complete on purpose: the uninstaller travels with the prompt,
-# so a machine can be cleaned up without downloading anything.
+# The tree the install commands fetch. The package is this list at its root, and it
+# is complete on purpose: the uninstaller travels with the prompt, so a machine can
+# be cleaned up without downloading anything.
 #
 # install-pending is the flag that tells a tree it has not been installed yet, and
 # the git method needs it too, so it lives in the repository and not here.
@@ -101,15 +102,15 @@ done
 
 # --- the package -------------------------------------------------------------
 
-# Built in its own directory so that the archive holds the .bb/bb/ prefix: unpacking
-# it into a home directory gives ~/.bb, with the fetched tree in ~/.bb/bb, the place
-# every install command of the WebUI names.
+# Built in its own directory so that the archive holds the tree at its own root: the
+# install commands name the directory they extract into (`tar -C ~/.bb -xz`), so the
+# package carries no directory of its own and the fetched tree lands in ~/.bb itself.
 PACK=$DEST/.bb-package
 rm -rf "$PACK"
-mkdir -p "$PACK/.bb/bb" || exit 1
+mkdir -p "$PACK" || exit 1
 for file in $BB_TREE_FILES; do
-  mkdir -p "$PACK/.bb/bb/$(dirname "$file")" || exit 1
-  cp "$REPO_ROOT/$file" "$PACK/.bb/bb/$file" || exit 1
+  mkdir -p "$PACK/$(dirname "$file")" || exit 1
+  cp "$REPO_ROOT/$file" "$PACK/$file" || exit 1
 done
 # The tree of a package carries no VCS or test leftovers, whatever the working
 # copy it was built from holds.
@@ -120,8 +121,8 @@ find "$PACK" -name '*.part' -delete 2>/dev/null
 # can produce a gzip is accepted without them.
 rm -f "$DEST/bb.tgz"
 if ! (cd "$PACK" && tar --sort=name --owner=0 --group=0 --numeric-owner \
-  --mtime="@${SOURCE_DATE_EPOCH:-0}" -czf "$DEST/bb.tgz" .bb 2>/dev/null); then
-  (cd "$PACK" && tar -czf "$DEST/bb.tgz" .bb) || exit 1
+  --mtime="@${SOURCE_DATE_EPOCH:-0}" -czf "$DEST/bb.tgz" . 2>/dev/null); then
+  (cd "$PACK" && tar -czf "$DEST/bb.tgz" .) || exit 1
 fi
 rm -rf "$PACK"
 
@@ -154,15 +155,25 @@ if [ -n "$_sha" ] && [ ! -s "$DEST/bb.tgz.sha256" ]; then
   missing=$(( missing + 1 ))
 fi
 
-# The package is checked by listing it rather than by trusting the build: every
-# file of the tree has to be inside, under the .bb/bb/ prefix the install commands
-# extract to.
+# The package is checked by listing it rather than by trusting the build: every file
+# of the tree has to be inside, right at the root the install commands extract to,
+# because that root is unpacked on top of a real ~/.bb of a real machine. Names are
+# listed with the leading ./ tar writes them, so the count of files inside has to be
+# the count of the tree as well - nothing extra may travel with a release.
+_listing=$(tar -tzf "$DEST/bb.tgz")
 for file in $BB_TREE_FILES; do
-  if ! tar -tzf "$DEST/bb.tgz" ".bb/bb/$file" >/dev/null 2>&1; then
-    printf 'stage-downloads: .bb/bb/%s is not in bb.tgz\n' "$file" >&2
+  if ! printf '%s\n' "$_listing" | grep -qx "./$file"; then
+    printf 'stage-downloads: %s is not in bb.tgz\n' "$file" >&2
     missing=$(( missing + 1 ))
   fi
 done
+_inside=$(printf '%s\n' "$_listing" | grep -cv '/$')
+_wanted=$(printf '%s\n' "$BB_TREE_FILES" | grep -c .)
+if [ "$_inside" != "$_wanted" ]; then
+  printf 'stage-downloads: bb.tgz holds %s files, the tree is %s\n' "$_inside" "$_wanted" >&2
+  printf '%s\n' "$_listing" | sed 's/^/stage-downloads:   /' >&2
+  missing=$(( missing + 1 ))
+fi
 [ "$missing" = "0" ] || exit 1
 
 printf 'Staged %s loose files and bb.tgz (%s bytes, %s files inside) into %s\n' \
