@@ -52,9 +52,12 @@ DEST=$(CDPATH= cd -- "$(dirname -- "$1")" && pwd)/$(basename -- "$1")
 # is complete on purpose: the uninstaller travels with the prompt, so a machine can
 # be cleaned up without downloading anything.
 #
-# install-pending is the flag that tells a tree it has not been installed yet, and
-# the git method needs it too, so it lives in the repository and not here.
+# install-pending is the flag that tells a tree it has not been installed yet and q
+# is the question its install command asks, read out of the fetched tree. Both belong
+# to a tree alone - neither is published as a file of its own - and the git method
+# needs them too, so they live in the repository and not in the list of loose files.
 BB_TREE_FILES='install-pending
+q
 installbb.sh
 removebb.sh
 .inputrc

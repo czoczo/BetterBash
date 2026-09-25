@@ -107,15 +107,27 @@ const MAKE_BB_DIR = `mkdir -p ${BB_DIR} && `;
 const PROMPT = 'bb.sh';
 const UNINSTALLER = 'removebb.sh';
 
+/** The question of an install, carried by the tree it fetched. A file of the tree
+ *  rather than a string of the command, so the message can be as long as answering
+ *  deserves and the command stays as short as a fetch. */
+const QUESTION = 'q';
+
 /**
  * The question the command asks before it runs anything, about the directory it is
  * about to work in. Answering anything but y leaves the fetched files on disk and
  * installs nothing; without a terminal the question cannot be answered at all,
  * which is what the `auto` variant of the command is for.
+ *
+ * An install asks with the words of the tree it has just fetched: `read -p"$(<q)"`
+ * reads them out of `~/.bb/q`, the same directory the files lie in and the ones
+ * being agreed about, so they can be read there before they are answered. Removing
+ * fetches nothing, so its question is still written into its command.
  */
 export function confirmClause(kind = 'install', dir = BB_DIR) {
-  const label = kind === 'uninstall' ? 'remove' : 'install';
-  return `read -p"${label} BetterBash from ${dir}? [y/N] " -n1 && [[ $REPLY == [Yy] ]] && `;
+  if (kind === 'uninstall') {
+    return `read -p"remove BetterBash from ${dir}? [y/N] " -n1 && [[ $REPLY == [Yy] ]] && `;
+  }
+  return `read -p"$(<${dir}/${QUESTION})" -n1 && [[ $REPLY == [Yy] ]] && `;
 }
 
 /**
@@ -131,8 +143,8 @@ export function confirmClause(kind = 'install', dir = BB_DIR) {
  */
 function installClause({ code = null, dir = BB_DIR } = {}) {
   const args = [`. ${dir}/prompt/${PROMPT}`];
-  // Nothing is passed for the question: it lives in the command line, so dropping
-  // it (auto) removes it from there and leaves no trace in the install call.
+  // Nothing is passed for the question: it is read by the command itself, out of the
+  // tree it fetched, so dropping it (auto) leaves no trace in the install call.
   if (code) args.push(code);
   return args.join(' ');
 }

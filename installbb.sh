@@ -10,12 +10,16 @@
 # Usage, exactly as the WebUI shows it:
 #
 #   mkdir -p ~/.bb && curl -sL https://betterbash.cz0.cz/bb.tgz | tar -C ~/.bb -xz \
-#     && read -p"install BetterBash from ~/.bb? [y/N] " -n1 && [[ $REPLY == [Yy] ]] \
+#     && read -p"$(<~/.bb/q)" -n1 && [[ $REPLY == [Yy] ]] \
 #     && . ~/.bb/prompt/bb.sh vN-y_5uA
 #
 #   git clone -q --depth 1 --branch 0.1.3 https://github.com/czoczo/BetterBash ~/.bb \
-#     && read -p"install BetterBash from ~/.bb? [y/N] " -n1 && [[ $REPLY == [Yy] ]] \
+#     && read -p"$(<~/.bb/q)" -n1 && [[ $REPLY == [Yy] ]] \
 #     && . ~/.bb/prompt/bb.sh vN-y_5uA
+#
+# The question is not written into the command: it is read from q of the tree that
+# was just fetched, so the words of it - and nothing else - decide what answering y
+# is agreed to. The tree carries it the way it carries install-pending.
 #
 # The tree is fetched into ~/.bb itself, one level, and it is installed into that
 # same directory: the files of the tree and the files copied out of it live next to

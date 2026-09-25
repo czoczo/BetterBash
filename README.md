@@ -50,26 +50,30 @@ release it points at, which is worth knowing when you update.
 
 with **git**
 ```
-git clone -q --depth 1 --branch 0.1.3 https://github.com/czoczo/BetterBash ~/.bb && read -p"install BetterBash from ~/.bb? [y/N] " -n1 && [[ $REPLY == [Yy] ]] && . ~/.bb/prompt/bb.sh vN-y_5uA
+git clone -q --depth 1 --branch 0.1.3 https://github.com/czoczo/BetterBash ~/.bb && read -p"$(<~/.bb/q)" -n1 && [[ $REPLY == [Yy] ]] && . ~/.bb/prompt/bb.sh vN-y_5uA
 ```
 with **curl**
 ```
-mkdir -p ~/.bb && curl -sL https://betterbash.cz0.cz/bb.tgz | tar -C ~/.bb -xz && read -p"install BetterBash from ~/.bb? [y/N] " -n1 && [[ $REPLY == [Yy] ]] && . ~/.bb/prompt/bb.sh vN-y_5uA
+mkdir -p ~/.bb && curl -sL https://betterbash.cz0.cz/bb.tgz | tar -C ~/.bb -xz && read -p"$(<~/.bb/q)" -n1 && [[ $REPLY == [Yy] ]] && . ~/.bb/prompt/bb.sh vN-y_5uA
 ```
 with **wget**
 ```
-mkdir -p ~/.bb && wget -q -O - https://betterbash.cz0.cz/bb.tgz | tar -C ~/.bb -xz && read -p"install BetterBash from ~/.bb? [y/N] " -n1 && [[ $REPLY == [Yy] ]] && . ~/.bb/prompt/bb.sh vN-y_5uA
+mkdir -p ~/.bb && wget -q -O - https://betterbash.cz0.cz/bb.tgz | tar -C ~/.bb -xz && read -p"$(<~/.bb/q)" -n1 && [[ $REPLY == [Yy] ]] && . ~/.bb/prompt/bb.sh vN-y_5uA
 ```
 with **openssl** (needs no git, curl or wget)
 ```
 mkdir -p ~/.bb && printf 'GET /bb.tgz HTTP/1.1\r\nHost: betterbash.cz0.cz\r\nConnection: close\r\n\r\n' \
 | openssl s_client -quiet -connect betterbash.cz0.cz:443 -servername betterbash.cz0.cz 2>/dev/null \
-| sed '1,/^\r$/d' | tar -C ~/.bb -xz && read -p"install BetterBash from ~/.bb? [y/N] " -n1 && [[ $REPLY == [Yy] ]] && . ~/.bb/prompt/bb.sh vN-y_5uA
+| sed '1,/^\r$/d' | tar -C ~/.bb -xz && read -p"$(<~/.bb/q)" -n1 && [[ $REPLY == [Yy] ]] && . ~/.bb/prompt/bb.sh vN-y_5uA
 ```
 The question is written for bash (`[[ ]]`); for a script or a container, tick
 **Auto** on the page and the command has no question in it at all, so nothing is
 left to answer (there, `sh ~/.bb/installbb.sh vN-y_5uA` installs without
 sourcing anything, because a script is not the shell that wants the prompt).
+Its words are not in the command either: `~/.bb/q` is a file of the tree that was
+just fetched, and the command reads the question out of it - so the message can be
+as long as answering deserves, the command stays one line long, and the words are
+read in the same directory as the files they are about.
 
 `bb.tgz` holds the tree at its own root, so `tar -C ~/.bb -xz` unpacks it into
 `~/.bb` and `~/.bb` is what you say yes to - the archive carries no directory of
@@ -119,6 +123,7 @@ Everything BetterBash needs is in this repository, and nothing runs a server:
 | `prompt/git-prompt.sh` | vendored [git-prompt](https://github.com/git/git/blob/master/contrib/prompt/git-prompt.sh) |
 | `installbb.sh` | installer: copies the prompt out of a fetched tree into `~/.bb`, the directory the tree itself was fetched into; sourced by `prompt/bb.sh` of that tree, run directly by a script (`sh`, POSIX) |
 | `install-pending` | the flag inside a fetched tree: its first `prompt/bb.sh` sourcing installs it, and this file is what the install takes away |
+| `q` | the question an install command asks, read out of the fetched tree (`read -p"$(<~/.bb/q)"`) so the command carries no message of its own |
 | `removebb.sh` | uninstaller, installed with the prompt so removing needs no fetch (`sh`, POSIX) |
 | `getbb.sh` | installer of the legacy path, downloading one file at a time (`sh`, POSIX) |
 | `.inputrc` | readline bindings for history search on the arrow keys |
@@ -126,8 +131,8 @@ Everything BetterBash needs is in this repository, and nothing runs a server:
 
 The Pages workflow builds the page and stages `bb.tgz` next to it, so
 `https://betterbash.cz0.cz/bb.tgz` holds exactly `prompt/`, `installbb.sh`,
-`removebb.sh`, `VERSION_APP.txt`, `.inputrc` and `install-pending` - the tree at the
-root of the archive, with no directory of its own, so it unpacks straight into the
+`removebb.sh`, `VERSION_APP.txt`, `.inputrc`, `install-pending` and `q` - the tree at
+the root of the archive, with no directory of its own, so it unpacks straight into the
 `~/.bb` a command names - and the page fetches from its own origin. That is what
 makes both domains of the deployment - `betterbash.cz0.cz` and `bb.cz0.cz` - install
 from themselves. The same files are staged loose as

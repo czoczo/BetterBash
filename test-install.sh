@@ -350,6 +350,7 @@ check_installed_files() {
     ! -name bb.sh ! -name bb-theme.sh ! -name git-prompt.sh \
     ! -name removebb.sh ! -name version ! -name theme.sh ! -name theme-code \
     ! -name prompt ! -name installbb.sh ! -name VERSION_APP.txt ! -name .inputrc \
+    ! -name q \
     ! -name .git \
     2>/dev/null | sed "s|^$_home/.bb/||")
   if [ -z "$_leftovers" ]; then
@@ -455,6 +456,10 @@ for _method in $BB_TEST_METHODS; do
   sed 's/^/         /' "$WORK/$_method.install.cmd"
 
   expect_grep 'read -p' "$WORK/$_method.install.cmd" "$_method asks before installing anything"
+  # The words of the question are not in the command: it reads them out of the tree it
+  # fetched, so a message of a whole paragraph costs the command one file name.
+  expect_grep 'read -p"\$(<~/.bb/q)"' "$WORK/$_method.install.cmd" \
+    "$_method asks with the question the fetched tree carries"
   # The last thing the command does is to source the prompt of the tree it just
   # fetched: that sourcing is what installs the tree, and what colours the shell.
   expect_grep "prompt/bb.sh $BB_TEST_CODE" "$WORK/$_method.install.cmd" \
@@ -487,6 +492,11 @@ for _method in $BB_TEST_METHODS; do
   else
     log_error "$_method leaves the fetched tree in .bb, next to what was installed"
   fi
+
+  # The words of the question are a file of the tree rather than of the command, so
+  # they are readable next to the files they are about - and the command can ask them
+  # again, from the tree it is about to install.
+  expect_file "$(tree_of "$_home")/q" "$_method fetched the question its command reads"
 
   # One level, and one directory for both: the tree the command fetched and the
   # prompt installed out of it are contents of ~/.bb, so a machine ends up with two
@@ -550,7 +560,7 @@ for _answer in 'n' 'x' ''; do
   # so a refused question must not have half written anything: the fetched tree may
   # be there, nothing else.
   _refused=$(find "$_home/.bb" -mindepth 1 -maxdepth 1 \
-    ! -name install-pending ! -name installbb.sh ! -name removebb.sh \
+    ! -name install-pending ! -name q ! -name installbb.sh ! -name removebb.sh \
     ! -name .inputrc ! -name VERSION_APP.txt ! -name prompt \
     2>/dev/null | sed "s|^$_home/.bb/||")
   if [ -z "$_refused" ]; then
@@ -562,7 +572,8 @@ done
 
 # The fetched tree is what the answer is about, so the answer cannot be needed
 # before the fetch: the files have to be there even after a refusal, and readable.
-if [ -f "$(tree_of "$_home")/installbb.sh" ] && [ -f "$(tree_of "$_home")/prompt/bb.sh" ]; then
+if [ -f "$(tree_of "$_home")/installbb.sh" ] && [ -f "$(tree_of "$_home")/prompt/bb.sh" ] \
+  && [ -f "$(tree_of "$_home")/q" ]; then
   log_success 'a refused question still fetched the tree it can be read in'
 else
   log_error 'a refused question still fetched the tree it can be read in'
