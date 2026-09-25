@@ -15,7 +15,7 @@
 - :straight_ruler: Line separating commands output.
 - :arrow_down: Shows exit code if other than zero.
 - :clock4: Date and time. Time changes color if exit code other than zero.
-- :stopwatch: Duration of the previous command in seconds, in the color of its exit code.
+- :stopwatch: Duration of the previous command in seconds, in the primary color whatever that command ended with.
 - :file_folder: Current directory.
 - :traffic_light: Git status (if current directory inside git repository).
 - :scroll: Rapid history search with up/down arrows based on current input.
@@ -182,7 +182,9 @@ the installer under `sh`, `bash` and `dash`; and the theme rules of a reinstall.
 ### Tests
 ```
 ./tests/test-theme.sh        # decoder against the golden fixtures, under dash and bash
-node tests/test-avatar.mjs     # the host avatar of the page, drawn as the shell draws it
+node tests/test-avatar.mjs   # the host avatar of the page, drawn as the shell draws it
+bash tests/test-timer.sh     # the duration of the last command, in an interactive shell too
+node tests/test-frame.mjs    # the frame of the prompt and the frame the page previews
 ./test-install.sh            # the fetch commands of the page, see above
 ./tests/test-legacy-pipe.sh  # the legacy getbb.sh path, while it is served
 ./tests/test-shellcheck.sh   # shellcheck over every script, in its own dialect

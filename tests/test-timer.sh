@@ -11,9 +11,10 @@
 # What the functions are held to: the start of a command is recorded once, so a
 # line of several commands is measured from its first one; a duration is never
 # negative; a shell with no start to measure says 0s rather than invent a number;
-# the segment is drawn between the exit code and the date and wears the colour of
-# that exit code; and the width of the line does not depend on how many digits the
-# duration has, because the fill gives up what the segment takes.
+# the segment is drawn between the exit code and the date and stays in the primary
+# colour whatever the command ended with; and the width of the line does not
+# depend on how many digits the duration has, because the fill gives up what the
+# segment takes.
 #
 # prompt/bb.sh is bash, so this test is bash too and not POSIX shell - see
 # tests/test-shellcheck.sh.
@@ -145,17 +146,15 @@ else
   fail "the duration is drawn after the exit code and before the date (exit=$EXIT_INDEX duration=$DUR_INDEX date=$DATE_INDEX)"
 fi
 
-draw 42 1
-case $PS1 in
-  *"$ERR_COLOR"'42s'*) ok 'a failed command leaves the duration in ERR_COLOR' ;;
-  *) fail 'a failed command leaves the duration in ERR_COLOR' ;;
-esac
-
-draw 42 0
-case $PS1 in
-  *"$PRIMARY_COLOR"'42s'*) ok 'a succeeding command leaves the duration in PRIMARY_COLOR' ;;
-  *) fail 'a succeeding command leaves the duration in PRIMARY_COLOR' ;;
-esac
+# The colour of the duration does not follow the exit code: the exit code has a
+# segment of its own to speak in ERR_COLOR, and the seconds say nothing of it.
+for rc in 0 1; do
+  draw 42 "$rc"
+  case $PS1 in
+    *"$PRIMARY_COLOR"'42s'*) ok "a command ending in $rc leaves the duration in PRIMARY_COLOR" ;;
+    *) fail "a command ending in $rc leaves the duration in PRIMARY_COLOR" ;;
+  esac
+done
 
 # The digits of a duration are not known in advance, so the fill has to give up as
 # many dashes as the segment carries, whatever the number of digits is.

@@ -65,6 +65,11 @@ jobs:
         # functions and the JavaScript port over the same hostnames.
         run: node tests/test-avatar.mjs
 
+      - name: The frame of the prompt and the frame the page previews
+        # The prompt is drawn by bash and the preview by the markup of the page;
+        # both are measured here, so neither drifts from the other.
+        run: node tests/test-frame.mjs
+
       - name: Install dependencies
         working-directory: webpage/frontend
         run: pnpm install --frozen-lockfile

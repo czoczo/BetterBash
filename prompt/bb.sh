@@ -136,6 +136,15 @@ BB_THEME_FILE="$BB_DIR/theme.sh"
 [ -z "${AVATAR}" ] && AVATAR='true'
 USERCOL=$SECONDARY_COLOR
 
+# The dashes between the segments of the frame, and the four dashes that close its
+# top line. They are named rather than written out where they are used, because
+# the preview of the prompt on the WebUI copies them glyph for glyph and
+# tests/test-frame.mjs compares the frame of the page with the frame the prompt
+# draws.
+FRAME_SEP=$BORDCOL$HBAR$HBAR
+FRAME_TAIL=$BORDCOL$HBAR$HBAR$HBAR$HBAR
+FRAME_TAIL_WIDTH=4
+
 export GIT_PS1_SHOWCOLORHINTS=true
 export GIT_PS1_SHOWDIRTYSTATE=true
 export GIT_PS1_SHOWUNTRACKEDFILES=true
@@ -201,31 +210,55 @@ export PROMPT_COMMAND=__prompt_command
 
 CH=''
 CHLINE=''
+# The avatar with its brackets is ten glyphs, and it is counted here rather than
+# from CH, whose length is mostly the escapes that colour its eight glyphs - and
+# a length of escapes is not a width of a line. AVATAR_GAP is the same ten glyphs
+# as dashes, for a prompt that has switched the avatar off and has no fill left
+# to take them back (see __prompt_command).
+AVATAR_GLYPHS=10
+AVATAR_WIDTH=0
+AVATAR_GAP=''
 
 if [ "$AVATAR" == 'true' ]; then
   CH=$(hashColor "$(cat /etc/hostname)" 4)
   CHLINE="$SEPARATOR_COLOR($CH$SEPARATOR_COLOR)"
+  AVATAR_WIDTH=$AVATAR_GLYPHS
+else
+  # The same ten glyphs as dashes, for the case that needs them.
+  AVATAR_GAP=$BORDCOL
+  for ((g = 0; g < AVATAR_GLYPHS; g++)); do
+    AVATAR_GAP="$AVATAR_GAP$HBAR"
+  done
 fi
 
 function __prompt_command() {
   local RETURN_CODE="$?"
   PS1=""
-  # Handling returne code
+  # Handling the return code. The width of the segment is the code, its arrow and
+  # a bracket each; the five dashes that stand for a command that ended well are
+  # drawn in the colour of the border, so that they read as the frame and not as
+  # an alarm - they are drawn whether or not the fill before them carried that
+  # colour.
   RCOL="${PRIMARY_COLOR}"
-  EXIT="$HBAR$HBAR$HBAR$HBAR$HBAR"
+  EXIT="$BORDCOL$HBAR$HBAR$HBAR$HBAR$HBAR"
+  EXIT_WIDTH=5
   if [[ $RETURN_CODE != 0 ]]; then
      EXIT="$SEPARATOR_COLOR(${ERR_COLOR}$RETURN_CODE ↵$SEPARATOR_COLOR)"
+     EXIT_WIDTH=$(( ${#RETURN_CODE} + 4 ))
      RCOL="${ERR_COLOR}"
   fi
 
-  # The seconds the command that drew this prompt ran, and in the colour of that
-  # command: RCOL is PRIMARY_COLOR when it succeeded and ERR_COLOR when not.
+  # The seconds the command that drew this prompt ran, and always in the primary
+  # colour. Which command left which code is told by the segment of the exit
+  # code, in ERR_COLOR; a duration wearing that colour too would say the same
+  # thing twice, and the two of them would read as one alarm rather than as a
+  # number of seconds next to a code.
   __bb_timer_stop
-  TIMERSEG="$BORDCOL$HBAR$HBAR$HBAR$SEPARATOR_COLOR(${RCOL}${BB_TIMER_SHOW}s$SEPARATOR_COLOR)"
-  # Its visible width - three dashes, the brackets, the digits and the s - so the
-  # fill gives up exactly what the segment takes, as PROC_WIDTH does for the
-  # background process counter.
-  TIMER_WIDTH=$(( ${#BB_TIMER_SHOW} + 6 ))
+  TIMERSEG="$FRAME_SEP$SEPARATOR_COLOR(${PRIMARY_COLOR}${BB_TIMER_SHOW}s$SEPARATOR_COLOR)"
+  # Its visible width - the two dashes of its separator, the brackets, the digits
+  # and the s - so the fill gives up exactly what the segment takes, as
+  # PROC_WIDTH does for the background process counter.
+  TIMER_WIDTH=$(( ${#BB_TIMER_SHOW} + 5 ))
 
   USER=$(whoami)
   if [ $UID -eq "0" ]; then
@@ -233,44 +266,76 @@ function __prompt_command() {
      USER="${USER^^}"
   fi
 
-  # Handle background process counter
-  PROCCNT=$(jobs -p 2>/dev/null | wc -l )
-    PROC_WIDTH=0
+  # Handle background process counter. The counter is rebuilt for every prompt, so
+  # a job that has ended takes its segment away instead of leaving it painted there
+  # ever after. The number is drawn as it was counted rather than through \j, so
+  # that the segment and the width given it cannot disagree about how many digits
+  # they have.
+  PROCCNT=$(jobs -p 2>/dev/null | wc -l)
+  # Some wc pad the number they print, and a padded number is not a width.
+  PROCCNT=$(( PROCCNT ))
+  PROC_WIDTH=0
+  BGPROCCOL=''
   if [ "$PROCCNT" -ne "0" ]; then
     #BGPROCCOL='\033[1;95;5m'
-    BGPROCCOL="$BORDCOL$HBAR$HBAR$SEPARATOR_COLOR(${SECONDARY_COLOR}\j ↻$SEPARATOR_COLOR)"
+    BGPROCCOL="$FRAME_SEP$SEPARATOR_COLOR(${SECONDARY_COLOR}$PROCCNT ↻$SEPARATOR_COLOR)"
+    # Two dashes of its separator, a bracket each, the space and the arrow, and
+    # the digits of the count.
+    PROC_WIDTH=$(( ${#PROCCNT} + 6 ))
   fi
 
-  [ -n "${BGPROCCOL}" ] && PROC_WIDTH=7
-
+  # \h of PS1 prints the host name up to its first dot, so the name that is
+  # counted for the width of the line is cut the same way.
   HOSTNAM="$(cat /etc/hostname)"
+  HOSTNAM=${HOSTNAM%%.*}
 
   GITPROMPT=$(__git_ps1 " on${PRIMARY_COLOR} %s")
 
-  LEFT="\n$BORDCOL\[\016\]$PR_ULCORNER$HBAR\[\017\]$SEPARATOR_COLOR($USERCOL$USER$SEPARATOR_COLOR@${PRIMARY_COLOR}\h:$cur_tty$SEPARATOR_COLOR)$BORDCOL$HBAR$HBAR$CHLINE$BGPROCCOL"
+  RIGHT="$EXIT$TIMERSEG$FRAME_SEP$SEPARATOR_COLOR($TIME_COLOR\d$SEPARATOR_COLOR)$FRAME_SEP$SEPARATOR_COLOR($RCOL\t$SEPARATOR_COLOR)$FRAME_TAIL\n$BORDCOL\[\016\]$PR_LLCORNER\[\017\]$BORDCOL$HBAR$SEPARATOR_COLOR(${PATH_COLOR}\w${SEPARATOR_COLOR})$BORDCOL$HBAR$SEPARATOR_COLOR(${PRIMARY_COLOR}\\\$$RST$GITPROMPT$SEPARATOR_COLOR)$BORDCOL-> \[\e[0m\]"
 
-  RIGHT="$EXIT$TIMERSEG$BORDCOL$HBAR$HBAR$HBAR$SEPARATOR_COLOR($TIME_COLOR\d$SEPARATOR_COLOR)$BORDCOL$HBAR$HBAR$HBAR$SEPARATOR_COLOR($RCOL\t$SEPARATOR_COLOR)$BORDCOL$HBAR$HBAR$HBAR$HBAR\n$BORDCOL\[\016\]$PR_LLCORNER\[\017\]$BORDCOL$HBAR$SEPARATOR_COLOR(${PATH_COLOR}\w${SEPARATOR_COLOR})$BORDCOL$HBAR$SEPARATOR_COLOR(${PRIMARY_COLOR}\\\$$RST$GITPROMPT$SEPARATOR_COLOR)$BORDCOL-> \[\e[0m\]"
+  # Eight glyphs of the left half are the frame itself, the brackets of
+  # (user@host:tty) and the two dashes in front of the avatar; the rest of it is
+  # measured by what it shows.
+  LEFT_WIDTH=$(( 8 + ${#USER} + ${#HOSTNAM} + ${#cur_tty} + AVATAR_WIDTH + PROC_WIDTH ))
 
-  L_LEN="$USER$HOSTNAM$CH"
-  R_LEN="XXX XXX XX, XX:XX:XX$RETURN_CODE"
-  L_LEN=${#L_LEN}
-  R_LEN=${#R_LEN}
-  let WIDTH=$(tput cols)-${R_LEN}-${L_LEN}-${PROC_WIDTH}-${TIMER_WIDTH}+83
-  if [ "$AVATAR" != 'true' ]; then
-    let WIDTH=${WIDTH}-116
-  fi
-  # The fill is whatever width the terminal has left between the two halves. When
-  # there is none left it is dropped altogether rather than keeping the dash it
-  # would otherwise carry, because that dash would push the frame onto the next
-  # line and the frame would stop being one line.
-  if [ "$WIDTH" -le 0 ]; then
+  # Every segment of the right half stands behind two dashes, the separator of
+  # the frame, and the top line closes with four dashes of its own. bash draws \d
+  # as "Fri Sep 25" and \t as "17:52:36" - ten and eight glyphs - each of them
+  # between a bracket and behind its two dashes.
+  DATE_WIDTH=$(( 10 + 2 + 2 ))
+  CLOCK_WIDTH=$(( 8 + 2 + 2 ))
+  RIGHT_WIDTH=$(( EXIT_WIDTH + TIMER_WIDTH + DATE_WIDTH + CLOCK_WIDTH + FRAME_TAIL_WIDTH ))
+
+  # The fill is whatever width the terminal has left between the two halves, so
+  # the top line is as wide as the terminal less the four columns it has always
+  # left empty at its right end: a line exactly as wide as the terminal wraps,
+  # and a frame that wraps stops being a frame. Whatever the shell can change - a
+  # longer host, another tty, a duration of four digits, an exit code of two - is
+  # measured above, so the fill is the only thing that moves with them and the
+  # line keeps its length. When no width is left the fill is dropped altogether
+  # rather than keeping the dash it would otherwise carry, because that dash
+  # would push the frame onto the next line and the frame would stop being one
+  # line.
+  # ROOM is what would be left for the fill if the avatar stood - whether it
+  # shows or not - and so it is ROOM, and not WIDTH, that says when the frame has
+  # run out of terminal: the two of them, an avatar on and an avatar off, break
+  # at the same width and the line stays one length.
+  WIDTH=$(( $(tput cols) - 4 - LEFT_WIDTH - RIGHT_WIDTH ))
+  ROOM=$(( WIDTH - AVATAR_GLYPHS + AVATAR_WIDTH ))
+  GAP=$AVATAR_GAP
+  if [ "$ROOM" -le 0 ]; then
     FILL=''
   else
-    FILL=$BORDCOL$HBAR
-    for ((x = 0; x < $WIDTH; x++)); do
+    # The ten glyphs of an avatar that is off are given to the fill, which is why
+    # the gap is only drawn where there is no fill to carry it.
+    GAP=''
+    FILL=$BORDCOL
+    for ((x = 0; x < WIDTH; x++)); do
       FILL="$FILL$HBAR"
     done
   fi
+
+  LEFT="\n$BORDCOL\[\016\]$PR_ULCORNER$HBAR\[\017\]$SEPARATOR_COLOR($USERCOL$USER$SEPARATOR_COLOR@${PRIMARY_COLOR}\h:$cur_tty$SEPARATOR_COLOR)$FRAME_SEP$CHLINE$GAP$BGPROCCOL"
 
   PS1="$LEFT$FILL$RIGHT"
 
