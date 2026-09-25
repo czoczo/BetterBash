@@ -181,6 +181,7 @@ the installer under `sh`, `bash` and `dash`; and the theme rules of a reinstall.
 ### Tests
 ```
 ./tests/test-theme.sh        # decoder against the golden fixtures, under dash and bash
+node tests/test-avatar.mjs     # the host avatar of the page, drawn as the shell draws it
 ./test-install.sh            # the fetch commands of the page, see above
 ./tests/test-legacy-pipe.sh  # the legacy getbb.sh path, while it is served
 ./tests/test-shellcheck.sh   # shellcheck over every script, in its own dialect

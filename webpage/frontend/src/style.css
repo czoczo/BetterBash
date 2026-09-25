@@ -129,6 +129,28 @@ a:hover {
 .color-modifier-checkboxes label + input[type="checkbox"] {
   margin-left: 16px;
 }
+/* The hostname the preview avatar is drawn from, under the avatar checkbox it
+   belongs to. Styled like the inputs of the other control groups - the grey fill
+   of a select - and in the terminal font, because what is typed here is what a
+   machine would answer. */
+.avatar-host-field {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.avatar-host-field label {
+  font-weight: normal;
+}
+.avatar-host-field input[type="text"] {
+  flex: 1;
+  min-width: 0;
+  padding: 3px 6px;
+  background-color: #3a3a3a;
+  color: #f0f0f0;
+  border: 1px solid #555;
+  border-radius: 4px;
+  font-family: Consolas, Monaco, 'Lucida Console', monospace;
+}
 .terminal-inline {
   background-color: #000;
   padding: 4px 6px 4px 8px;

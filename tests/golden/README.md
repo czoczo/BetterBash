@@ -1,4 +1,4 @@
-# Golden fixtures for the theme code decoder
+# Golden fixtures
 
 `prompt/bb-theme.sh` decodes the eight character theme codes the WebUI puts into
 install commands. Its output has to stay what the Go backend used to inject into
@@ -10,8 +10,22 @@ links). `tests/test-theme.sh` therefore compares the shell decoder against
 |---|---|
 | `theme-codes.txt` | Codes to decode: the production code from the README, structural edge cases (`AAAAAAAA`, `________`, `--------`, a sweep of the last character over the whole alphabet) and random codes. |
 | `theme-golden.txt` | `### <code>` followed by the nine assignments (`PRIMARY_COLOR` ... `PATH_COLOR`, `AVATAR`) the Go backend produced for it. |
+| `avatars.txt` | `### "<hostname>"` followed by the eight segments (`<glyph><tab><ANSI foreground code>`) `prompt/bb.sh` draws for it. |
 
-## Regenerating
+## avatars.txt
+
+The host avatar is drawn twice: by `hashColor`/`getChar` in `prompt/bb.sh`, and by
+`webpage/frontend/src/avatar.js` for the preview on the page. Two implementations
+of one look drift, so `tests/test-avatar.mjs` runs the shell functions over a list
+of hostnames, compares the JavaScript port with them and with this fixture, and
+fails when the page's markup stops drawing an avatar of its own. Unlike the theme
+fixtures, this one has a living generator - the shell itself:
+
+```
+node tests/test-avatar.mjs --write   # rewrite avatars.txt from prompt/bb.sh
+```
+
+## Regenerating the theme fixtures
 
 The generator ran inside the Go backend, and the backend is no longer in the
 tree - it was removed in the commit named "Drop the backend". Bringing it back

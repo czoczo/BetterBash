@@ -57,6 +57,11 @@ jobs:
           cache: 'pnpm'
           cache-dependency-path: webpage/frontend/pnpm-lock.yaml
 
+      - name: The host avatar of the page, drawn as prompt/bb.sh draws it
+        # The page draws the avatar prompt/bb.sh draws; this runs the shell
+        # functions and the JavaScript port over the same hostnames.
+        run: node tests/test-avatar.mjs
+
       - name: Install dependencies
         working-directory: webpage/frontend
         run: pnpm install --frozen-lockfile

@@ -3,6 +3,7 @@
 <script setup>
 import { ref, computed, watchEffect, onMounted, onBeforeUnmount } from 'vue';
 import { buildAccentPalette, applyAccentPalette } from './theme';
+import { hostAvatar } from './avatar';
 import { APP_ENV, installCommands } from './config';
 // default theme vN-y_5uA
 
@@ -30,6 +31,27 @@ const ENCODING_ORDERED_COLOR_KEYS = [
 
 // Avatar state
 const showAvatar = ref(true);
+
+// The prompt draws its avatar from the machine's own name (hashColor over
+// `cat /etc/hostname` in prompt/bb.sh), and this page cannot read that file, so
+// the name is asked for. It is the same string the preview line prints as the
+// host, so what the preview hashes and what it shows are one name. "myhost" is
+// the host the preview always showed, and the avatar of the preview is therefore
+// the one it always showed - see tests/golden/avatars.txt.
+const previewHostname = ref('myhost');
+const avatarSegments = computed(() => hostAvatar(previewHostname.value, 4));
+
+// __prompt_command of prompt/bb.sh sizes the dashes between the two halves of a
+// prompt from the lengths of the user, the host and the avatar, so a longer host
+// shortens the fill and the line keeps its length. The two numbers are the fill
+// runs the template held before they became computed. The shorter of the two
+// runs is spent by a 33rd character, and a line longer than the 98 glyphs the
+// template is padded to would break under the font size the box scales to, so
+// the hostname field stops at 32 characters.
+const previewFill = (base) =>
+  computed(() => '─'.repeat(Math.max(1, base + 'myhost'.length - previewHostname.value.length)));
+const previewFillOne = previewFill(29);
+const previewFillTwo = previewFill(27);
 const uninstallFlag = ref(false);
 // Random mode: the install command asks for the word "rand" instead of a theme
 // code, so the machine that runs it draws its own theme - and draws a new one

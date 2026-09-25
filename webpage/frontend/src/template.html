@@ -58,6 +58,21 @@
           <input id="avatar-toggle" type="checkbox" v-model="showAvatar" @change="updatePromptDetails" />
           <label for="avatar-toggle">Show Avatar</label>
         </div>
+        <!-- The avatar is drawn from the hostname of the machine, so a preview of
+             it needs a hostname to draw from. It is a name typed here, never a
+             name read from the machine: nothing on this page has seen it. -->
+        <div class="avatar-host-field">
+          <label for="avatar-host">Hostname</label>
+          <input
+            id="avatar-host"
+            type="text"
+            v-model="previewHostname"
+            maxlength="32"
+            spellcheck="false"
+            autocomplete="off"
+            title="The avatar in the preview is drawn from this name the way the prompt draws it from cat /etc/hostname. Put what that prints here and the preview is the prompt."
+          />
+        </div>
         <button @click="generateRandomTheme()" class="default-btn">
           🎲 Random Theme
         </button>
@@ -70,18 +85,16 @@
         ><span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">(</span
         ><span :class="getColorClassFromBash(generatedColors.SECONDARY_COLOR)">user</span
         ><span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">@</span
-        ><span :class="getColorClassFromBash(generatedColors.PRIMARY_COLOR)">myhost:pts/5</span
+        ><span :class="getColorClassFromBash(generatedColors.PRIMARY_COLOR)">{{ previewHostname }}:pts/5</span
         ><span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">)</span
         ><span :class="getColorClassFromBash(generatedColors.BORDCOL)">──</span
         ><template v-if="showAvatar">
           <span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">(</span
-          ><span class="text-yellow">▶</span
-          ><span class="text-bright-black">▬</span
-          ><span class="text-bright-white">▲</span
-          ><span class="text-cyan">◀▶</span
-          ><span class="text-bright-white">▲</span
-          ><span class="text-bright-black">▬</span
-          ><span class="text-yellow">◀</span
+          ><span
+            v-for="(segment, index) in avatarSegments"
+            :key="index"
+            :class="getColorClassFromBash(segment.code)"
+            >{{ segment.glyph }}</span
           ><span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">)</span
           ><span :class="getColorClassFromBash(generatedColors.BORDCOL)">──</span
         ></template>
@@ -91,7 +104,7 @@
         <template v-if="!showAvatar">
           <span :class="getColorClassFromBash(generatedColors.BORDCOL)">────────────</span
         ></template>
-        <span :class="getColorClassFromBash(generatedColors.BORDCOL)">─────────────────────────────</span
+        <span :class="getColorClassFromBash(generatedColors.BORDCOL)">{{ previewFillOne }}</span
         ><span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">(</span
         ><span :class="getColorClassFromBash(generatedColors.TIME_COLOR)">Wed May 14</span
         ><span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">)</span
@@ -124,24 +137,22 @@
         ><span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">(</span
         ><span :class="getColorClassFromBash(generatedColors.ROOT_COLOR)">ROOT</span
         ><span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">@</span
-        ><span :class="getColorClassFromBash(generatedColors.PRIMARY_COLOR)">myhost:pts/5</span
+        ><span :class="getColorClassFromBash(generatedColors.PRIMARY_COLOR)">{{ previewHostname }}:pts/5</span
         ><span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">)</span
         ><span :class="getColorClassFromBash(generatedColors.BORDCOL)">──</span
         ><template v-if="showAvatar">
           <span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">(</span
-          ><span class="text-yellow">▶</span
-          ><span class="text-bright-black">▬</span
-          ><span class="text-bright-white">▲</span
-          ><span class="text-cyan">◀▶</span
-          ><span class="text-bright-white">▲</span
-          ><span class="text-bright-black">▬</span
-          ><span class="text-yellow">◀</span
+          ><span
+            v-for="(segment, index) in avatarSegments"
+            :key="index"
+            :class="getColorClassFromBash(segment.code)"
+            >{{ segment.glyph }}</span
           ><span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">)</span
         ></template>
         <template v-if="!showAvatar">
           <span :class="getColorClassFromBash(generatedColors.BORDCOL)">──────────</span
         ></template>
-        <span :class="getColorClassFromBash(generatedColors.BORDCOL)">───────────────────────────</span
+        <span :class="getColorClassFromBash(generatedColors.BORDCOL)">{{ previewFillTwo }}</span
         ><span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">(</span
         ><span :class="getColorClassFromBash(generatedColors.ERR_COLOR)">127 ↵</span
         ><span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">)</span
@@ -297,7 +308,7 @@
             <span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">(</span>
             <span :class="getColorClassFromBash(generatedColors.SECONDARY_COLOR)">user</span>
             <span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">@</span>
-            <span :class="getColorClassFromBash(generatedColors.PRIMARY_COLOR)">myhost:pts/5</span>
+            <span :class="getColorClassFromBash(generatedColors.PRIMARY_COLOR)">{{ previewHostname }}:pts/5</span>
             <span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">)</span>
           </span>
           - Username (highlighted if root) and hostname.
@@ -305,13 +316,11 @@
         <li>
           <span class="terminal-inline">
             <span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">(</span>
-            <span class="text-yellow">▶</span>
-            <span class="text-bright-black">▬</span>
-            <span class="text-bright-white">▲</span>
-            <span class="text-cyan">◀▶</span>
-            <span class="text-bright-white">▲</span>
-            <span class="text-bright-black">▬</span>
-            <span class="text-yellow">◀</span>
+            <span
+              v-for="(segment, index) in avatarSegments"
+              :key="index"
+              :class="getColorClassFromBash(segment.code)"
+              >{{ segment.glyph }}</span>
             <span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">)</span>
           </span>
           - Unique host avatar based on hostname. Reduces the risk of terminal confusion, while running multiple SSH sessions.
