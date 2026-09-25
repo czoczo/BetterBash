@@ -31,6 +31,9 @@ jobs:
           dash tests/test-theme.sh
           bash tests/test-theme.sh
 
+      - name: The duration of the last command, in an interactive shell too
+        run: bash tests/test-timer.sh
+
       - name: The installation commands of the page, run as printed
         # git, curl, wget and openssl fetch a package from a local file server and
         # from a local git repository, and installbb.sh installs what they fetched.

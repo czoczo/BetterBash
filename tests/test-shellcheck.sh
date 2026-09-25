@@ -41,6 +41,7 @@ tests/test-theme.sh
 # Bash only, and without style level findings.
 BASH_SCRIPTS='
 prompt/bb.sh
+tests/test-timer.sh
 dev.sh
 '
 

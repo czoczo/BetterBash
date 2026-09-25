@@ -141,6 +141,62 @@ export GIT_PS1_SHOWDIRTYSTATE=true
 export GIT_PS1_SHOWUNTRACKEDFILES=true
 export GIT_PS1_SHOWUPSTREAM="auto"
 
+# --- how long the last command ran ---------------------------------------
+# The shell never says how long a command took, so the prompt measures it with the
+# two hooks it offers: the DEBUG trap, which runs just before bash executes a
+# command and leaves that moment in $SECONDS - the shell's own counter, so no
+# external `date` and no fractional arithmetic - and PROMPT_COMMAND, which runs
+# once the command is over and just before PS1 is drawn, where the seconds that
+# passed are subtracted from it.
+#
+# A start is recorded only when none is held, so that a line of several commands
+# (`make && make install`, a loop) is measured from its first one, which is the
+# command the next prompt answers for. The trap runs before every command, those
+# the prompt itself executes (whoami, jobs, git) included, which is why the start
+# is only let go at the very end of __prompt_command: held across those, it stays
+# the start of the user's command, so the prompt measures that one and not itself.
+# Two things the hook cannot see are taken as they are: a command run in a
+# subshell (`( make )`) never runs the trap of its parent, and a command put in the
+# background has not run when the prompt is drawn - both are shown as 0s.
+BB_TIMER=''
+BB_TIMER_SHOW=''
+
+function __bb_timer_start {
+  # Returns 0 either way, because a DEBUG trap that fails is a command bash
+  # refuses to run whenever someone has switched extdebug on.
+  if [ -z "$BB_TIMER" ]; then
+    BB_TIMER=$SECONDS
+  fi
+}
+
+# The seconds the command that drew this prompt ran, as a number. Read early, so
+# the prompt can build its segment from it: reading is harmless whenever it
+# happens, only letting go of the start would confuse the commands that follow.
+function __bb_timer_stop {
+  # The first prompt of a shell holds no start, and neither does one whose DEBUG
+  # trap somebody else took over; either way there is nothing to measure, and 0s is
+  # closer to the truth than a number out of thin air.
+  if [ -z "$BB_TIMER" ]; then
+    BB_TIMER_SHOW=0
+  else
+    BB_TIMER_SHOW=$(( SECONDS - BB_TIMER ))
+    # A command that reset SECONDS itself would otherwise measure backwards.
+    if [ "$BB_TIMER_SHOW" -lt 0 ]; then
+      BB_TIMER_SHOW=0
+    fi
+  fi
+}
+
+# Lets go of the start, so that the next command to begin is the one recorded. The
+# last thing the prompt does, and only then - see above.
+function __bb_timer_reset {
+  unset BB_TIMER
+}
+
+# The trap is taken rather than shared, as PROMPT_COMMAND below is: a prompt that
+# measures the last command has to know when every command starts.
+trap '__bb_timer_start' DEBUG
+
 export PROMPT_COMMAND=__prompt_command
 
 CH=''
@@ -161,6 +217,15 @@ function __prompt_command() {
      EXIT="$SEPARATOR_COLOR(${ERR_COLOR}$RETURN_CODE ↵$SEPARATOR_COLOR)"
      RCOL="${ERR_COLOR}"
   fi
+
+  # The seconds the command that drew this prompt ran, and in the colour of that
+  # command: RCOL is PRIMARY_COLOR when it succeeded and ERR_COLOR when not.
+  __bb_timer_stop
+  TIMERSEG="$BORDCOL$HBAR$HBAR$HBAR$SEPARATOR_COLOR(${RCOL}${BB_TIMER_SHOW}s$SEPARATOR_COLOR)"
+  # Its visible width - three dashes, the brackets, the digits and the s - so the
+  # fill gives up exactly what the segment takes, as PROC_WIDTH does for the
+  # background process counter.
+  TIMER_WIDTH=$(( ${#BB_TIMER_SHOW} + 6 ))
 
   USER=$(whoami)
   if [ $UID -eq "0" ]; then
@@ -184,21 +249,30 @@ function __prompt_command() {
 
   LEFT="\n$BORDCOL\[\016\]$PR_ULCORNER$HBAR\[\017\]$SEPARATOR_COLOR($USERCOL$USER$SEPARATOR_COLOR@${PRIMARY_COLOR}\h:$cur_tty$SEPARATOR_COLOR)$BORDCOL$HBAR$HBAR$CHLINE$BGPROCCOL"
 
-  RIGHT="$EXIT$BORDCOL$HBAR$HBAR$HBAR$SEPARATOR_COLOR($TIME_COLOR\d$SEPARATOR_COLOR)$BORDCOL$HBAR$HBAR$HBAR$SEPARATOR_COLOR($RCOL\t$SEPARATOR_COLOR)$BORDCOL$HBAR$HBAR$HBAR$HBAR\n$BORDCOL\[\016\]$PR_LLCORNER\[\017\]$BORDCOL$HBAR$SEPARATOR_COLOR(${PATH_COLOR}\w${SEPARATOR_COLOR})$BORDCOL$HBAR$SEPARATOR_COLOR(${PRIMARY_COLOR}\\\$$RST$GITPROMPT$SEPARATOR_COLOR)$BORDCOL-> \[\e[0m\]"
+  RIGHT="$EXIT$TIMERSEG$BORDCOL$HBAR$HBAR$HBAR$SEPARATOR_COLOR($TIME_COLOR\d$SEPARATOR_COLOR)$BORDCOL$HBAR$HBAR$HBAR$SEPARATOR_COLOR($RCOL\t$SEPARATOR_COLOR)$BORDCOL$HBAR$HBAR$HBAR$HBAR\n$BORDCOL\[\016\]$PR_LLCORNER\[\017\]$BORDCOL$HBAR$SEPARATOR_COLOR(${PATH_COLOR}\w${SEPARATOR_COLOR})$BORDCOL$HBAR$SEPARATOR_COLOR(${PRIMARY_COLOR}\\\$$RST$GITPROMPT$SEPARATOR_COLOR)$BORDCOL-> \[\e[0m\]"
 
   L_LEN="$USER$HOSTNAM$CH"
   R_LEN="XXX XXX XX, XX:XX:XX$RETURN_CODE"
   L_LEN=${#L_LEN}
   R_LEN=${#R_LEN}
-  let WIDTH=$(tput cols)-${R_LEN}-${L_LEN}-${PROC_WIDTH}+83
+  let WIDTH=$(tput cols)-${R_LEN}-${L_LEN}-${PROC_WIDTH}-${TIMER_WIDTH}+83
   if [ "$AVATAR" != 'true' ]; then
     let WIDTH=${WIDTH}-116
   fi
-  FILL=$BORDCOL$HBAR
-  for ((x = 0; x < $WIDTH; x++)); do
-    FILL="$FILL$HBAR"
-  done
+  # The fill is whatever width the terminal has left between the two halves. When
+  # there is none left it is dropped altogether rather than keeping the dash it
+  # would otherwise carry, because that dash would push the frame onto the next
+  # line and the frame would stop being one line.
+  if [ "$WIDTH" -le 0 ]; then
+    FILL=''
+  else
+    FILL=$BORDCOL$HBAR
+    for ((x = 0; x < $WIDTH; x++)); do
+      FILL="$FILL$HBAR"
+    done
+  fi
 
   PS1="$LEFT$FILL$RIGHT"
 
+  __bb_timer_reset
 }

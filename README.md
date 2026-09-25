@@ -15,6 +15,7 @@
 - :straight_ruler: Line separating commands output.
 - :arrow_down: Shows exit code if other than zero.
 - :clock4: Date and time. Time changes color if exit code other than zero.
+- :stopwatch: Duration of the previous command in seconds, in the color of its exit code.
 - :file_folder: Current directory.
 - :traffic_light: Git status (if current directory inside git repository).
 - :scroll: Rapid history search with up/down arrows based on current input.

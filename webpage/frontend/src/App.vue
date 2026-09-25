@@ -44,14 +44,17 @@ const avatarSegments = computed(() => hostAvatar(previewHostname.value, 4));
 // __prompt_command of prompt/bb.sh sizes the dashes between the two halves of a
 // prompt from the lengths of the user, the host and the avatar, so a longer host
 // shortens the fill and the line keeps its length. The two numbers are the fill
-// runs the template held before they became computed. The shorter of the two
-// runs is spent by a 33rd character, and a line longer than the 98 glyphs the
-// template is padded to would break under the font size the box scales to, so
-// the hostname field stops at 32 characters.
+// runs the template held before they became computed. Both of them are shorter by
+// what the duration of the last command takes - the prompt draws it between the
+// exit code and the date - and the template carries the same eight to eleven
+// characters of dashes and digits around it. The shorter of the two runs is spent
+// by a 33rd character, and a line longer than the 98 glyphs the template is padded
+// to would break under the font size the box scales to, so the hostname field
+// stops at 32 characters.
 const previewFill = (base) =>
   computed(() => '─'.repeat(Math.max(1, base + 'myhost'.length - previewHostname.value.length)));
-const previewFillOne = previewFill(29);
-const previewFillTwo = previewFill(27);
+const previewFillOne = previewFill(18);
+const previewFillTwo = previewFill(19);
 const uninstallFlag = ref(false);
 // Random mode: the install command asks for the word "rand" instead of a theme
 // code, so the machine that runs it draws its own theme - and draws a new one

@@ -105,6 +105,11 @@
           <span :class="getColorClassFromBash(generatedColors.BORDCOL)">────────────</span
         ></template>
         <span :class="getColorClassFromBash(generatedColors.BORDCOL)">{{ previewFillOne }}</span
+        ><span :class="getColorClassFromBash(generatedColors.BORDCOL)">───</span
+        ><span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">(</span
+        ><span :class="getColorClassFromBash(generatedColors.PRIMARY_COLOR)">42s</span
+        ><span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">)</span
+        ><span :class="getColorClassFromBash(generatedColors.BORDCOL)">───</span
         ><span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">(</span
         ><span :class="getColorClassFromBash(generatedColors.TIME_COLOR)">Wed May 14</span
         ><span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">)</span
@@ -155,6 +160,10 @@
         <span :class="getColorClassFromBash(generatedColors.BORDCOL)">{{ previewFillTwo }}</span
         ><span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">(</span
         ><span :class="getColorClassFromBash(generatedColors.ERR_COLOR)">127 ↵</span
+        ><span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">)</span
+        ><span :class="getColorClassFromBash(generatedColors.BORDCOL)">───</span
+        ><span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">(</span
+        ><span :class="getColorClassFromBash(generatedColors.ERR_COLOR)">12s</span
         ><span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">)</span
         ><span :class="getColorClassFromBash(generatedColors.BORDCOL)">──</span
         ><span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">(</span
@@ -358,6 +367,14 @@
             <span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">)</span>
           </span>
           - Date and time. Time changes color if exit code other than zero.
+        </li>
+        <li>
+          <span class="terminal-inline">
+            <span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">(</span>
+            <span :class="getColorClassFromBash(generatedColors.PRIMARY_COLOR)">42s</span>
+            <span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">)</span>
+          </span>
+          - Duration of the previous command in seconds, in the color of its exit code.
         </li>
         <li>
           <span class="terminal-inline">
