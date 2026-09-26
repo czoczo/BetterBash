@@ -2,19 +2,21 @@
 
 /*
  * Accent ramp used by the page chrome (headings, links, buttons, active tabs).
- * The values below are only the fallback: at runtime they are recomputed from
- * the theme's PRIMARY_COLOR (see src/theme.js), so a random theme also
- * re-skins the page.
+ * It is the ramp of the theme's BORDER COLOR (BORDCOL) - the colour a prompt
+ * draws its frame in - and not of its PRIMARY_COLOR, which colours the inside of
+ * a prompt. The values below are only the fallback, drawn from the border colour
+ * of the defaults in src/App.vue; at runtime they are recomputed from the theme
+ * actually shown (see src/theme.js), so a random theme also re-skins the page.
  */
 :root {
-  --primary-color: #4e9a06;
-  --primary-base: #4e9a06;
-  --primary-hover: #076519;
-  --primary-bright: #8ae234;
-  --primary-soft: rgba(78, 154, 6, 0.2);
+  --primary-color: #868686;
+  --primary-base: #7c7c7c;
+  --primary-hover: #727272;
+  --primary-bright: #c3c3c3;
+  --primary-soft: rgba(134, 134, 134, 0.2);
   --primary-contrast: #ffffff;
   --banner-hue-rotate: 0deg;
-  --banner-saturate: 1;
+  --banner-saturate: 0.15;
 }
 
 #app {

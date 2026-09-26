@@ -53,8 +53,9 @@ li {
   color: #f0f0f0;
   margin-top: 10px;
 }
-/* Accent colours (--primary-*) are defined with fallbacks in assets/main.css
-   and redefined at runtime from PRIMARY_COLOR. */
+/* Accent colours (--primary-*) are the ramp of the theme's border colour
+   (BORDCOL): defined with fallbacks in assets/main.css and redefined at runtime
+   from the theme shown. */
 h1 {
   color: var(--primary-color);
   font-family: "Tiny5", sans-serif;

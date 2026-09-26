@@ -585,9 +585,14 @@ function initTheme() {
 
 initTheme();
 
-// --- Accent (page chrome) colors, driven by PRIMARY_COLOR ---
+// --- Accent (page chrome) colors, driven by the theme's BORDER COLOR ---
+// The frame is what a BetterBash prompt shows most of, and what the preview of
+// this page shows of a theme, so the border colour - not PRIMARY_COLOR - is what
+// skins the page. The slot of the theme is named here once.
+const ACCENT_COLOR_KEY = 'BORDCOL';
+
 const accentPalette = computed(() =>
-  buildAccentPalette(getPreviewColorFromBash(generatedColors.value.PRIMARY_COLOR))
+  buildAccentPalette(getPreviewColorFromBash(generatedColors.value[ACCENT_COLOR_KEY]))
 );
 
 // The theme is chosen before this watcher is registered, so the CSS variables

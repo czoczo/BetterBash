@@ -1,9 +1,11 @@
 // UI (chrome) theming helpers.
 //
 // The page chrome (headings, links, buttons, active tabs, ...) used to be
-// hardcoded to a green (#4e9a06) with a few derived shades. From now on the
-// accent is derived from the theme's PRIMARY_COLOR, so that a random theme
-// re-skins the whole page.
+// hardcoded to a green (#4e9a06) with a few derived shades. The accent is
+// derived from the theme's BORDER COLOR (BORDCOL) - the colour a prompt draws
+// its frame in, and the colour of a frame the page shows most of - so that a
+// random theme re-skins the whole page. PRIMARY_COLOR colours the inside of a
+// prompt and is not the accent.
 
 export const PAGE_BACKGROUND = '#1e1e1e';
 
@@ -89,8 +91,8 @@ export function contrastRatio(colorA, colorB) {
 
 /**
  * Nudge a colour's lightness (hue/saturation are kept) until it is readable
- * against `bgHex`. Without this a random PRIMARY_COLOR such as "Black" or
- * "Light Gray" would make headings, links and buttons unreadable.
+ * against `bgHex`. Without this a random border colour such as "Black" or
+ * "Bright Black" would make headings, links and buttons unreadable.
  */
 export function ensureContrast(hex, bgHex, minRatio) {
   if (contrastRatio(hex, bgHex) >= minRatio) return hex;
@@ -133,7 +135,7 @@ export function bannerFilterFor(accentHex) {
 }
 
 /**
- * Build the full accent ramp from the raw PRIMARY_COLOR hex value.
+ * Build the full accent ramp from the raw BORDER COLOR (BORDCOL) hex value.
  * `base` is untouched, `accent` is guaranteed readable on the page background.
  */
 export function buildAccentPalette(baseHex) {

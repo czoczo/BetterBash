@@ -70,6 +70,11 @@ jobs:
         # both are measured here, so neither drifts from the other.
         run: node tests/test-frame.mjs
 
+      - name: The colour of the theme that skins the page
+        # The chrome of the page follows the border colour of the theme, and the
+        # fallback of its stylesheet is the ramp of that colour.
+        run: node tests/test-accent.mjs
+
       - name: Install dependencies
         working-directory: webpage/frontend
         run: pnpm install --frozen-lockfile
