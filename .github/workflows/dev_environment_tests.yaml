@@ -75,6 +75,12 @@ jobs:
         # fallback of its stylesheet is the ramp of that colour.
         run: node tests/test-accent.mjs
 
+      - name: The copy buttons of the page, with and without a clipboard
+        # navigator.clipboard exists only in a secure context, so the fallback to a
+        # copied selection is what a page served over plain http has; both are run
+        # here, and the page is held to using the helper rather than the API itself.
+        run: node tests/test-copy.mjs
+
       - name: Install dependencies
         working-directory: webpage/frontend
         run: pnpm install --frozen-lockfile

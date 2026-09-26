@@ -186,6 +186,7 @@ node tests/test-avatar.mjs   # the host avatar of the page, drawn as the shell d
 bash tests/test-timer.sh     # the duration of the last command, in an interactive shell too
 node tests/test-frame.mjs    # the frame of the prompt and the frame the page previews
 node tests/test-accent.mjs   # the colour of the theme that skins the page (BORDCOL)
+node tests/test-copy.mjs     # the copy buttons: clipboard API, selection, and neither
 ./test-install.sh            # the fetch commands of the page, see above
 ./tests/test-legacy-pipe.sh  # the legacy getbb.sh path, while it is served
 ./tests/test-shellcheck.sh   # shellcheck over every script, in its own dialect

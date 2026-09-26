@@ -242,8 +242,8 @@
             <label for="auto-toggle-git" :title="autoToggleHint">🤖 Auto</label>
           </div>
           <div class="share-url-container multiline">
-            <textarea :value="gitInstallUrl" readonly id="installGitCmd" rows="2" @click="selectUrlText"></textarea>
-            <button @click="copyGitCmdToClipboard">Copy command</button>
+            <textarea :value="gitInstallUrl" readonly id="installGitCmd" rows="2" @click="selectField"></textarea>
+            <button @click="copyInstallCmd">Copy command</button>
           </div>
         </div>
 
@@ -257,8 +257,8 @@
             <label for="auto-toggle-curl" :title="autoToggleHint">🤖 Auto</label>
           </div>
           <div class="share-url-container multiline">
-            <textarea :value="curlInstallUrl" readonly id="installCurlCmd" rows="2" @click="selectUrlText"></textarea>
-            <button @click="copyCurlCmdToClipboard">Copy command</button>
+            <textarea :value="curlInstallUrl" readonly id="installCurlCmd" rows="2" @click="selectField"></textarea>
+            <button @click="copyInstallCmd">Copy command</button>
           </div>
         </div>
         
@@ -272,8 +272,8 @@
             <label for="auto-toggle-wget" :title="autoToggleHint">🤖 Auto</label>
           </div>
           <div class="share-url-container multiline">
-            <textarea :value="wgetInstallUrl" readonly id="installWgetCmd" rows="2" @click="selectUrlText"></textarea>
-            <button @click="copyWgetCmdToClipboard">Copy command</button>
+            <textarea :value="wgetInstallUrl" readonly id="installWgetCmd" rows="2" @click="selectField"></textarea>
+            <button @click="copyInstallCmd">Copy command</button>
           </div>
         </div>
         
@@ -287,23 +287,25 @@
             <label for="auto-toggle-openssl" :title="autoToggleHint">🤖 Auto</label>
           </div>
           <div class="share-url-container multiline">
-            <textarea :value="opensslInstallUrl" readonly id="installOpensslCmd" @click="selectUrlText" rows="5"></textarea>
-            <button @click="copyOpensslCmdToClipboard">Copy command</button>
+            <textarea :value="opensslInstallUrl" readonly id="installOpensslCmd" @click="selectField" rows="5"></textarea>
+            <button @click="copyInstallCmd">Copy command</button>
           </div>
         </div>
       </div>
       
 
       <p v-if="copyCmdSuccess" class="copy-success-message">Copied to clipboard!</p>
+      <p v-if="copyCmdError" class="copy-error-message">{{ copyCmdError }}</p>
     </div>
 
     <div class="share-section">
       <h3>Share your theme</h3>
       <div class="share-url-container">
-          <input type="text" :value="shareableUrl" readonly id="shareUrlInput" @click="selectUrlText" />
+          <input type="text" :value="shareableUrl" readonly id="shareUrlInput" @click="selectField" />
           <button @click="copyUrlToClipboard">Copy URL</button>
       </div>
       <p v-if="copySuccess" class="copy-success-message">Copied to clipboard!</p>
+      <p v-if="copyUrlError" class="copy-error-message">{{ copyUrlError }}</p>
     </div>
 
     <div class="share-section">

@@ -5,6 +5,7 @@ import { ref, computed, watchEffect, onMounted, onBeforeUnmount } from 'vue';
 import { buildAccentPalette, applyAccentPalette } from './theme';
 import { hostAvatar } from './avatar';
 import { APP_ENV, installCommands } from './config';
+import { copyText } from './clipboard';
 // default theme vN-y_5uA
 
 // Surfaced in the page so a development build cannot be mistaken for the
@@ -373,79 +374,78 @@ const shareableUrl = computed(() => {
   return `${window.location.origin}${window.location.pathname}#${code}`;
 });
 
-const copySuccess = ref(false);
-async function copyUrlToClipboard() {
+// --- Copying out of the page ---------------------------------------------
+//
+// Both boxes below copy through ./clipboard.js rather than reaching for
+// navigator.clipboard themselves: that API lives only in a secure context, so on a
+// page served over plain http - `./dev.sh` reached by its host name - reading
+// navigator.clipboard threw before anything was attempted, and every button
+// answered with an alert telling the user to copy by hand. The helper falls back to
+// a copied selection, which an insecure page still gets; when even that fails, the
+// field of the button that was pressed is selected here and the reason is shown
+// under the box, so Ctrl+C stays a way out that says why it is needed.
+
+/**
+ * Copy `text`, and on failure select the field the button belongs to and leave the
+ * reason in `showError`. Says whether the clipboard took the text.
+ *
+ * The field is looked up before anything is awaited: the button is still there when
+ * the copy turns out to have failed, but the event that led to it is not.
+ */
+async function copyOut(text, button, showError) {
+  showError('');
+  const field = button?.closest?.('.share-url-container')?.querySelector('textarea, input');
   try {
-    await navigator.clipboard.writeText(shareableUrl.value);
-    copySuccess.value = true;
-    setTimeout(() => {
-      copySuccess.value = false;
-    }, 2000);
-  } catch (err) {
-    console.error('Failed to copy URL: ', err);
-    alert('Failed to copy URL. Please copy it manually.');
+    await copyText(text);
+    return true;
+  } catch (error) {
+    console.error('Failed to copy: ', error);
+    field?.select();
+    showError(error.message);
+    return false;
   }
+}
+
+/** The message of a failure fades with the "Copied!" of the next try, so each of
+ *  the two boxes keeps its own pair of feedback. */
+function flashCopied(shown) {
+  shown.value = true;
+  setTimeout(() => {
+    shown.value = false;
+  }, 2000);
+}
+
+const copySuccess = ref(false);
+const copyUrlError = ref('');
+
+async function copyUrlToClipboard(event) {
+  const copied = await copyOut(shareableUrl.value, event?.currentTarget, (why) => {
+    copyUrlError.value = why;
+  });
+  if (copied) flashCopied(copySuccess);
 }
 
 const copyCmdSuccess = ref(false);
+const copyCmdError = ref('');
 
-async function copyGitCmdToClipboard() {
-  try {
-    await navigator.clipboard.writeText(gitInstallUrl.value);
-    copyCmdSuccess.value = true;
-    setTimeout(() => {
-      copyCmdSuccess.value = false;
-    }, 2000);
-  } catch (err) {
-    console.error('Failed to copy install command: ', err);
-        alert('Failed to copy install command. Please copy it manually.');
-  }
+// One button per tab, and only the panel of the active tab is ever shown, so the
+// command to copy is always the one of activeTab - the same string the textarea of
+// that panel shows.
+async function copyInstallCmd(event) {
+  const command = currentInstallCommands.value[activeTab.value] ?? '';
+  if (!command) return; // nothing shown, so nothing to copy
+  const copied = await copyOut(command, event?.currentTarget, (why) => {
+    copyCmdError.value = why;
+  });
+  if (copied) flashCopied(copyCmdSuccess);
 }
 
-async function copyCurlCmdToClipboard() {
-  try {
-    await navigator.clipboard.writeText(curlInstallUrl.value);
-    copyCmdSuccess.value = true;
-    setTimeout(() => {
-      copyCmdSuccess.value = false;
-    }, 2000);
-  } catch (err) {
-    console.error('Failed to copy install command: ', err);
-        alert('Failed to copy install command. Please copy it manually.');
-  }
-}
-
-async function copyWgetCmdToClipboard() {
-  try {
-    await navigator.clipboard.writeText(wgetInstallUrl.value);
-    copyCmdSuccess.value = true;
-    setTimeout(() => {
-      copyCmdSuccess.value = false;
-    }, 2000);
-  } catch (err) {
-    console.error('Failed to copy install command: ', err);
-        alert('Failed to copy install command. Please copy it manually.');
-  }
-}
-
-async function copyOpensslCmdToClipboard() {
-  try {
-    await navigator.clipboard.writeText(opensslInstallUrl.value);
-    copyCmdSuccess.value = true;
-    setTimeout(() => {
-      copyCmdSuccess.value = false;
-    }, 2000);
-  } catch (err) {
-    console.error('Failed to copy install command: ', err);
-        alert('Failed to copy install command. Please copy it manually.');
-  }
-}
-
-function selectUrlText() {
-    const inputElement = document.getElementById('shareUrlInput');
-    if (inputElement) {
-        inputElement.select();
-    }
+// Clicking a box selects its own text, so a click and Ctrl+C copy what is in front
+// of the user whichever box they clicked. The command boxes and the URL box all
+// share this handler; taking the field from the event is what keeps them from
+// selecting one another.
+function selectField(event) {
+  event?.target?.select?.();
 }
 
 // Load theme functionality

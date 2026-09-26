@@ -343,6 +343,14 @@ input[type="checkbox"]:checked::after {
   color: var(--primary-bright);
   font-size: 0.9em;
 }
+/* Why a copy button did not copy - see src/clipboard.js. Unlike the "Copied!" above,
+   which is a word thrown over its box, this is a sentence: it takes its place in the
+   flow under the box and may run over lines. */
+.copy-error-message {
+  margin: 8px 0 0;
+  font-size: 0.9em;
+  color: #e07a7a;
+}
 .decoding-explanation {
     font-size: 0.9em;
     /*line-height: 1.6;*/
