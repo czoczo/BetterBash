@@ -17,9 +17,13 @@ export default defineConfig(({ mode }) => {
   // Every fetch command of the WebUI is pinned to the release tag of this build,
   // and VERSION_APP.txt is the single source of that number (release_tag.yaml
   // creates the tag from it). A build that cannot read it pins `main` instead.
-  let releaseRef = 'main'
+  // An explicit VITE_BB_RELEASE_REF wins over the file, because a deployment that
+  // is not a release has to pin its own branch instead: the WebUI of develop, at
+  // dev.bb.cz0.cz, offers a git command that clones develop.
+  let releaseRef = env.VITE_BB_RELEASE_REF || 'main'
   try {
-    releaseRef = readFileSync(new URL('../../VERSION_APP.txt', import.meta.url), 'utf8').trim() || 'main'
+    releaseRef = env.VITE_BB_RELEASE_REF ||
+      readFileSync(new URL('../../VERSION_APP.txt', import.meta.url), 'utf8').trim() || 'main'
   } catch {
     console.warn('vite: no ../../VERSION_APP.txt, install commands will pin main')
   }

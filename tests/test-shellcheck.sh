@@ -33,6 +33,7 @@ getbb.sh
 removebb.sh
 test-install.sh
 tests/stage-downloads.sh
+tests/check-deployment-payload.sh
 tests/test-legacy-pipe.sh
 tests/test-shellcheck.sh
 tests/test-theme.sh

@@ -24,7 +24,9 @@ a badge next to the banner.
 
 Variables (all prefixed with `VITE_`, see the env files): `VITE_BB_ENV`,
 `VITE_BB_INSTALL_BASE_URL`, `VITE_BB_TLS_BASE_URL`, `VITE_BB_REPO_URL`,
-`VITE_BB_RELEASE_REF` (injected from `VERSION_APP.txt` by `vite.config.js`),
+`VITE_BB_RELEASE_REF` (the release tag `VERSION_APP.txt` gives a bundle, or the
+branch a deployment of its own names, as `cloudflare_pages_dev.yaml` does for
+`develop`),
 `VITE_BB_DIR` (where BetterBash lives and where the fetched tree lands, `~/.bb`; the
 tests name their own), `VITE_BB_SITE_PORT`, `VITE_BB_SITE_HOST`,
 `VITE_BB_SITE_ALLOWED_HOSTS`.

@@ -201,8 +201,9 @@ What the commands are built from lives in `webpage/frontend/src/config.js` and i
 is fetched from; empty means *the origin that served this page*, which is what
 production does), `VITE_BB_TLS_BASE_URL` (the openssl request), `VITE_BB_REPO_URL`
 and `VITE_BB_RELEASE_REF` (the git command, pinned to the tag in
-`VERSION_APP.txt`). A non-production build marks itself with a badge next to the
-banner, because its commands point at the local server.
+`VERSION_APP.txt`, or to the branch a deployment of its own names). A
+non-production build marks itself with a badge next to the banner, because its
+commands point at the local server.
 
 ### Hosting
 
@@ -210,6 +211,17 @@ banner, because its commands point at the local server.
 loose files next to it, deploys to GitHub Pages, then waits for the new artifact
 and installs from it (`--live` runs of both install paths). The domains answer from
 there; TLS is the host's job.
+
+`develop` is published the same way, on Cloudflare Pages, at
+`https://dev.bb.cz0.cz` (`.github/workflows/cloudflare_pages_dev.yaml`). It is the
+same artifact built the same way, so the domain is a rehearsal of a production
+deployment and not a second kind of one: its commands fetch `bb.tgz` from
+`dev.bb.cz0.cz` itself, only its badge says it is a development page and its git
+command clones `develop` (`VITE_BB_RELEASE_REF`). `deploy/cloudflare-pages.mjs`
+provisions that deployment - `check` shows what the Cloudflare account holds for the
+host, `ensure` creates the Pages project, its production branch and its custom
+domain, `deploy` uploads a built `dist` - so the workflow needs two secrets:
+`CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`.
 
 Two bridges are still standing and both are meant to go. `getbb.sh` - the old
 "download one file at a time, pipe it into a shell" installer - is no longer what
