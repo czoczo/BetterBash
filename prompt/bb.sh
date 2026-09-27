@@ -219,33 +219,89 @@ export PROMPT_COMMAND=__prompt_command
 # above. The corner that opens the kept line loses its frame, so it is drawn as the
 # lower half of a dash instead of a corner.
 #
-# The key is bound with `bind -x`, which runs a shell function without touching what
-# is typed on the line and without leaving a command in the history; a macro in
-# .inputrc typing `bb-compact` and a newline would do both of those, and would also
-# bind the key in every other readline program, python included. It is spelled \et
-# and not \M-t, because a terminal sends Alt and t as Escape followed by t, while
-# \M-t is the single byte a terminal only produces when it is 8-bit clean. The key
-# is taken from readline's transpose-words.
+# A prompt is drawn once, out of PS1, and bash will not redraw the one that already
+# stands on the screen: a new shape comes with the next prompt and with no other.
+# So the key does not only flip the switch - it asks bash for a prompt, which it can
+# be asked for exactly one way: by accepting the line. Alt+t is three keys, and each
+# of them is a thing a user could do by hand:
 #
-# What bash will not do is redraw the prompt that already stands on the screen: the
-# new shape comes with the next prompt. A key that changes nothing you can see looks
-# broken, so the function says which shape is on and when it shows.
+#   \C-x\C-p  the line being typed is put aside and the line emptied, and the shape
+#             is flipped - all in the shell, through `bind -x`;
+#   \C-m      accept-line: the line is empty, so nothing runs and bash expands PS1
+#             again, drawing the new shape right here;
+#   \C-x\C-b  the line is given back, with the cursor where it stood.
+#
+# Nothing typed is lost and nothing is executed: an accepted empty line is not a
+# command, and bash never puts one in the history. The two keys of the pair are
+# taken from readline's \C-x prefix, which is where a program puts keys of its own,
+# and both are free of defaults there; they are bound in bash, and in its interactive
+# shells only - `bind` in a script has no readline to bind on, and a warning about
+# that would be noise in somebody else's output.
+#
+# Alt+t is spelled \et and not \M-t, because a terminal sends Alt and t as Escape
+# followed by t, while \M-t is the single byte a terminal only produces when it is
+# 8-bit clean. The key is taken from readline's transpose-words.
+#
+# A bash older than 4.4 hands a `bind -x` command no READLINE_LINE to put the typed
+# text aside in, and a key that accepted the line would then run whatever the user
+# had typed there. Such a shell gets the older key: it flips the shape and says so,
+# because a shape that only shows with the next prompt would otherwise look broken.
 BB_COMPACT=${BB_COMPACT:-0}
 
 function __bb_toggle_prompt {
   if [ "$BB_COMPACT" = 1 ]; then
     BB_COMPACT=0
-    printf 'BetterBash: frame prompt - the next prompt is two lines again (Alt+t for one line)\n'
   else
     BB_COMPACT=1
-    printf 'BetterBash: compact prompt - the next prompt is one line (Alt+t for the frame)\n'
   fi
 }
 
-# Only for an interactive shell: sourcing this file from a script has no readline to
-# bind on, and a warning about it there is noise in somebody else's output.
+# The line and the cursor, held between the two halves of the key.
+BB_LINE=''
+BB_POINT=0
+
+function __bb_line_take {
+  BB_LINE=${READLINE_LINE-}
+  BB_POINT=${READLINE_POINT-0}
+  READLINE_LINE=''
+  READLINE_POINT=0
+  __bb_toggle_prompt
+}
+
+function __bb_line_give {
+  READLINE_LINE=$BB_LINE
+  READLINE_POINT=$BB_POINT
+}
+
+# The key of an older bash: the flip, and the word about which shape came on.
+function __bb_toggle_prompt_note {
+  __bb_toggle_prompt
+  if [ "$BB_COMPACT" = 1 ]; then
+    printf 'BetterBash: compact prompt - the next prompt is one line (Alt+t for the frame)\n'
+  else
+    printf 'BetterBash: frame prompt - the next prompt is two lines again (Alt+t for one line)\n'
+  fi
+}
+
+# 4.4 is both the bash whose ${PS1@P} lets a prompt be looked at at all - which this
+# file and its tests rely on - and the first one whose `bind -x` commands get
+# READLINE_LINE back from the line they were called on.
+BB_PROMPT_KEYS=1
+if [ "${BASH_VERSINFO[0]}" -lt 4 ] ||
+  { [ "${BASH_VERSINFO[0]}" -eq 4 ] && [ "${BASH_VERSINFO[1]}" -lt 4 ]; }; then
+  BB_PROMPT_KEYS=0
+fi
+
 case $- in
-  *i*) bind -x '"\et": __bb_toggle_prompt' 2>/dev/null || true ;;
+  *i*)
+    if [ "$BB_PROMPT_KEYS" = 1 ]; then
+      bind -x '"\C-x\C-p": __bb_line_take' 2>/dev/null || true
+      bind -x '"\C-x\C-b": __bb_line_give' 2>/dev/null || true
+      bind '"\et": "\C-x\C-p\C-m\C-x\C-b"' 2>/dev/null || true
+    else
+      bind -x '"\et": __bb_toggle_prompt_note' 2>/dev/null || true
+    fi
+    ;;
 esac
 
 CH=''

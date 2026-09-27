@@ -465,7 +465,7 @@
             <span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">)</span>
             <span :class="getColorClassFromBash(generatedColors.BORDCOL)">-&gt;</span>
           </span>
-          - Alt+t keeps only the line you type on, for a terminal with more to show than the frame can spare; Alt+t again brings the frame back. It takes the key from readline's transpose-words.
+          - Alt+t keeps only the line you type on, for a terminal with more to show than the frame can spare; Alt+t again brings the frame back. It moves to a new line to do it, so the other prompt is drawn at once and what was typed is waiting on it. The key is taken from readline's transpose-words.
         </li>
       </ul>
       </div>

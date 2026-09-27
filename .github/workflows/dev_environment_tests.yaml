@@ -37,8 +37,8 @@ jobs:
       - name: The one-line prompt of Alt+t, and the key itself
         # Both shapes are drawn by bash and compared with each other - what is kept
         # is the second line of the frame with its corner exchanged - and the key is
-        # pressed in a pseudo terminal, since whether a binding fires at all is
-        # readline's doing.
+        # pressed in a pseudo terminal, since whether a binding fires at all, and
+        # whether the new shape appears there and then, are readline's doing.
         run: bash tests/test-compact.sh
 
       - name: The installation commands of the page, run as printed

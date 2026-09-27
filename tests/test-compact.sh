@@ -11,6 +11,13 @@
 # which is tried in a real interactive shell in a pseudo terminal, because a binding
 # of a shell that has no readline is not a binding at all.
 #
+# The key is three keys: it puts the typed line aside, accepts the empty line that is
+# left - which is what makes bash draw a prompt, of the new shape, right there - and
+# gives the line back. Four things follow from that and are held to as well: the new
+# prompt stands on the screen before anything else was entered, the line and the
+# cursor come back, nothing of the key reaches the history, and the key says nothing
+# in words of its own, since the prompt that appears is the whole of the message.
+#
 # Both shapes are drawn by bash itself, with the same ${PS1@P} an interactive shell
 # expands, and compared with each other: what the compact line shows has to be what
 # the second line of the frame shows, glyph for glyph, or the two shapes of one
@@ -153,27 +160,60 @@ expect_eq 'the compact line does not care how wide the terminal is' \
 
 printf '==> toggling it back\n'
 
-# The function below is what the key runs; it is called directly here, and the key
-# itself is pressed in an interactive shell further down.
-BB_COMPACT=1
+# The functions below are what the key runs around an accept-line; they are called
+# directly here, and the key itself is pressed in an interactive shell further down.
 # Called directly, not in a subshell: the toggle is a change of this shell's state,
 # and a subshell would toggle its own copy of it and report nothing.
-__bb_toggle_prompt >"$WORK/note" 2>&1
-note=$(cat "$WORK/note")
+BB_COMPACT=1
+__bb_toggle_prompt
 expect_eq 'the frame is back on after the second toggle' 0 "$BB_COMPACT"
-case $note in
-  *'frame prompt'*) ok 'toggling back says which shape came back' ;;
-  *) fail "toggling back says which shape came back (it said: $note)" ;;
-esac
 expect_eq 'the frame is two lines again' 2 "$(lines_of "$(drawn)")"
-
 BB_COMPACT=0
-__bb_toggle_prompt >"$WORK/note" 2>&1
+__bb_toggle_prompt
 expect_eq 'and the compact prompt is on after the first one' 1 "$BB_COMPACT"
+
+printf '==> the two halves of the key\n'
+
+# Take empties the line - so that the accept-line the key types runs nothing at all -
+# and keeps both the line and the cursor for give to put back. Outside a bind -x
+# command READLINE_LINE is a variable like any other, so it is written here by hand.
+BB_COMPACT=0
+READLINE_LINE='echo typed and not entered'
+READLINE_POINT=5
+__bb_line_take
+expect_eq 'the take flips the shape on' 1 "$BB_COMPACT"
+expect_eq 'the take empties the line the accept-line runs' '' "$READLINE_LINE"
+expect_eq 'the take keeps the line' 'echo typed and not entered' "$BB_LINE"
+expect_eq 'the take keeps the cursor' 5 "$BB_POINT"
+__bb_line_give
+expect_eq 'the give puts the line back' 'echo typed and not entered' "$READLINE_LINE"
+expect_eq 'the give puts the cursor back' 5 "$READLINE_POINT"
+BB_COMPACT=0
+unset READLINE_LINE READLINE_POINT
+
+# The older key, for the bash that gives a bind -x command no line to keep: it says
+# which shape came on, because there the new shape comes with the next prompt only
+# and a key that changed nothing you could see would look broken.
+BB_COMPACT=0
+__bb_toggle_prompt_note >"$WORK/note" 2>&1
 if grep -q 'compact prompt' "$WORK/note"; then
-  ok 'a toggle says which shape it turned on, and that comes with the next prompt'
+  ok 'the older key says which shape it turned on'
 else
-  fail 'a toggle says which shape it turned on, and that comes with the next prompt'
+  fail "the older key says which shape it turned on (it said: $(cat "$WORK/note"))"
+fi
+BB_COMPACT=1
+__bb_toggle_prompt_note >"$WORK/note" 2>&1
+if grep -q 'frame prompt' "$WORK/note"; then
+  ok 'and which shape it turned back on'
+else
+  fail "and which shape it turned back on (it said: $(cat "$WORK/note"))"
+fi
+BB_COMPACT=0
+
+if [ "$BB_PROMPT_KEYS" = 1 ]; then
+  ok 'a bash of this age gets the key that moves to a new line and draws it'
+else
+  fail 'a bash of this age gets the key that moves to a new line and draws it'
 fi
 
 # --- an interactive shell, with the key pressed ---------------------------
@@ -187,27 +227,52 @@ interactive_shell() {
 export BB_DIR=$BB_DIR
 . "\$BB_DIR/bb.sh"
 bind -f $REPO_ROOT/.inputrc
+# A history of this session alone: the history of the machine running the test has
+# other things in it, and the question asked below is about what this shell ran.
+HISTFILE=$WORK/history
+HISTSIZE=100
 RC
 
-  # What is typed, in the order it is typed. The two Alt+t presses are bytes in the
+  # What is typed, in the order it is typed. The Alt+t presses are bytes in the
   # stream of keystrokes, which is the only place a key exists.
   {
-    printf 'echo MARK_A\necho MARK_B\n'
-    printf '\Et\n'
-    printf 'echo MARK_C\necho MARK_D\necho MARK_E\n'
-    printf '\Et\n'
-    printf 'echo MARK_F\necho MARK_G\n'
+    printf 'echo MARK_A\n'
     # A line typed but not entered, the key pressed on top of it, and then entered:
-    # the key runs a function and has to leave what was typed alone. The answer is
-    # spelled apart from the question, so that only the answer is one word.
-    printf 'echo u""nchanged'
+    # the key takes the line away, draws the other shape, and gives the line back on
+    # it. The answer is spelled apart from the question, so that only the answer is
+    # one word.
+    printf 'echo MARK_B'
     printf '\Et'
     printf '\n'
+    printf 'echo MARK_C\n'
+    # The same press from the other shape round: the prompt MARK_D was typed on is a
+    # compact line, so the single top line of a frame printed between MARK_C and
+    # MARK_D belongs to the key, and to nothing else.
+    printf 'echo MARK_D'
+    printf '\Et'
+    printf '\n'
+    printf 'echo MARK_E\n'
+    # The key on an empty line - and on one whose kill ring still holds text, so
+    # that a key which killed the line and yanked it back would walk that old text
+    # onto the new line here and MARK_F would never be printed. \025 is what C-u
+    # sends, and killing is what C-u does to what precedes the cursor.
+    printf 'STALE'
+    printf '\025'
+    printf '\n'
+    printf '\Et'
+    printf 'echo MARK_F\n'
+    # The history, asked whether the key left anything in it: the line the key
+    # accepts is empty and an empty line is no command at all, so neither of its two
+    # functions belongs there. The pattern carries one of its b-s inside a class, so
+    # that it cannot count the very line that asks.
+    printf '%s\n' 'echo HISTS="$(history | tail -n 10 | grep -c "__b[b]_")"'
     # The bindings, asked of the shell that holds them. A shell command bound to a
-    # key is listed by bind -X and a readline function by bind -p, and both are asked
-    # to answer with a word split from the command that asks, so that the echo of the
-    # typing cannot be mistaken for the answer.
-    printf '%s\n' 'bind -X | grep -qF "\"\\et\": \"__bb_toggle_prompt\"" && echo B""OUND'
+    # key is listed by bind -X and a macro by bind -s, and each is asked to answer
+    # with a word split from the command that asks, so that the echo of the typing
+    # cannot be mistaken for the answer.
+    printf '%s\n' 'bind -X | grep -qF "\"\\C-x\\C-p\": \"__bb_line_take\"" && echo T""AKE'
+    printf '%s\n' 'bind -X | grep -qF "\"\\C-x\\C-b\": \"__bb_line_give\"" && echo G""IVE'
+    printf '%s\n' 'bind -s | grep -qF "\"\\et\": \"\\C-x\\C-p\\C-m\\C-x\\C-b\"" && echo M""ACRO'
     printf 'bind -p | grep -q history-search-backward && echo S""EARCHED\n'
     printf 'exit\n'
   } >"$WORK/typed"
@@ -237,56 +302,69 @@ RC
 
   count_between() { between "$1" "$2" | grep -c "$3"; }
 
-  # MARK_B to MARK_C: the key was pressed and its note printed. The prompt of the
-  # line MARK_C was typed on is still the frame, because bash cannot redraw the
-  # prompt that already stands on the screen - which is why the note is printed.
-  if between MARK_B MARK_C | grep -q 'BetterBash: compact prompt'; then
-    ok 'the key answers with the shape it turned on'
+  # MARK_A to MARK_B: the frame that MARK_B's prompt would have been - one top and
+  # one bottom, drawn when MARK_A finished - and then, with the key pressed on the
+  # empty line of that frame and before MARK_B ran, a single half line. Nothing was
+  # entered in between, so the shape changed on the screen and not in a variable.
+  _tops=$(count_between MARK_A MARK_B '┌')
+  _bottoms=$(count_between MARK_A MARK_B '└')
+  _halves=$(count_between MARK_A MARK_B '┈')
+  if [ "$_tops" = 1 ] && [ "$_bottoms" = 1 ] && [ "$_halves" = 1 ]; then
+    ok 'the key draws the one-line prompt itself, there and then'
   else
-    fail 'the key answers with the shape it turned on'
+    fail "the key draws the one-line prompt itself, there and then (top: $_tops, bottom: $_bottoms, half: $_halves)"
   fi
 
-  # MARK_C to MARK_D: the first prompt drawn after the key, which is the compact
-  # one, so the frame is gone with it.
+  # MARK_C to MARK_D: and the other way round, where what the key draws is a frame no
+  # command asked for. The prompt MARK_D was typed on is a compact line, so the one
+  # top line of a frame in between is the key's; none would be the older key, which
+  # waited for the next prompt to show anything at all.
   _frames=$(count_between MARK_C MARK_D '┌')
-  _halves=$(count_between MARK_C MARK_D '┈')
-  if [ "$_frames" = 0 ] && [ "$_halves" -ge 1 ]; then
-    ok 'the prompt after the key is one line, opened by half a dash'
+  _bottoms=$(count_between MARK_C MARK_D '└')
+  if [ "$_frames" = 1 ] && [ "$_bottoms" = 1 ]; then
+    ok 'the frame comes with the key, not with the next command'
   else
-    fail "the prompt after the key is one line, opened by half a dash (frames: $_frames, halves: $_halves)"
+    fail "the frame comes with the key, not with the next command (top: $_frames, bottom: $_bottoms)"
   fi
 
-  # MARK_E to MARK_F: the second press, whose note comes before any new shape.
-  if between MARK_E MARK_F | grep -q 'frame prompt'; then
-    ok 'the key answers with the frame it turned back on'
+  # That MARK_F was printed at all says the line typed after the key held MARK_F and
+  # nothing else: the key was pressed on an empty line, and a key that killed the
+  # line and yanked it back would have put STALE in front of it, and run no MARK_F.
+  if cleaned | grep -qx 'MARK_F'; then
+    ok 'the key gives back nothing it did not take, and an empty line stays empty'
   else
-    fail 'the key answers with the frame it turned back on'
+    fail 'the key gives back nothing it did not take, and an empty line stays empty'
   fi
 
-  # MARK_F to MARK_G: and the frame is drawn again, two lines as before the key.
-  _frames=$(count_between MARK_F MARK_G '┌')
-  _bottoms=$(count_between MARK_F MARK_G '└')
-  if [ "$_frames" -ge 1 ] && [ "$_bottoms" -ge 1 ]; then
-    ok 'the prompt after the second press is the frame again'
+  # The key is worth seeing, so it says nothing of itself: what changed is the prompt
+  # standing where a note would have had to be.
+  _notes=$(cleaned | grep -c 'BetterBash:')
+  if [ "$_notes" = 0 ]; then
+    ok 'the key leaves no note among what it drew'
   else
-    fail "the prompt after the second press is the frame again (top: $_frames, bottom: $_bottoms)"
+    fail "the key leaves no note among what it drew ($_notes of them)"
   fi
 
-  # The line that was typed when the key was pressed, answered.
-  if cleaned | grep -q '^unchanged$'; then
-    ok 'the key leaves what is typed on the line where it was'
+  # The line the key accepts is empty, and an empty line is not a command, so of the
+  # two functions it runs nothing reaches the history.
+  if cleaned | grep -qx 'HISTS=0'; then
+    ok 'the accepted empty line leaves no trace in the history'
   else
-    fail 'the key leaves what is typed on the line where it was'
+    fail 'the accepted empty line leaves no trace in the history'
   fi
 
-  # The key is bound with \e rather than \M-, because a terminal sends Alt and t as
-  # Escape followed by t, while \M-t is the single byte a terminal only produces when
-  # it is 8-bit clean.
-  if cleaned | grep -q '^BOUND$'; then
-    ok 'Alt+t is bound to the toggle in a shell that has readline'
-  else
-    fail 'Alt+t is bound to the toggle in a shell that has readline'
-  fi
+  # The three keys of the key, asked of the shell that holds them: the two halves
+  # bound to shell functions with bind -x, and Alt+t bound to the macro that runs
+  # them around an accept-line. Alt+t is spelled \e rather than \M- because a terminal
+  # sends Alt and t as Escape followed by t, while \M-t is the single byte a terminal
+  # only produces when it is 8-bit clean.
+  for _answer in TAKE GIVE MACRO; do
+    if cleaned | grep -qx "$_answer"; then
+      ok "Alt+t is bound to the pair and an accept-line ($_answer)"
+    else
+      fail "Alt+t is bound to the pair and an accept-line ($_answer missing)"
+    fi
+  done
 
   # The arrow keys of ~/.inputrc are read after the prompt, which is what ~/.bashrc
   # does, and neither binding may take the other away: the two shapes of the prompt

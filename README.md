@@ -19,7 +19,7 @@
 - :file_folder: Current directory.
 - :traffic_light: Git status (if current directory inside git repository).
 - :scroll: Rapid history search with up/down arrows based on current input.
-- :accordion: Alt+t collapses the prompt to the line you type on, and Alt+t brings the two-line frame back. (The key is taken from readline's transpose-words.)
+- :accordion: Alt+t collapses the prompt to the line you type on, and Alt+t brings the two-line frame back. Each press moves to a new line and draws the other shape there, so the change is in front of you the moment you press it. (The key is taken from readline's transpose-words.)
 - :lock: No service behind it: the prompt, the installer and the theme decoder are shell scripts, and the configurator is a static page.
 
 ## Preview
