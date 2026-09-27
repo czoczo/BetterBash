@@ -15,8 +15,10 @@
 //   * the sentence the bubble paints is the sentence the checkbox hands to an assistive
 //     technology (aria-describedby names the bubble and nothing else), and no toggle
 //     keeps a title next to it, because a title is a second bubble, grey and late,
-//   * the stylesheet paints the bubble with the accent of the theme and hides it until
-//     the pointer or the keyboard is on the pair.
+//   * the stylesheet paints the bubble with the accent of the theme, hides it until
+//     the pointer is on the pair, and shows it to the pointer alone: neither a click
+//     on the checkbox nor the keyboard may keep a bubble standing once the pointer
+//     that asked for it has gone away.
 //
 // The words of a bubble are only worth painting if the command does what they say, so
 // the claim of each is tried against src/config.js, the one place the commands come
@@ -196,14 +198,25 @@ for (const [declaration, what] of expectRule) {
   }
 }
 
-// A wrapper without a bubble of its own is a bubble that never appears, so both the
-// wrapper and its bubble need the rule that shows them.
-const shownRule = style.match(/([^{}]*:hover[^{}]*toggle-hint[^{}]*)\{([^}]*)\}/)?.[2] ?? '';
-const focusedRule = style.match(/([^{}]*focus-within[^{}]*toggle-hint[^{}]*)\{([^}]*)\}/)?.[2] ?? '';
-if (!/opacity:\s*1/.test(shownRule) || !/opacity:\s*1/.test(focusedRule)) {
-  fail('style.css shows a bubble on a pointer over the pair and on the keyboard reaching it');
+// A wrapper without a bubble of its own is a bubble that never appears, so the pair
+// needs the rule that shows it - and the pointer over the pair has to be the only
+// thing that shows it. A rule keyed to the focus of a checkbox (the old :focus-within)
+// answers a click as much as a Tab, so a bubble shown by it stayed on the page after
+// the click that checked the box and after the pointer had gone elsewhere. A keyboard
+// user is not left without the sentence: aria-describedby hands it over at the
+// checkbox, read out instead of painted.
+
+// The stylesheet with its comments taken out: they name the selectors they explain,
+// so a rule matched in the raw file might be a sentence about a rule instead of one.
+const css = style.replace(/\/\*[\s\S]*?\*\//g, '');
+const shownByPointer = /\.toggle-hint:hover \.toggle-hint-bubble\s*\{[^}]*opacity:\s*1/s.test(css);
+const shownByFocus = /:focus[^{}]*\{[^}]*opacity:\s*1/s.test(css);
+if (!shownByPointer) {
+  fail('style.css shows a bubble while the pointer is on the pair');
+} else if (shownByFocus) {
+  fail('no rule shows a bubble on focus: a click on the checkbox must not leave one standing');
 } else {
-  ok('style.css shows a bubble on a pointer over the pair and on the keyboard reaching it');
+  ok('a bubble comes with the pointer over its pair and goes when the pointer goes');
 }
 
 // The tail, so the bubble points at the checkbox instead of floating over the row.

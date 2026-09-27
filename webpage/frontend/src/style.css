@@ -196,10 +196,14 @@ a:hover {
   background-color: var(--primary-color);
   transform: rotate(45deg);
 }
-/* The pointer anywhere on the pair (checkbox or its label), and the keyboard
-   arriving at the checkbox with Tab, both show the hint. */
-.toggle-hint:hover .toggle-hint-bubble,
-.toggle-hint:focus-within .toggle-hint-bubble {
+/* The pointer anywhere on the pair shows the hint, and only the pointer does. A
+   bubble is an answer to the question "what does this toggle do", which is asked
+   while the pointer is over the toggle: shown on :focus-within as well, it stayed up
+   after a click on the checkbox and outlived the pointer, so the page ended up
+   holding a sentence the reader had stopped asking about. A keyboard user is not left
+   without it - the same sentence is what aria-describedby hands to them at the
+   checkbox (see src/template.html), read out rather than painted. */
+.toggle-hint:hover .toggle-hint-bubble {
   visibility: visible;
   opacity: 1;
   transition: opacity 0.15s ease;
@@ -236,6 +240,45 @@ a:hover {
   line-height: 0.9;
   font-size: 18px;
 }
+/* The three features met before the list of them (see src/template.html). A card is
+   one step lighter than the section it stands in, so the black of the sample inside
+   it stays the darkest thing in the picture, and the accent of the theme paints its
+   title as it paints the headings of the page. */
+.feature-highlights {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 12px;
+  margin-bottom: 22px;
+}
+.feature-card {
+  background-color: #252525;
+  border: 1px solid #3a3a3a;
+  border-radius: 8px;
+  padding: 12px 14px;
+}
+.feature-card h4 {
+  margin: 0 0 8px;
+  color: var(--primary-color);
+  font-size: 15px;
+}
+.feature-card p {
+  margin: 10px 0 0;
+  font-size: 13px;
+  line-height: 1.45;
+  color: #c8c8c8;
+}
+.feature-card code {
+  background-color: #3a3a3a;
+  padding: 1px 4px;
+  border-radius: 3px;
+  font-size: 12px;
+}
+/* A sample in a card is shown a little larger than one in the list below: it is the
+   thing the card is about, and the sentence under it explains it, not the other way
+   round. */
+.feature-card .terminal-inline {
+  font-size: 20px;
+}
 .terminal {
   background-color: #000;
   /* No horizontal padding on purpose: the fill ratio of the preview is defined
@@ -269,6 +312,15 @@ a:hover {
      white-space: pre-wrap from ever breaking a prompt line in two. */
   font-size: 1.63cqw;
   margin-bottom: 0px;
+}
+/* A line of the preview that is not a prompt but says what the next one is: said the
+   way a shell says it - after a hash - and in a grey dimmer than the prompts around
+   it, so it is read as a caption and not as another line of the frame. It is not
+   measured as a prompt line is (see .ps1-line): shorter than them, it neither decides
+   how wide the preview is nor needs to. */
+.ps1-comment {
+  color: #8a8a8a;
+  margin-top: 8px;
 }
 .color-preview {
   display: inline-block;

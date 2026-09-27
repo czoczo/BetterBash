@@ -119,7 +119,7 @@
         ><span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">(</span
         ><span :class="getColorClassFromBash(generatedColors.PRIMARY_COLOR)">00:40:03</span
         ><span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">)</span
-        ><span :class="getColorClassFromBash(generatedColors.BORDCOL)">────</span>
+        ><span :class="getColorClassFromBash(generatedColors.BORDCOL)">───┈</span>
       </div>
       <div class="ps1-line">
         <span :class="getColorClassFromBash(generatedColors.BORDCOL)">└─</span
@@ -175,7 +175,7 @@
         ><span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">(</span
         ><span :class="getColorClassFromBash(generatedColors.ERR_COLOR)">00:40:12</span
         ><span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">)</span
-        ><span :class="getColorClassFromBash(generatedColors.BORDCOL)">────</span>
+        ><span :class="getColorClassFromBash(generatedColors.BORDCOL)">───┈</span>
       </div>
       <div class="ps1-line">
         <span :class="getColorClassFromBash(generatedColors.BORDCOL)">└─</span
@@ -194,6 +194,10 @@
            prompt/bb.sh calls the shape compact, tests/test-frame.mjs holds this line to
            being the line above it with that one glyph exchanged. -->
       <div class="ps1-line">&nbsp;</div>
+      <!-- What the line below it is, and how to get there: a comment of the shell
+           rather than a caption of the page, because inside the black box everything
+           is a line of a terminal. -->
+      <div class="ps1-line ps1-comment"># Compact mode, activated using the keyboard shortcut 'Alt+t'</div>
       <div class="ps1-line">
         <span :class="getColorClassFromBash(generatedColors.BORDCOL)">┈─</span
         ><span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">(</span
@@ -360,8 +364,57 @@
       <div>
       <h3>What am I looking at?</h3>
       <p>Mostly Bash configuration focused on usability. Pick your favorite colors and do a quick install to take advantage of the features below, or read about the <a href="https://github.com/czoczo/BetterBash/blob/main/MOTIVATION.md">motivation behind the project</a>. Share your theme with others with the generated URL.</p>
-      <h3>Features:</h3>
       </div>
+
+      <!-- Three features out of the list below and above it. They are the ones no
+           other prompt has - an avatar that tells the machines apart, a search of the
+           history from the arrows, a prompt that gives up a line when asked - so they
+           are met before the list of everything the prompt shows rather than eleventh
+           down it. The list keeps what it listed before, minus these three. -->
+      <h3>What sets it apart</h3>
+      <div class="feature-highlights">
+        <div class="feature-card">
+          <h4>Unique host avatar</h4>
+          <div>
+            <span class="terminal-inline">
+              <span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">(</span>
+              <span
+                v-for="(segment, index) in avatarSegments"
+                :key="index"
+                :class="getColorClassFromBash(segment.code)"
+                >{{ segment.glyph }}</span>
+              <span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">)</span>
+            </span>
+          </div>
+          <p>Drawn from the hostname of the machine, so every machine you are logged in to wears a different one. Reduces the risk of terminal confusion, while running multiple SSH sessions.</p>
+        </div>
+        <div class="feature-card">
+          <h4>Rapid history search</h4>
+          <div>
+            <span class="terminal-inline"><span>&lt;cmd_prefix&gt; + ⇅</span></span>
+          </div>
+          <p>The up and down arrows search the history instead of walking it, from whatever has been typed already: type <code>git</code>, press the arrows, and only the <code>git</code> commands come past.</p>
+        </div>
+        <div class="feature-card">
+          <h4>Compact mode</h4>
+          <div>
+            <span class="terminal-inline">
+              <span :class="getColorClassFromBash(generatedColors.BORDCOL)">┈─</span>
+              <span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">(</span>
+              <span :class="getColorClassFromBash(generatedColors.PATH_COLOR)">~/repo</span>
+              <span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">)</span>
+              <span :class="getColorClassFromBash(generatedColors.BORDCOL)">─</span>
+              <span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">(</span>
+              <span :class="getColorClassFromBash(generatedColors.PRIMARY_COLOR)">$</span>
+              <span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">)</span>
+              <span :class="getColorClassFromBash(generatedColors.BORDCOL)">-&gt;</span>
+            </span>
+          </div>
+          <p>Alt+t keeps only the line you type on, for a terminal with more to show than the frame can spare; Alt+t again brings the frame back. It moves to a new line to do it, so the other prompt is drawn at once and what was typed is waiting on it. The key is taken from readline's transpose-words.</p>
+        </div>
+      </div>
+
+      <h3>Features:</h3>
       <div>
       <ul>
         <li>
@@ -373,18 +426,6 @@
             <span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">)</span>
           </span>
           - Username (highlighted if root) and hostname.
-        </li>
-        <li>
-          <span class="terminal-inline">
-            <span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">(</span>
-            <span
-              v-for="(segment, index) in avatarSegments"
-              :key="index"
-              :class="getColorClassFromBash(segment.code)"
-              >{{ segment.glyph }}</span>
-            <span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">)</span>
-          </span>
-          - Unique host avatar based on hostname. Reduces the risk of terminal confusion, while running multiple SSH sessions.
         </li>
         <li>
           <span class="terminal-inline">
@@ -446,26 +487,6 @@
             <span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">)</span>
           </span>
           - Git status (if current directory inside git repository).
-        </li>
-        <li>
-          <span class="terminal-inline">
-          <span>&lt;cmd_prefix&gt; + ⇅</span>
-          </span>
-          - Rapid search history with up/down keyboard arrows
-        </li>
-        <li>
-          <span class="terminal-inline">
-            <span :class="getColorClassFromBash(generatedColors.BORDCOL)">┈─</span>
-            <span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">(</span>
-            <span :class="getColorClassFromBash(generatedColors.PATH_COLOR)">~/repo</span>
-            <span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">)</span>
-            <span :class="getColorClassFromBash(generatedColors.BORDCOL)">─</span>
-            <span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">(</span>
-            <span :class="getColorClassFromBash(generatedColors.PRIMARY_COLOR)">$</span>
-            <span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">)</span>
-            <span :class="getColorClassFromBash(generatedColors.BORDCOL)">-&gt;</span>
-          </span>
-          - Alt+t keeps only the line you type on, for a terminal with more to show than the frame can spare; Alt+t again brings the frame back. It moves to a new line to do it, so the other prompt is drawn at once and what was typed is waiting on it. The key is taken from readline's transpose-words.
         </li>
       </ul>
       </div>

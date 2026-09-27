@@ -124,6 +124,19 @@ fi
 frame=$(drawn)
 expect_eq 'the frame is two lines' 2 "$(lines_of "$frame")"
 bottom_of_frame=$(last_line "$frame")
+# The other line of the frame, the one the fill is drawn on: a drawn prompt opens
+# with the newline that moves it off the output before it, so the top line is the
+# second one.
+top_of_frame=$(printf '%s' "$frame" | sed -n '2p')
+
+# Where the frame ends rather than turns, it ends with half a dash: the top line
+# closes with three of them and then ┈, the same glyph the compact line opens with.
+if printf '%s' "$top_of_frame" | grep -q '───┈$'; then
+  ok 'the top line of the frame closes with three dashes and half a dash'
+else
+  fail 'the top line of the frame closes with three dashes and half a dash'
+  printf '       top line %s\n' "$top_of_frame"
+fi
 
 BB_COMPACT=1
 compact=$(drawn)
@@ -306,9 +319,11 @@ RC
   # one bottom, drawn when MARK_A finished - and then, with the key pressed on the
   # empty line of that frame and before MARK_B ran, a single half line. Nothing was
   # entered in between, so the shape changed on the screen and not in a variable.
+  # The half dash is counted as the opening of a line and not anywhere in one, since
+  # the top line of the frame ends with it too (see the two shapes above).
   _tops=$(count_between MARK_A MARK_B '┌')
   _bottoms=$(count_between MARK_A MARK_B '└')
-  _halves=$(count_between MARK_A MARK_B '┈')
+  _halves=$(between MARK_A MARK_B | grep -c '^┈─')
   if [ "$_tops" = 1 ] && [ "$_bottoms" = 1 ] && [ "$_halves" = 1 ]; then
     ok 'the key draws the one-line prompt itself, there and then'
   else

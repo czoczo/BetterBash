@@ -10,7 +10,7 @@
 // of it has to be counted as it is drawn. Three things are held to that:
 //
 //   * every segment stands behind a separator of two dashes, and the top line
-//     closes with four dashes of its own,
+//     closes with three dashes of its own and half a dash where it ends,
 //   * the top line keeps one length - across the avatar showing or hidden, the
 //     exit code, the digits of a duration, the background jobs and the width of
 //     the terminal,
@@ -20,6 +20,9 @@
 // The compact shape of the prompt - Alt+t, which takes the top line away - is held to
 // the frame it comes from too: the line it keeps is that line, glyph for glyph, with
 // only its opening corner exchanged for half a dash, in the prompt and on the page.
+// On the page the compact line is labelled besides: a comment of the shell stands
+// directly over it, and stays shorter than the prompt lines so that it does not
+// decide how wide the preview is.
 //
 // The prompt is drawn by bash itself, with the same ${PS1@P} an interactive shell
 // expands, and the preview is read out of the markup of the page, so a change to
@@ -156,6 +159,15 @@ function runBetweenGroups(line) {
   return gap ? gap[1].length : -1;
 }
 
+// How many dashes the top line closes with, where its last glyph is half a dash. A
+// line that does not end in half a dash closes with -1 of them, so that the frame
+// the prompt draws and the frame the page previews are held to one shape here
+// rather than to a run of dashes either of them could end with.
+function closingRun(line) {
+  const tail = line.match(/(─*)┈$/);
+  return tail ? tail[1].length : -1;
+}
+
 const width = (line) => [...line].length;
 
 // --- the separators of the frame -----------------------------------------
@@ -178,10 +190,14 @@ const succeeding = drawShell(true, ['120:0:42'])[0];
   }
   const left = runBetweenGroups(failing);
   if (left !== 2) wrong.push(`the avatar stands behind ${left} dash(es), want 2`);
-  const tail = (succeeding.match(/(─*)$/) || [''])[0];
-  if (tail.length !== 4) wrong.push(`the top line closes with ${tail.length} dash(es), want 4`);
+  const tail = closingRun(succeeding);
+  if (tail !== 3)
+    wrong.push(`the top line closes with ${tail} dash(es) and a half dash, want 3 and a half dash`);
   if (wrong.length) wrong.forEach((what) => fail(what));
-  else ok('every segment of the frame stands behind two dashes and the line closes with four');
+  else
+    ok(
+      'every segment of the frame stands behind two dashes and the line closes with three and half a dash'
+    );
 }
 
 // A frame too narrow for its terminal gives up its fill. What then precedes the
@@ -318,9 +334,11 @@ function previewPromptLines() {
         const run = runBefore(line, re);
         if (run !== 2) wrong.push(`the preview's ${name} stands behind ${run} dash(es), want 2`);
       }
-      const tail = (line.match(/(─*)$/) || [''])[0];
-      if (tail.length !== 4)
-        wrong.push(`the preview's top line closes with ${tail.length} dash(es), want 4`);
+      const tail = closingRun(line);
+      if (tail !== 3)
+        wrong.push(
+          `the preview's top line closes with ${tail} dash(es) and a half dash, want 3 and a half dash`
+        );
       // The line of a failed command is the one whose duration stands between
       // brackets of its own, as in the frame above.
       if (line.includes('↵')) {
@@ -374,6 +392,42 @@ function previewPromptLines() {
   }
   if (wrong.length) wrong.slice(0, 8).forEach((what) => fail(what));
   else ok(`the preview shows the compact line as the prompt draws it: ${promptCompact.replace(/\)─.*$/, ')─…')}`);
+}
+
+// --- the label the preview puts over its compact line --------------------
+
+// The compact line of the preview is not the shape a reader of the page has seen
+// before, so a line of comment stands over it: said the way a shell says it (after a
+// hash), naming the shortcut that draws it. It is a caption and not a prompt, and it
+// stays shorter than the prompt lines, so that it does not decide how wide the
+// preview is (see .ps1-comment in src/style.css).
+{
+  const tpl = readFileSync(templateFile, 'utf8');
+  const start = tpl.indexOf('<div class="terminal">');
+  const end = tpl.indexOf('<div class="share-section">', start);
+  const painted = [...tpl.slice(start, end).matchAll(/<div class="ps1-line( ps1-comment)?">([\s\S]*?)<\/div>\n/g)].map(
+    (m) => ({ comment: m[1] === ' ps1-comment', text: m[2].replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ') })
+  );
+
+  const wrong = [];
+  const at = painted.findIndex((l) => l.comment);
+  if (at < 0) {
+    wrong.push("the preview holds no comment line of its own ('# ...')");
+  } else {
+    const comment = painted[at].text.trim();
+    const under = painted[at + 1];
+    if (!comment.startsWith('#')) wrong.push(`a comment line does not open with a hash (${comment})`);
+    else if (!/Alt\+t/.test(comment))
+      wrong.push(`the comment does not name the shortcut that draws the shape under it (${comment})`);
+    else if ([...comment].length > 98)
+      wrong.push(`the comment is ${[...comment].length} glyphs and would decide the width of the preview`);
+    if (!under || !under.text.trim().startsWith('┈─'))
+      wrong.push('the comment does not stand directly over the compact line it labels');
+    if (painted.filter((l) => l.comment).length !== 1)
+      wrong.push('the preview labels one line, the compact one, and no other');
+  }
+  if (wrong.length) wrong.forEach((what) => fail(what));
+  else ok(`the preview says what its compact line is: ${painted[at].text.trim()}`);
 }
 
 console.log(failures ? `\n${failures} failure(s)` : `\nthe frame of the prompt and the frame of the page agree`);

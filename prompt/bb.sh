@@ -113,10 +113,12 @@ unset temp
 HBAR="─"
 PR_ULCORNER="┌"
 PR_LLCORNER="└"
-# The corner of a prompt that has no frame above it: the lower left quarter of a
-# dash, which is what is left of └ once the line it hung from is gone (Alt+t, see
-# the compact prompt below).
-PR_LLCORNER_COMPACT="┈"
+# Half a dash: the lower half of HBAR. It is drawn where the frame ends instead of
+# turning - at the far end of its top line, and at the corner of a prompt that has
+# no frame above it, where it is what is left of └ once the line it hung from is
+# gone (Alt+t, see the compact prompt below).
+HALF_HBAR="┈"
+PR_LLCORNER_COMPACT=$HALF_HBAR
 
 # The theme of this machine. getbb.sh writes ~/.bb/theme.sh from the theme code
 # of the install command, and prompt/bb-theme.sh is what decoded it there. It is
@@ -140,13 +142,14 @@ BB_THEME_FILE="$BB_DIR/theme.sh"
 [ -z "${AVATAR}" ] && AVATAR='true'
 USERCOL=$SECONDARY_COLOR
 
-# The dashes between the segments of the frame, and the four dashes that close its
-# top line. They are named rather than written out where they are used, because
-# the preview of the prompt on the WebUI copies them glyph for glyph and
+# The dashes between the segments of the frame, and the run that closes its top
+# line: three dashes and half a dash, so that the frame ends where it ends rather
+# than turning back. They are named rather than written out where they are used,
+# because the preview of the prompt on the WebUI copies them glyph for glyph and
 # tests/test-frame.mjs compares the frame of the page with the frame the prompt
 # draws.
 FRAME_SEP=$BORDCOL$HBAR$HBAR
-FRAME_TAIL=$BORDCOL$HBAR$HBAR$HBAR$HBAR
+FRAME_TAIL=$BORDCOL$HBAR$HBAR$HBAR$HALF_HBAR
 FRAME_TAIL_WIDTH=4
 
 export GIT_PS1_SHOWCOLORHINTS=true
