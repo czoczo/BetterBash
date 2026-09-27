@@ -42,6 +42,7 @@ tests/test-theme.sh
 BASH_SCRIPTS='
 prompt/bb.sh
 tests/test-timer.sh
+tests/test-compact.sh
 dev.sh
 '
 

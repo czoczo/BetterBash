@@ -188,6 +188,23 @@
         ><span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">)</span
         ><span :class="getColorClassFromBash(generatedColors.BORDCOL)">-&gt;</span>
       </div>
+
+      <!-- The same prompt as Alt+t draws it: the frame is gone, and with it the line
+           above, so the corner that opens this one is only the lower half of a dash.
+           prompt/bb.sh calls the shape compact, tests/test-frame.mjs holds this line to
+           being the line above it with that one glyph exchanged. -->
+      <div class="ps1-line">&nbsp;</div>
+      <div class="ps1-line">
+        <span :class="getColorClassFromBash(generatedColors.BORDCOL)">┈─</span
+        ><span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">(</span
+        ><span :class="getColorClassFromBash(generatedColors.PATH_COLOR)">~</span
+        ><span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">)</span
+        ><span :class="getColorClassFromBash(generatedColors.BORDCOL)">─</span
+        ><span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">(</span
+        ><span :class="getColorClassFromBash(generatedColors.PRIMARY_COLOR)">$</span
+        ><span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">)</span
+        ><span :class="getColorClassFromBash(generatedColors.BORDCOL)">-&gt;</span>
+      </div>
     </div>
 
     <div class="share-section">
@@ -435,6 +452,20 @@
           <span>&lt;cmd_prefix&gt; + ⇅</span>
           </span>
           - Rapid search history with up/down keyboard arrows
+        </li>
+        <li>
+          <span class="terminal-inline">
+            <span :class="getColorClassFromBash(generatedColors.BORDCOL)">┈─</span>
+            <span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">(</span>
+            <span :class="getColorClassFromBash(generatedColors.PATH_COLOR)">~/repo</span>
+            <span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">)</span>
+            <span :class="getColorClassFromBash(generatedColors.BORDCOL)">─</span>
+            <span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">(</span>
+            <span :class="getColorClassFromBash(generatedColors.PRIMARY_COLOR)">$</span>
+            <span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">)</span>
+            <span :class="getColorClassFromBash(generatedColors.BORDCOL)">-&gt;</span>
+          </span>
+          - Alt+t keeps only the line you type on, for a terminal with more to show than the frame can spare; Alt+t again brings the frame back. It takes the key from readline's transpose-words.
         </li>
       </ul>
       </div>

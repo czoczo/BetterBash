@@ -113,6 +113,10 @@ unset temp
 HBAR="─"
 PR_ULCORNER="┌"
 PR_LLCORNER="└"
+# The corner of a prompt that has no frame above it: the lower left quarter of a
+# dash, which is what is left of └ once the line it hung from is gone (Alt+t, see
+# the compact prompt below).
+PR_LLCORNER_COMPACT="┈"
 
 # The theme of this machine. getbb.sh writes ~/.bb/theme.sh from the theme code
 # of the install command, and prompt/bb-theme.sh is what decoded it there. It is
@@ -208,6 +212,42 @@ trap '__bb_timer_start' DEBUG
 
 export PROMPT_COMMAND=__prompt_command
 
+# --- the compact prompt, Alt+t ---------------------------------------------
+# A prompt of two lines spends one of them on the machine: who, where, when, how
+# long. Alt+t takes that line away and keeps only the one the command is typed on,
+# for a small terminal, a crowded one, or a reader who has just seen all of that
+# above. The corner that opens the kept line loses its frame, so it is drawn as the
+# lower half of a dash instead of a corner.
+#
+# The key is bound with `bind -x`, which runs a shell function without touching what
+# is typed on the line and without leaving a command in the history; a macro in
+# .inputrc typing `bb-compact` and a newline would do both of those, and would also
+# bind the key in every other readline program, python included. It is spelled \et
+# and not \M-t, because a terminal sends Alt and t as Escape followed by t, while
+# \M-t is the single byte a terminal only produces when it is 8-bit clean. The key
+# is taken from readline's transpose-words.
+#
+# What bash will not do is redraw the prompt that already stands on the screen: the
+# new shape comes with the next prompt. A key that changes nothing you can see looks
+# broken, so the function says which shape is on and when it shows.
+BB_COMPACT=${BB_COMPACT:-0}
+
+function __bb_toggle_prompt {
+  if [ "$BB_COMPACT" = 1 ]; then
+    BB_COMPACT=0
+    printf 'BetterBash: frame prompt - the next prompt is two lines again (Alt+t for one line)\n'
+  else
+    BB_COMPACT=1
+    printf 'BetterBash: compact prompt - the next prompt is one line (Alt+t for the frame)\n'
+  fi
+}
+
+# Only for an interactive shell: sourcing this file from a script has no readline to
+# bind on, and a warning about it there is noise in somebody else's output.
+case $- in
+  *i*) bind -x '"\et": __bb_toggle_prompt' 2>/dev/null || true ;;
+esac
+
 CH=''
 CHLINE=''
 # The avatar with its brackets is ten glyphs, and it is counted here rather than
@@ -291,7 +331,25 @@ function __prompt_command() {
 
   GITPROMPT=$(__git_ps1 " on${PRIMARY_COLOR} %s")
 
-  RIGHT="$EXIT$TIMERSEG$FRAME_SEP$SEPARATOR_COLOR($TIME_COLOR\d$SEPARATOR_COLOR)$FRAME_SEP$SEPARATOR_COLOR($RCOL\t$SEPARATOR_COLOR)$FRAME_TAIL\n$BORDCOL\[\016\]$PR_LLCORNER\[\017\]$BORDCOL$HBAR$SEPARATOR_COLOR(${PATH_COLOR}\w${SEPARATOR_COLOR})$BORDCOL$HBAR$SEPARATOR_COLOR(${PRIMARY_COLOR}\\\$$RST$GITPROMPT$SEPARATOR_COLOR)$BORDCOL-> \[\e[0m\]"
+  # The second line of the prompt, and in the compact shape the only one. It is
+  # built once for both, so the two shapes cannot come to disagree about the
+  # segments they hold; what differs is the corner, which is a corner only while
+  # there is a frame above it (see the compact prompt above).
+  PR_CORNER=$PR_LLCORNER
+  if [ "$BB_COMPACT" = 1 ]; then
+    PR_CORNER=$PR_LLCORNER_COMPACT
+  fi
+  BOTTOM="\n$BORDCOL\[\016\]$PR_CORNER\[\017\]$BORDCOL$HBAR$SEPARATOR_COLOR(${PATH_COLOR}\w${SEPARATOR_COLOR})$BORDCOL$HBAR$SEPARATOR_COLOR(${PRIMARY_COLOR}\\\$$RST$GITPROMPT$SEPARATOR_COLOR)$BORDCOL-> \[\e[0m\]"
+
+  RIGHT="$EXIT$TIMERSEG$FRAME_SEP$SEPARATOR_COLOR($TIME_COLOR\d$SEPARATOR_COLOR)$FRAME_SEP$SEPARATOR_COLOR($RCOL\t$SEPARATOR_COLOR)$FRAME_TAIL"
+
+  # The compact prompt is the line the cursor stands on and nothing else: neither
+  # the frame above it nor all the measuring the fill of that frame needs.
+  if [ "$BB_COMPACT" = 1 ]; then
+    PS1="$BOTTOM"
+    __bb_timer_reset
+    return 0
+  fi
 
   # Eight glyphs of the left half are the frame itself, the brackets of
   # (user@host:tty) and the two dashes in front of the avatar; the rest of it is
@@ -337,7 +395,7 @@ function __prompt_command() {
 
   LEFT="\n$BORDCOL\[\016\]$PR_ULCORNER$HBAR\[\017\]$SEPARATOR_COLOR($USERCOL$USER$SEPARATOR_COLOR@${PRIMARY_COLOR}\h:$cur_tty$SEPARATOR_COLOR)$FRAME_SEP$CHLINE$GAP$BGPROCCOL"
 
-  PS1="$LEFT$FILL$RIGHT"
+  PS1="$LEFT$FILL$RIGHT$BOTTOM"
 
   __bb_timer_reset
 }

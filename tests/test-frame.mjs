@@ -17,6 +17,10 @@
 //   * the preview on the page wears the same frame: the same separators, and its
 //     two prompt lines of one length in both avatar states.
 //
+// The compact shape of the prompt - Alt+t, which takes the top line away - is held to
+// the frame it comes from too: the line it keeps is that line, glyph for glyph, with
+// only its opening corner exchanged for half a dash, in the prompt and on the page.
+//
 // The prompt is drawn by bash itself, with the same ${PS1@P} an interactive shell
 // expands, and the preview is read out of the markup of the page, so a change to
 // one of them that the other does not follow fails here.
@@ -53,10 +57,19 @@ if (
 
 // One bash per avatar state, because prompt/bb.sh reads AVATAR when it is sourced;
 // all the terminal widths, exit codes and durations asked for are drawn in that one
-// run. A spec is columns:exitcode:seconds. Each record printed is the visible top
-// line of the frame, its escapes expanded and then dropped, and records are
-// separated by a record separator.
-const driver = `
+// run. A spec is columns:exitcode:seconds. Each record printed is one line of the
+// frame - the top one, or the one the cursor stands on - its escapes expanded and
+// then dropped, and records are separated by a record separator.
+const lineOf = {
+  // The line of the frame the frame is measured on.
+  top: `line=\${line#*$'\\n'}
+  line=\${line%%$'\\n'*}`,
+  // The line the cursor stands on, which is the last one of a prompt and, of the
+  // compact shape, the only one.
+  bottom: `line=\${line##*$'\\n'}`,
+};
+
+const driverFor = (wanted) => `
 . "$BB_DIR/bb.sh" 2>/dev/null
 # tput cols, which is what sizes the frame, reads the environment of the shell.
 export COLUMNS
@@ -70,8 +83,7 @@ for spec in "$@"; do
   if [ "$rc" = 0 ]; then true; else false; fi
   __prompt_command
   line=\${PS1@P}
-  line=\${line#*$'\\n'}
-  line=\${line%%$'\\n'*}
+  ${lineOf[wanted]}
   line=\${line//$'\\001'/}
   line=\${line//$'\\002'/}
   line=\${line//$'\\016'/}
@@ -83,12 +95,44 @@ for spec in "$@"; do
 done
 `;
 
-function drawShell(avatar, specs) {
-  const out = execFileSync('bash', ['-c', driver, 'test-frame', ...specs], {
-    env: { ...process.env, BB_DIR: join(repoRoot, 'prompt'), AVATAR: String(avatar) },
+// drawShell(avatar, specs, { compact, line }) - the lines of the prompt an
+// interactive shell with the avatar of this machine on or off drew for each spec.
+// compact is the shape Alt+t switches to, and line which of its lines to look at.
+function drawShell(avatar, specs, { compact = false, line = 'top' } = {}) {
+  if (!(line in lineOf)) throw new Error(`no line of a prompt named ${line}`);
+  const env = {
+    ...process.env,
+    BB_DIR: join(repoRoot, 'prompt'),
+    AVATAR: String(avatar),
+    ...(compact ? { BB_COMPACT: '1' } : {}),
+  };
+  const out = execFileSync('bash', ['-c', driverFor(line), 'test-frame', ...specs], {
+    env,
     cwd: repoRoot,
   }).toString('utf8');
   return out.split('\x1e');
+}
+
+// paintedLines - how many lines of the terminal the prompt paints, bash counting
+// them itself. Every shape opens with the newline that moves it off the output
+// before it, and that one is not a line of the prompt.
+function paintedLines(compact) {
+  const script = `
+. "$BB_DIR/bb.sh" 2>/dev/null
+export COLUMNS=120
+BB_TIMER=$(( SECONDS - 42 ))
+true
+__prompt_command
+printf '%s' "\${PS1@P}" | awk 'END { print NR - 1 }'
+`;
+  const env = {
+    ...process.env,
+    BB_DIR: join(repoRoot, 'prompt'),
+    ...(compact ? { BB_COMPACT: '1' } : {}),
+  };
+  return Number(execFileSync('bash', ['-c', script, 'test-frame'], { env, cwd: repoRoot })
+    .toString('utf8')
+    .trim());
 }
 
 const DATE = /\((\w{3} \w{3} \d{2})\)/;
@@ -183,6 +227,41 @@ const succeeding = drawShell(true, ['120:0:42'])[0];
     );
 }
 
+// --- the compact prompt, Alt+t -------------------------------------------
+
+// Alt+t takes the top line away, and with it the frame. What is kept is the line the
+// cursor stands on, drawn as it is drawn in the frame; only the corner that opens it
+// differs, because a corner needs the line that hung from it.
+{
+  const specs = ['120:0:42', '120:1:42', '60:0:9'];
+  // The two shapes of the same prompt, in the same state of the same shell, so that
+  // they can be read against each other.
+  const kept = drawShell(true, specs, { line: 'bottom' });
+  const compact = drawShell(true, specs, { compact: true, line: 'bottom' });
+  const wrong = [];
+  specs.forEach((spec, i) => {
+    const want = kept[i].replace('└', '┈');
+    if (compact[i].includes('┌') || compact[i].includes('└'))
+      wrong.push(`${spec}: the compact line holds a corner of the frame (${compact[i]})`);
+    else if (!compact[i].startsWith('┈─'))
+      wrong.push(`${spec}: the compact line does not open with a half dash (${compact[i]})`);
+    else if (compact[i] !== want)
+      wrong.push(
+        `${spec}: the compact line is not the line the cursor stands on with its corner exchanged (\n         compact ${compact[i]}\n         kept     ${want})`
+      );
+  });
+  // A prompt of one line paints one line, and the frame still paints two.
+  const framePainted = paintedLines(false);
+  const compactPainted = paintedLines(true);
+  if (framePainted !== 2) wrong.push(`the frame paints ${framePainted} lines, want 2`);
+  if (compactPainted !== 1) wrong.push(`the compact prompt paints ${compactPainted} lines, want 1`);
+  if (wrong.length) wrong.slice(0, 8).forEach((what) => fail(what));
+  else
+    ok(
+      `the compact prompt is one line over ${specs.length} terminals, and it is the line kept from the frame`
+    );
+}
+
 // --- the preview on the page ---------------------------------------------
 
 // The prompt lines of the preview, read out of the markup the way a browser draws
@@ -219,8 +298,7 @@ function previewPromptLines() {
         out = out.replace(/<[^>]*>/g, '');
         out = out.replace(/&gt;/g, '>').replace(/&nbsp;/g, ' ');
         return out.replace(/\s*\n\s*/g, '');
-      })
-      .filter((line) => line.startsWith('┌'));
+      });
   return { forAvatar, host };
 }
 
@@ -230,7 +308,7 @@ function previewPromptLines() {
   const widths = [];
   let failingLines = 0;
   for (const showAvatar of [true, false]) {
-    for (const line of forAvatar(showAvatar)) {
+    for (const line of forAvatar(showAvatar).filter((l) => l.startsWith('┌'))) {
       widths.push(width(line));
       if (!line.includes(`${host}:`)) wrong.push(`the preview line does not name its host ${host}`);
       for (const [name, re] of [
@@ -261,6 +339,41 @@ function previewPromptLines() {
     ok(
       `the preview wears the same frame as the prompt: ${widths[0]} glyphs, two dashes between its segments`
     );
+}
+
+// And the preview shows what Alt+t leaves of it: one line, the last of the two it
+// previews, with the same half dash the prompt puts in place of the corner.
+{
+  const { forAvatar } = previewPromptLines();
+  const promptCompact = drawShell(true, ['120:0:42'], { compact: true, line: 'bottom' })[0];
+  const wrong = [];
+  for (const showAvatar of [true, false]) {
+    const lines = forAvatar(showAvatar);
+    const kept = lines.filter((l) => l.startsWith('└'));
+    const compact = lines.filter((l) => l.startsWith('┈'));
+    if (compact.length !== 1) {
+      wrong.push(`the preview holds one compact line of its own (found ${compact.length})`);
+      continue;
+    }
+    const want = kept.length ? kept[kept.length - 1].replace('└', '┈') : null;
+    if (!want) {
+      wrong.push('the preview holds a line for the compact line to be');
+      continue;
+    }
+    if (compact[0] !== want)
+      wrong.push(
+        `the preview's compact line is not its own last line with the corner exchanged (\n         preview ${compact[0]}\n         want     ${want})`
+      );
+    // Segments come and go with the shape on the page but not between the two of
+    // them, so what is previewed and what is prompted hold the same brackets.
+    const bracketed = (line) => (line.match(/[()]/g) || []).length;
+    if (bracketed(compact[0]) !== bracketed(promptCompact))
+      wrong.push(
+        `the preview's compact line holds ${bracketed(compact[0])} brackets, the prompt's holds ${bracketed(promptCompact)}`
+      );
+  }
+  if (wrong.length) wrong.slice(0, 8).forEach((what) => fail(what));
+  else ok(`the preview shows the compact line as the prompt draws it: ${promptCompact.replace(/\)─.*$/, ')─…')}`);
 }
 
 console.log(failures ? `\n${failures} failure(s)` : `\nthe frame of the prompt and the frame of the page agree`);
