@@ -236,10 +236,23 @@
           <div class="color-modifier-checkboxes">
             <input id="uninstall-toggle-git" type="checkbox" v-model="uninstallFlag" />
             <label for="uninstall-toggle-git">Uninstall</label>
-            <input id="random-toggle-git" type="checkbox" v-model="randomFlag" />
-            <label for="random-toggle-git" :title="randomToggleHint">🎲 Random</label>
-            <input id="auto-toggle-git" type="checkbox" v-model="autoFlag" />
-            <label for="auto-toggle-git" :title="autoToggleHint">🤖 Auto</label>
+            <!-- What a toggle changes is not visible in the command line under it, so
+                 the pair is wrapped in .toggle-hint and carries its hint as a bubble
+                 above itself (see src/style.css). The bubble is an element and not a
+                 title attribute, because it is painted in the accent colour of the
+                 theme and because the checkbox points at the very text it paints
+                 with aria-describedby - what is read out and what is shown is one
+                 sentence of src/App.vue. -->
+            <span class="toggle-hint">
+              <input id="random-toggle-git" type="checkbox" v-model="randomFlag" aria-describedby="random-hint-git" />
+              <label for="random-toggle-git">🎲 Random</label>
+              <span class="toggle-hint-bubble" id="random-hint-git" role="tooltip">{{ randomToggleHint }}</span>
+            </span>
+            <span class="toggle-hint">
+              <input id="auto-toggle-git" type="checkbox" v-model="autoFlag" aria-describedby="auto-hint-git" />
+              <label for="auto-toggle-git">🤖 Auto</label>
+              <span class="toggle-hint-bubble" id="auto-hint-git" role="tooltip">{{ autoToggleHint }}</span>
+            </span>
           </div>
           <div class="share-url-container multiline">
             <textarea :value="gitInstallUrl" readonly id="installGitCmd" rows="2" @click="selectField"></textarea>
@@ -251,10 +264,16 @@
           <div class="color-modifier-checkboxes">
             <input id="uninstall-toggle-curl" type="checkbox" v-model="uninstallFlag" />
             <label for="uninstall-toggle-curl">Uninstall</label>
-            <input id="random-toggle-curl" type="checkbox" v-model="randomFlag" />
-            <label for="random-toggle-curl" :title="randomToggleHint">🎲 Random</label>
-            <input id="auto-toggle-curl" type="checkbox" v-model="autoFlag" />
-            <label for="auto-toggle-curl" :title="autoToggleHint">🤖 Auto</label>
+            <span class="toggle-hint">
+              <input id="random-toggle-curl" type="checkbox" v-model="randomFlag" aria-describedby="random-hint-curl" />
+              <label for="random-toggle-curl">🎲 Random</label>
+              <span class="toggle-hint-bubble" id="random-hint-curl" role="tooltip">{{ randomToggleHint }}</span>
+            </span>
+            <span class="toggle-hint">
+              <input id="auto-toggle-curl" type="checkbox" v-model="autoFlag" aria-describedby="auto-hint-curl" />
+              <label for="auto-toggle-curl">🤖 Auto</label>
+              <span class="toggle-hint-bubble" id="auto-hint-curl" role="tooltip">{{ autoToggleHint }}</span>
+            </span>
           </div>
           <div class="share-url-container multiline">
             <textarea :value="curlInstallUrl" readonly id="installCurlCmd" rows="2" @click="selectField"></textarea>
@@ -266,10 +285,16 @@
           <div class="color-modifier-checkboxes">
             <input id="uninstall-toggle-wget" type="checkbox" v-model="uninstallFlag" />
             <label for="uninstall-toggle-wget">Uninstall</label>
-            <input id="random-toggle-wget" type="checkbox" v-model="randomFlag" />
-            <label for="random-toggle-wget" :title="randomToggleHint">🎲 Random</label>
-            <input id="auto-toggle-wget" type="checkbox" v-model="autoFlag" />
-            <label for="auto-toggle-wget" :title="autoToggleHint">🤖 Auto</label>
+            <span class="toggle-hint">
+              <input id="random-toggle-wget" type="checkbox" v-model="randomFlag" aria-describedby="random-hint-wget" />
+              <label for="random-toggle-wget">🎲 Random</label>
+              <span class="toggle-hint-bubble" id="random-hint-wget" role="tooltip">{{ randomToggleHint }}</span>
+            </span>
+            <span class="toggle-hint">
+              <input id="auto-toggle-wget" type="checkbox" v-model="autoFlag" aria-describedby="auto-hint-wget" />
+              <label for="auto-toggle-wget">🤖 Auto</label>
+              <span class="toggle-hint-bubble" id="auto-hint-wget" role="tooltip">{{ autoToggleHint }}</span>
+            </span>
           </div>
           <div class="share-url-container multiline">
             <textarea :value="wgetInstallUrl" readonly id="installWgetCmd" rows="2" @click="selectField"></textarea>
@@ -281,10 +306,16 @@
           <div class="color-modifier-checkboxes">
             <input id="uninstall-toggle-openssl" type="checkbox" v-model="uninstallFlag" />
             <label for="uninstall-toggle-openssl">Uninstall</label>
-            <input id="random-toggle-openssl" type="checkbox" v-model="randomFlag" />
-            <label for="random-toggle-openssl" :title="randomToggleHint">🎲 Random</label>
-            <input id="auto-toggle-openssl" type="checkbox" v-model="autoFlag" />
-            <label for="auto-toggle-openssl" :title="autoToggleHint">🤖 Auto</label>
+            <span class="toggle-hint">
+              <input id="random-toggle-openssl" type="checkbox" v-model="randomFlag" aria-describedby="random-hint-openssl" />
+              <label for="random-toggle-openssl">🎲 Random</label>
+              <span class="toggle-hint-bubble" id="random-hint-openssl" role="tooltip">{{ randomToggleHint }}</span>
+            </span>
+            <span class="toggle-hint">
+              <input id="auto-toggle-openssl" type="checkbox" v-model="autoFlag" aria-describedby="auto-hint-openssl" />
+              <label for="auto-toggle-openssl">🤖 Auto</label>
+              <span class="toggle-hint-bubble" id="auto-hint-openssl" role="tooltip">{{ autoToggleHint }}</span>
+            </span>
           </div>
           <div class="share-url-container multiline">
             <textarea :value="opensslInstallUrl" readonly id="installOpensslCmd" @click="selectField" rows="5"></textarea>

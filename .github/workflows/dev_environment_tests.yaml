@@ -75,6 +75,12 @@ jobs:
         # fallback of its stylesheet is the ramp of that colour.
         run: node tests/test-accent.mjs
 
+      - name: The bubbles that explain the toggles of the install commands
+        # The Random and Auto checkboxes say what they change in the command under
+        # them, in a bubble painted in the accent colour; this holds the words of the
+        # bubbles to what src/config.js really builds.
+        run: node tests/test-toggle-hints.mjs
+
       - name: The copy buttons of the page, with and without a clipboard
         # navigator.clipboard exists only in a secure context, so the fallback to a
         # copied selection is what a page served over plain http has; both are run

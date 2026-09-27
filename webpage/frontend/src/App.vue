@@ -345,11 +345,23 @@ const installThemeCode = computed(() =>
 // What the fetched tree is asked to do, and with which theme code.
 const installKind = computed(() => (uninstallFlag.value ? 'uninstall' : 'install'));
 
-const randomToggleHint =
-  'Random theme mode: the command carries the word "rand" instead of a theme code, so the machine that runs it draws its own theme - a different one on every run, which makes running the command again a reroll. The colors selected above are ignored; turn this off to install a theme you can see here, and run a command without a code to keep the theme a machine already has.';
+// The sentences of the two bubbles the template hangs over the Random and Auto
+// checkboxes. A toggle changes the command line below it in ways that are not to be
+// seen in it - the word "rand" where a theme code stands, one clause less where the
+// question of the command was - so the consequence is spelled out here, and spelled
+// out for the command that is actually being shown: removing takes no theme, so while
+// Uninstall is checked Random has nothing to do with the command at all.
+const randomToggleHint = computed(() =>
+  uninstallFlag.value
+    ? 'Random theme mode: nothing to do with this command - removing a theme takes neither a code nor the word "rand". Turn Uninstall off and the command carries "rand" in place of a theme code.'
+    : 'Random theme mode: the command carries the word "rand" instead of a theme code, so the machine that runs it draws its own theme - a different one on every run, which makes running the command again a reroll. The colors selected above are ignored; turn this off to install the theme you can see here.',
+);
 
-const autoToggleHint =
-  'Automatic mode: the command drops the question it asks before installing anything. Without the question nothing can be answered, so it is the variant for scripts and containers; an interactive shell should keep being asked.';
+const autoToggleHint = computed(() =>
+  uninstallFlag.value
+    ? 'Automatic mode: the command drops the question it asks before removing BetterBash, so it removes it without asking anyone. Without a question nothing can be answered, so this is the variant for scripts and containers; an interactive shell should keep being asked.'
+    : 'Automatic mode: the command drops the question it asks before installing anything, so it installs without asking anyone. Without a question nothing can be answered, so this is the variant for scripts and containers; an interactive shell should keep being asked.',
+);
 
 // Every install command fetches from the origin serving this page into ~/.bb and
 // ends by sourcing the prompt of that tree, which installs it (see src/config.js).

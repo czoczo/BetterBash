@@ -126,9 +126,83 @@ a:hover {
   margin-right: 4px;
 }
 /* Checkbox/label pairs are plain siblings, so the container's gap does not apply:
-   add space in front of every pair but the first one (i.e. before "Random"). */
-.color-modifier-checkboxes label + input[type="checkbox"] {
+   add space in front of every pair but the first one (i.e. before "Random"). A
+   pair wrapped in .toggle-hint is one sibling of its own, so the space goes in
+   front of the wrapper instead of in front of the checkbox it holds. */
+.color-modifier-checkboxes label + input[type="checkbox"],
+.color-modifier-checkboxes label + .toggle-hint,
+.color-modifier-checkboxes .toggle-hint + .toggle-hint {
   margin-left: 16px;
+}
+/* The hint bubble of a toggle -------------------------------------------
+
+   What the two toggles of the install commands change is not to be seen in the
+   command line under them (one replaces the theme code of the command with the
+   word "rand", the other takes the question out of it), so it is said in a bubble
+   hung above the pair it belongs to. The bubble is painted in the accent colour of
+   the theme, which makes it part of the skin the page previews rather than part of
+   the grey it floats over, and it is readable because --primary-contrast is the
+   colour chosen against the accent (see src/theme.js).
+
+   It is an element of the pair and not a title attribute: a title cannot be
+   coloured, appears only after a delay the length of a hesitation, and is gone
+   while it is still being read. */
+.toggle-hint {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.toggle-hint-bubble {
+  position: absolute;
+  /* Hung above the pair, and kept inside the page on its left: the first toggle of
+     a row sits near the left edge of the box, and a bubble centred on it would
+     reach past the box. The tail below it, at the corner the bubble grew from,
+     still points at the checkbox. */
+  bottom: calc(100% + 8px);
+  left: 0;
+  width: max-content;
+  /* A sentence of src/App.vue, wrapped as wide as a sentence reads well and never
+     wider than the page it is wrapped in. */
+  max-width: min(46ch, 78vw);
+  padding: 8px 10px;
+  border-radius: 6px;
+  background-color: var(--primary-color);
+  color: var(--primary-contrast);
+  font-size: 12px;
+  font-weight: normal;
+  line-height: 1.45;
+  text-align: left;
+  /* Over the tab buttons and the command box the bubble is held above. */
+  z-index: 20;
+  /* visibility and not display: the bubble is laid out all the time, so it fades
+     into place instead of jumping as it appears. */
+  visibility: hidden;
+  opacity: 0;
+  transition: opacity 0.15s ease, visibility 0s linear 0.15s;
+  /* The bubble must never catch the pointer: it hangs over the very checkbox that
+     hides it, and a bubble you can hover blinks as the two take turns. */
+  pointer-events: none;
+}
+/* The tail: a corner of the same accent, turned by half its side, so the half that
+   sticks out below the bubble is the point that names the checkbox. */
+.toggle-hint-bubble::after {
+  content: '';
+  position: absolute;
+  top: calc(100% - 5px);
+  left: 12px;
+  width: 10px;
+  height: 10px;
+  background-color: var(--primary-color);
+  transform: rotate(45deg);
+}
+/* The pointer anywhere on the pair (checkbox or its label), and the keyboard
+   arriving at the checkbox with Tab, both show the hint. */
+.toggle-hint:hover .toggle-hint-bubble,
+.toggle-hint:focus-within .toggle-hint-bubble {
+  visibility: visible;
+  opacity: 1;
+  transition: opacity 0.15s ease;
 }
 /* The hostname the preview avatar is drawn from, under the avatar checkbox it
    belongs to. Styled like the inputs of the other control groups - the grey fill
