@@ -60,7 +60,6 @@
              which elements of the line it shows is the question the boxes next door
              answer, and a draw never answers it. -->
       <div class="color-select-group machine-tile">
-        <div class="tile-title">This machine</div>
         <div class="avatar-host-field">
           <label for="avatar-host">Hostname</label>
           <input
@@ -85,7 +84,6 @@
              below says - and the preview above answers every one of them by drawing
              the line without the element. -->
       <div class="color-select-group element-tile">
-        <div class="tile-title">Top line of the prompt</div>
         <div class="element-checkboxes">
           <label
             v-for="element in promptElements"
@@ -395,7 +393,7 @@
           <span class="terminal-inline">
             <span :class="getColorClassFromBash(generatedColors.BORDCOL)">──────</span>
           </span>
-          - Line separating commands output.
+	  - A line the width of a terminal window that separates command results.
         </li>
         <li>
           <span class="terminal-inline">

@@ -1,3 +1,9 @@
+/* Everything below is scoped (see <style scoped> in src/App.vue): the compiler turns
+   every selector into `.selector[data-v-<id>]`, and that attribute is put on the
+   elements of this component only. A rule for an ancestor of the component - #app,
+   html, body - therefore compiles to something matching nothing, and does silently
+   nothing. Rules of that kind belong in assets/main.css, which is global; the body
+   rule below is such a rule and is kept only as a note of what was meant. */
 body {
   font-family: 'Courier New', monospace;
   margin: 0;
