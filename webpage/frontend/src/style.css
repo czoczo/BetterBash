@@ -152,7 +152,7 @@ a:hover {
   gap: 10px;
 }
 .element-tile {
-  grid-column: span 2;
+  grid-column: span 3;
   gap: 10px;
 }
 .tile-title {
