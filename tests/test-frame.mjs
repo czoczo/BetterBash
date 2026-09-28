@@ -652,7 +652,7 @@ printf '%s\\x1f%s\\x1f%s\\x1f%s\\x1f%s' "\${PS1@P}" "$HOSTNAM" "$cur_tty" "\${PR
     if (!comment.startsWith('#')) wrong.push(`a comment line does not open with a hash (${comment})`);
     else if (!/Alt\+t/.test(comment))
       wrong.push(`the comment does not name the shortcut that draws the shape under it (${comment})`);
-    else if ([...comment].length > 98)
+    else if ([...comment].length > PREVIEW_WIDTH)
       wrong.push(`the comment is ${[...comment].length} glyphs and would decide the width of the preview`);
     if (!under || !under.text.trim().startsWith('┈─'))
       wrong.push('the comment does not stand directly over the compact line it labels');

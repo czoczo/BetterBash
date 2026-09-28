@@ -37,7 +37,13 @@ export const RIGHT_ELEMENTS = ELEMENTS.slice(5);
 // The width of the preview box, in glyphs, and the terminal that would draw the
 // same line: prompt/bb.sh keeps the top line four columns short of the right
 // edge of the terminal it is drawn in.
-export const PREVIEW_WIDTH = 98;
+//
+// Growing this grows the fill of both prompt lines by the same number of glyphs -
+// the two halves take what they take, so every glyph added here is a glyph of the
+// border between them - and the two lines of the preview stay one width, which is
+// what the box is drawn for (see .ps1-line in src/style.css, which scales the font
+// to it so the black box of the page stays as wide as it was).
+export const PREVIEW_WIDTH = 120;
 export const columnsFor = (width) => width + 4;
 
 // The state of the checkboxes of the page, which is also a theme of a machine:

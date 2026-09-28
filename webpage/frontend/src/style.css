@@ -345,14 +345,17 @@ a:hover {
 .ps1-line {
   /* Single font size for the whole preview (so terminal columns keep lining up),
      scaled with the box. Every prompt line in the template is padded to at most
-     98 glyphs and a monospace glyph is 0.6em wide, so the longest line measures
-     98 * 0.6 = 58.8em. Filling ~96% of the box is then 0.96/58.8 = 1.63% of its
-     width, i.e. 1.63cqw - one ratio for every window size. Nothing else to tune:
+     PREVIEW_WIDTH glyphs - 109 today, see src/preview.js - and a monospace glyph
+     is 0.6em wide, so the longest line measures 109 * 0.6 = 65.4em. Filling ~96%
+     of the box is then 0.96/65.4 = 1.47% of its width, i.e. 1.47cqw - one ratio
+     for every window size, and one that keeps the box as wide as the page is
+     whatever the line is padded to: a longer line of the preview is drawn in
+     smaller glyphs, not in a wider black box. Nothing else to tune:
      letter-spacing is left alone, because tracking would only shift the constant
      and hide this arithmetic. The real fill still wobbles a few percent (glyph
      advances are rounded to whole pixels), and the remaining ~4% is what keeps
      white-space: pre-wrap from ever breaking a prompt line in two. */
-  font-size: 1.63cqw;
+  font-size: 1.44cqw;
   margin-bottom: 0px;
 }
 /* A line of the preview that is not a prompt but says what the next one is: said the
