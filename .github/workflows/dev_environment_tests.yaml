@@ -99,8 +99,10 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Build for production
+        # Built the way both deploy workflows build it, so the bundle checked here
+        # is the bundle they publish.
         working-directory: webpage/frontend
-        run: pnpm build --base=/BetterBash/
+        run: pnpm build --base=/
 
       - name: Check the installed commands of the production bundle
         # The commands fetch from the canonical origin, which is the fallback

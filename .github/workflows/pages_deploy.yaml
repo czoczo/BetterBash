@@ -28,9 +28,11 @@ jobs:
 
       - name: Build WebUI
         working-directory: webpage/frontend
-        # The page is built for its production origin, and the theme code of the
-        # link it shows is generated at page load rather than at build time.
-        run: pnpm build --base=/BetterBash/
+        # The base is the root: a custom domain serves its site from the root, so
+        # /BetterBash/ would ask betterbash.cz0.cz for a directory it has never
+        # had. The theme code of the link the page shows is generated at page load
+        # rather than at build time.
+        run: pnpm build --base=/
 
       - name: Stage the files an install command fetches
         # The payload is published as bb.tgz, which contains exactly the prompt
