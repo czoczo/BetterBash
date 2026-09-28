@@ -52,15 +52,15 @@
         </div>
       </div>
       
-      <!-- Avatar Toggle Control -->
-      <div class="color-select-group">
-        <div class="color-modifier-checkboxes">
-          <input id="avatar-toggle" type="checkbox" v-model="showAvatar" @change="updatePromptDetails" />
-          <label for="avatar-toggle">Show Avatar</label>
-        </div>
-        <!-- The avatar is drawn from the hostname of the machine, so a preview of
-             it needs a hostname to draw from. It is a name typed here, never a
-             name read from the machine: nothing on this page has seen it. -->
+      <!-- The machine the preview stands for. Nothing on this page has seen the
+             name of the machine it was opened on, so the host of the prompt - and
+             the avatar hashed out of it - is a name typed here: put what
+             `cat /etc/hostname` prints and the preview is the prompt. The dice
+             under the name draws new colours for that machine and nothing else -
+             which elements of the line it shows is the question the boxes next door
+             answer, and a draw never answers it. -->
+      <div class="color-select-group machine-tile">
+        <div class="tile-title">This machine</div>
         <div class="avatar-host-field">
           <label for="avatar-host">Hostname</label>
           <input
@@ -77,49 +77,37 @@
           🎲 Random Theme
         </button>
       </div>
+
+      <!-- Every element of the top line of the prompt, each one of them optional.
+             The avatar checkbox stood in a tile of its own for longer than the rest
+             of them asked to be hidden, so it keeps its place at the head of the
+             boxes: what they tick off is one thing - what the prompt of the machine
+             below says - and the preview above answers every one of them by drawing
+             the line without the element. -->
+      <div class="color-select-group element-tile">
+        <div class="tile-title">Top line of the prompt</div>
+        <div class="element-checkboxes">
+          <label
+            v-for="element in promptElements"
+            :key="element.key"
+            :for="`element-${element.key}`"
+            class="element-checkbox"
+            :title="element.hint"
+          >
+            <input :id="`element-${element.key}`" type="checkbox" v-model="elementFlags[element.key]" @change="updatePromptDetails" />
+            {{ element.label }}
+          </label>
+        </div>
+      </div>
     </div>
 
     <div class="terminal">
       <div class="ps1-line">
-        <span :class="getColorClassFromBash(generatedColors.BORDCOL)">┌─</span
-        ><span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">(</span
-        ><span :class="getColorClassFromBash(generatedColors.SECONDARY_COLOR)">user</span
-        ><span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">@</span
-        ><span :class="getColorClassFromBash(generatedColors.PRIMARY_COLOR)">{{ previewHostname }}:pts/5</span
-        ><span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">)</span
-        ><span :class="getColorClassFromBash(generatedColors.BORDCOL)">──</span
-        ><template v-if="showAvatar">
-          <span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">(</span
-          ><span
-            v-for="(segment, index) in avatarSegments"
-            :key="index"
-            :class="getColorClassFromBash(segment.code)"
-            >{{ segment.glyph }}</span
-          ><span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">)</span
-          ><span :class="getColorClassFromBash(generatedColors.BORDCOL)">──</span
-        ></template>
-        <span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">(</span
-        ><span :class="getColorClassFromBash(generatedColors.SECONDARY_COLOR)">1 ↻</span
-        ><span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">)</span>
-        <template v-if="!showAvatar">
-          <span :class="getColorClassFromBash(generatedColors.BORDCOL)">────────────</span
-        ></template>
-        <span :class="getColorClassFromBash(generatedColors.BORDCOL)">{{ previewFillOne }}</span
-       ><!-- five dashes stand for a command that ended well, and two more are the
-             separator the frame puts before every segment of its right half -->
-        <span :class="getColorClassFromBash(generatedColors.BORDCOL)">───────</span
-        ><span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">(</span
-        ><span :class="getColorClassFromBash(generatedColors.PRIMARY_COLOR)">42s</span
-        ><span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">)</span
-        ><span :class="getColorClassFromBash(generatedColors.BORDCOL)">──</span
-        ><span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">(</span
-        ><span :class="getColorClassFromBash(generatedColors.TIME_COLOR)">Wed May 14</span
-        ><span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">)</span
-        ><span :class="getColorClassFromBash(generatedColors.BORDCOL)">──</span
-        ><span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">(</span
-        ><span :class="getColorClassFromBash(generatedColors.PRIMARY_COLOR)">00:40:03</span
-        ><span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">)</span
-        ><span :class="getColorClassFromBash(generatedColors.BORDCOL)">───┈</span>
+        <span
+          v-for="(segment, index) in previewTopLines[0]"
+          :key="index"
+          :class="getColorClassFromBash(segment.code ?? generatedColors[segment.colorKey])"
+          >{{ segment.text }}</span>
       </div>
       <div class="ps1-line">
         <span :class="getColorClassFromBash(generatedColors.BORDCOL)">└─</span
@@ -140,42 +128,11 @@
       <div class="ps1-line">&nbsp;</div>
 
       <div class="ps1-line">
-        <span :class="getColorClassFromBash(generatedColors.BORDCOL)">┌─</span
-        ><span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">(</span
-        ><span :class="getColorClassFromBash(generatedColors.ROOT_COLOR)">ROOT</span
-        ><span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">@</span
-        ><span :class="getColorClassFromBash(generatedColors.PRIMARY_COLOR)">{{ previewHostname }}:pts/5</span
-        ><span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">)</span
-        ><span :class="getColorClassFromBash(generatedColors.BORDCOL)">──</span
-        ><template v-if="showAvatar">
-          <span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">(</span
-          ><span
-            v-for="(segment, index) in avatarSegments"
-            :key="index"
-            :class="getColorClassFromBash(segment.code)"
-            >{{ segment.glyph }}</span
-          ><span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">)</span
-        ></template>
-        <template v-if="!showAvatar">
-          <span :class="getColorClassFromBash(generatedColors.BORDCOL)">──────────</span
-        ></template>
-        <span :class="getColorClassFromBash(generatedColors.BORDCOL)">{{ previewFillTwo }}</span
-        ><span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">(</span
-        ><span :class="getColorClassFromBash(generatedColors.ERR_COLOR)">127 ↵</span
-        ><span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">)</span
-        ><span :class="getColorClassFromBash(generatedColors.BORDCOL)">──</span
-        ><span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">(</span
-        ><span :class="getColorClassFromBash(generatedColors.PRIMARY_COLOR)">12s</span
-        ><span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">)</span
-        ><span :class="getColorClassFromBash(generatedColors.BORDCOL)">──</span
-        ><span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">(</span
-        ><span :class="getColorClassFromBash(generatedColors.TIME_COLOR)">Wed May 14</span
-        ><span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">)</span
-        ><span :class="getColorClassFromBash(generatedColors.BORDCOL)">──</span
-        ><span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">(</span
-        ><span :class="getColorClassFromBash(generatedColors.ERR_COLOR)">00:40:12</span
-        ><span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">)</span
-        ><span :class="getColorClassFromBash(generatedColors.BORDCOL)">───┈</span>
+        <span
+          v-for="(segment, index) in previewTopLines[1]"
+          :key="index"
+          :class="getColorClassFromBash(segment.code ?? generatedColors[segment.colorKey])"
+          >{{ segment.text }}</span>
       </div>
       <div class="ps1-line">
         <span :class="getColorClassFromBash(generatedColors.BORDCOL)">└─</span

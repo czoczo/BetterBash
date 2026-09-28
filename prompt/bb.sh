@@ -307,27 +307,73 @@ case $- in
     ;;
 esac
 
+# --- which elements of the top line the theme shows ----------------------
+# The first line of the frame is a row of elements and every one of them is
+# optional. The theme says which of them show: prompt/bb-theme.sh decodes them
+# from the theme code of the install command, and AVATAR - the host hashed into
+# eight glyphs - is the one of them that was there before the rest had names. A
+# theme that does not mention an element shows it: the theme.sh of an older
+# install names the avatar alone, and a machine without a theme shows everything.
+[ -z "${PROMPT_USER}" ] && PROMPT_USER='true'
+[ -z "${PROMPT_HOST}" ] && PROMPT_HOST='true'
+[ -z "${PROMPT_TTY}" ] && PROMPT_TTY='true'
+[ -z "${PROMPT_JOBS}" ] && PROMPT_JOBS='true'
+[ -z "${PROMPT_EXIT}" ] && PROMPT_EXIT='true'
+[ -z "${PROMPT_DURATION}" ] && PROMPT_DURATION='true'
+[ -z "${PROMPT_DATE}" ] && PROMPT_DATE='true'
+[ -z "${PROMPT_CLOCK}" ] && PROMPT_CLOCK='true'
+
+# Whether the theme asks for an element. The flags are the strings the theme file
+# holds, and only 'true' shows an element; 'false', an empty value and a word
+# nobody wrote all hide it.
+function __bb_shown {
+  case ${!1} in
+    true | 1) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+# A run of dashes of the frame, as many as are asked for, and no colour: the fill
+# between the two halves of the top line is such a run, and so is the width an
+# element hands back when it does not show (see __prompt_command).
+function __bb_dashes {
+  if [ "${1:-0}" -le 0 ]; then
+    __bb_dashes_out=''
+  else
+    local _run
+    printf -v _run '%*s' "$1" ''
+    __bb_dashes_out=${_run// /$HBAR}
+  fi
+}
+
+# What an element that does not show leaves in its place: nothing where the fill
+# is there to take its width back, and dashes of the frame of exactly that width
+# where the fill has gone, so that the line is as long either way. It is called
+# after the width of the line has been worked out, because it needs ROOM.
+function __bb_hidden {
+  if [ "$BB_TOP_NARROW" = 1 ]; then
+    __bb_dashes "$1"
+    __bb_hidden_out="$BORDCOL$__bb_dashes_out"
+  else
+    __bb_hidden_out=''
+  fi
+}
+
 CH=''
 CHLINE=''
 # The avatar with its brackets is ten glyphs, and it is counted here rather than
-# from CH, whose length is mostly the escapes that colour its eight glyphs - and
-# a length of escapes is not a width of a line. AVATAR_GAP is the same ten glyphs
-# as dashes, for a prompt that has switched the avatar off and has no fill left
-# to take them back (see __prompt_command).
+# from CH, whose length is mostly the escapes that colour its eight glyphs - and a
+# length of escapes is not a width of a line. Behind those ten stand the two dashes
+# of the avatar's separator, so twelve glyphs is what the avatar takes out of the
+# line: twelve while it shows, and twelve handed back when the theme hides it (see
+# __prompt_command).
 AVATAR_GLYPHS=10
+AVATAR_NATURAL=$(( AVATAR_GLYPHS + 2 ))
 AVATAR_WIDTH=0
-AVATAR_GAP=''
-
-if [ "$AVATAR" == 'true' ]; then
+if __bb_shown AVATAR; then
   CH=$(hashColor "$(cat /etc/hostname)" 4)
   CHLINE="$SEPARATOR_COLOR($CH$SEPARATOR_COLOR)"
-  AVATAR_WIDTH=$AVATAR_GLYPHS
-else
-  # The same ten glyphs as dashes, for the case that needs them.
-  AVATAR_GAP=$BORDCOL
-  for ((g = 0; g < AVATAR_GLYPHS; g++)); do
-    AVATAR_GAP="$AVATAR_GAP$HBAR"
-  done
+  AVATAR_WIDTH=$AVATAR_NATURAL
 fi
 
 function __prompt_command() {
@@ -337,14 +383,18 @@ function __prompt_command() {
   # a bracket each; the five dashes that stand for a command that ended well are
   # drawn in the colour of the border, so that they read as the frame and not as
   # an alarm - they are drawn whether or not the fill before them carried that
-  # colour.
+  # colour. A theme that hides the code hides those dashes with it, because they
+  # are the code and not something next to it.
   RCOL="${PRIMARY_COLOR}"
-  EXIT="$BORDCOL$HBAR$HBAR$HBAR$HBAR$HBAR"
-  EXIT_WIDTH=5
+  EXIT_NATURAL=5
   if [[ $RETURN_CODE != 0 ]]; then
-     EXIT="$SEPARATOR_COLOR(${ERR_COLOR}$RETURN_CODE ↵$SEPARATOR_COLOR)"
-     EXIT_WIDTH=$(( ${#RETURN_CODE} + 4 ))
-     RCOL="${ERR_COLOR}"
+    RCOL="${ERR_COLOR}"
+    EXIT_NATURAL=$(( ${#RETURN_CODE} + 4 ))
+  fi
+  if __bb_shown PROMPT_EXIT; then
+    EXIT_WIDTH=$EXIT_NATURAL
+  else
+    EXIT_WIDTH=0
   fi
 
   # The seconds the command that drew this prompt ran, and always in the primary
@@ -353,11 +403,15 @@ function __prompt_command() {
   # thing twice, and the two of them would read as one alarm rather than as a
   # number of seconds next to a code.
   __bb_timer_stop
-  TIMERSEG="$FRAME_SEP$SEPARATOR_COLOR(${PRIMARY_COLOR}${BB_TIMER_SHOW}s$SEPARATOR_COLOR)"
   # Its visible width - the two dashes of its separator, the brackets, the digits
   # and the s - so the fill gives up exactly what the segment takes, as
   # PROC_WIDTH does for the background process counter.
-  TIMER_WIDTH=$(( ${#BB_TIMER_SHOW} + 5 ))
+  TIMER_NATURAL=$(( ${#BB_TIMER_SHOW} + 5 ))
+  if __bb_shown PROMPT_DURATION; then
+    TIMER_WIDTH=$TIMER_NATURAL
+  else
+    TIMER_WIDTH=0
+  fi
 
   USER=$(whoami)
   if [ $UID -eq "0" ]; then
@@ -373,14 +427,19 @@ function __prompt_command() {
   PROCCNT=$(jobs -p 2>/dev/null | wc -l)
   # Some wc pad the number they print, and a padded number is not a width.
   PROCCNT=$(( PROCCNT ))
-  PROC_WIDTH=0
-  BGPROCCOL=''
+  # Counted whether the theme shows the counter or not, so that hiding it hands
+  # back a width the line knows instead of one it has to guess at. A machine with
+  # no background jobs has no counter to hide, and hands back nothing.
+  PROC_NATURAL=0
   if [ "$PROCCNT" -ne "0" ]; then
-    #BGPROCCOL='\033[1;95;5m'
-    BGPROCCOL="$FRAME_SEP$SEPARATOR_COLOR(${SECONDARY_COLOR}$PROCCNT ↻$SEPARATOR_COLOR)"
     # Two dashes of its separator, a bracket each, the space and the arrow, and
     # the digits of the count.
-    PROC_WIDTH=$(( ${#PROCCNT} + 6 ))
+    PROC_NATURAL=$(( ${#PROCCNT} + 6 ))
+  fi
+  if [ "$PROC_NATURAL" -ne 0 ] && __bb_shown PROMPT_JOBS; then
+    PROC_WIDTH=$PROC_NATURAL
+  else
+    PROC_WIDTH=0
   fi
 
   # \h of PS1 prints the host name up to its first dot, so the name that is
@@ -400,8 +459,6 @@ function __prompt_command() {
   fi
   BOTTOM="\n$BORDCOL\[\016\]$PR_CORNER\[\017\]$BORDCOL$HBAR$SEPARATOR_COLOR(${PATH_COLOR}\w${SEPARATOR_COLOR})$BORDCOL$HBAR$SEPARATOR_COLOR(${PRIMARY_COLOR}\\\$$RST$GITPROMPT$SEPARATOR_COLOR)$BORDCOL-> \[\e[0m\]"
 
-  RIGHT="$EXIT$TIMERSEG$FRAME_SEP$SEPARATOR_COLOR($TIME_COLOR\d$SEPARATOR_COLOR)$FRAME_SEP$SEPARATOR_COLOR($RCOL\t$SEPARATOR_COLOR)$FRAME_TAIL"
-
   # The compact prompt is the line the cursor stands on and nothing else: neither
   # the frame above it nor all the measuring the fill of that frame needs.
   if [ "$BB_COMPACT" = 1 ]; then
@@ -410,18 +467,58 @@ function __prompt_command() {
     return 0
   fi
 
-  # Eight glyphs of the left half are the frame itself, the brackets of
-  # (user@host:tty) and the two dashes in front of the avatar; the rest of it is
-  # measured by what it shows.
-  LEFT_WIDTH=$(( 8 + ${#USER} + ${#HOSTNAM} + ${#cur_tty} + AVATAR_WIDTH + PROC_WIDTH ))
+  # (user@host:tty), the first element of the line and the only one with parts of
+  # its own. The @ belongs to a name and a host together and stands between them
+  # when both do; the : belongs to the tty, and is dropped when the tty comes
+  # first in the brackets, which would else open with it. None of the three is a
+  # segment of the line on its own: they share one pair of brackets, and the
+  # brackets go with the last of them.
+  ID='' ID_BODY_WIDTH=0 ID_FIRST=1
+  if __bb_shown PROMPT_USER; then
+    ID="$USERCOL$USER" ID_BODY_WIDTH=${#USER} ID_FIRST=0
+  fi
+  if __bb_shown PROMPT_HOST; then
+    if [ "$ID_FIRST" -eq 0 ]; then
+      ID="$ID$SEPARATOR_COLOR@" ID_BODY_WIDTH=$(( ID_BODY_WIDTH + 1 ))
+    fi
+    ID="${ID}${PRIMARY_COLOR}$HOSTNAM" ID_BODY_WIDTH=$(( ID_BODY_WIDTH + ${#HOSTNAM} ))
+    ID_FIRST=0
+  fi
+  if __bb_shown PROMPT_TTY; then
+    if [ "$ID_FIRST" -eq 0 ]; then
+      ID="$ID$SEPARATOR_COLOR:" ID_BODY_WIDTH=$(( ID_BODY_WIDTH + 1 ))
+    fi
+    # The terminal of the line stands in the colour of the host. `tty` says which
+    # machine this is as much as its name does - the two are one thought about
+    # where the command runs, not a name followed by a note about it.
+    ID="$ID$PRIMARY_COLOR$cur_tty" ID_BODY_WIDTH=$(( ID_BODY_WIDTH + ${#cur_tty} ))
+  fi
+  if [ -z "$ID" ]; then
+    IDENTITY='' ID_WIDTH=0
+  else
+    IDENTITY="$SEPARATOR_COLOR($ID$SEPARATOR_COLOR)"
+    ID_WIDTH=$(( ID_BODY_WIDTH + 2 ))
+  fi
+  # The two brackets, the @ and the : of a whole (user@host:tty), over the names
+  # it holds between them.
+  ID_NATURAL=$(( 4 + ${#USER} + ${#HOSTNAM} + ${#cur_tty} ))
 
   # Every segment of the right half stands behind two dashes, the separator of
   # the frame, and the top line closes with four dashes of its own. bash draws \d
   # as "Fri Sep 25" and \t as "17:52:36" - ten and eight glyphs - each of them
   # between a bracket and behind its two dashes.
-  DATE_WIDTH=$(( 10 + 2 + 2 ))
-  CLOCK_WIDTH=$(( 8 + 2 + 2 ))
-  RIGHT_WIDTH=$(( EXIT_WIDTH + TIMER_WIDTH + DATE_WIDTH + CLOCK_WIDTH + FRAME_TAIL_WIDTH ))
+  DATE_NATURAL=$(( 10 + 2 + 2 ))
+  CLOCK_NATURAL=$(( 8 + 2 + 2 ))
+  if __bb_shown PROMPT_DATE; then
+    DATE_WIDTH=$DATE_NATURAL
+  else
+    DATE_WIDTH=0
+  fi
+  if __bb_shown PROMPT_CLOCK; then
+    CLOCK_WIDTH=$CLOCK_NATURAL
+  else
+    CLOCK_WIDTH=0
+  fi
 
   # The fill is whatever width the terminal has left between the two halves, so
   # the top line is as wide as the terminal less the four columns it has always
@@ -433,26 +530,93 @@ function __prompt_command() {
   # rather than keeping the dash it would otherwise carry, because that dash
   # would push the frame onto the next line and the frame would stop being one
   # line.
-  # ROOM is what would be left for the fill if the avatar stood - whether it
-  # shows or not - and so it is ROOM, and not WIDTH, that says when the frame has
-  # run out of terminal: the two of them, an avatar on and an avatar off, break
-  # at the same width and the line stays one length.
-  WIDTH=$(( $(tput cols) - 4 - LEFT_WIDTH - RIGHT_WIDTH ))
-  ROOM=$(( WIDTH - AVATAR_GLYPHS + AVATAR_WIDTH ))
-  GAP=$AVATAR_GAP
+  # ROOM is what would be left for the fill were every element of the line shown -
+  # the theme asks for some and hides others - and so it is ROOM, and not WIDTH,
+  # that says when the frame has run out of terminal: a frame with three elements
+  # and a frame with seven break at the same width and the line stays one length.
+  # An element the theme hides hands its width to the fill, which grows by exactly
+  # that; where the fill is gone because the terminal is too narrow for the whole
+  # row, an element that hides draws its own width in dashes of the frame instead,
+  # in the place it would have stood. The parts of (user@host:tty) are the one
+  # exception: they stand inside a bracket, and a bracket full of dashes where a
+  # name stood reads as a name of dashes, so below the break a line missing half of
+  # its identity is shorter by what it is missing rather than padded.
+  LEFT_NATURAL=$(( 2 + ID_NATURAL + AVATAR_NATURAL + PROC_NATURAL ))
+  RIGHT_NATURAL=$(( EXIT_NATURAL + TIMER_NATURAL + DATE_NATURAL + CLOCK_NATURAL + FRAME_TAIL_WIDTH ))
+  ROOM=$(( $(tput cols) - 4 - LEFT_NATURAL - RIGHT_NATURAL ))
+  BB_TOP_NARROW=0
   if [ "$ROOM" -le 0 ]; then
+    BB_TOP_NARROW=1
     FILL=''
   else
-    # The ten glyphs of an avatar that is off are given to the fill, which is why
-    # the gap is only drawn where there is no fill to carry it.
-    GAP=''
-    FILL=$BORDCOL
-    for ((x = 0; x < WIDTH; x++)); do
-      FILL="$FILL$HBAR"
-    done
+    # What the elements the theme hides would have taken, on top of what the
+    # terminal leaves over.
+    HIDDEN=$(( ID_NATURAL - ID_WIDTH + AVATAR_NATURAL - AVATAR_WIDTH +\
+      PROC_NATURAL - PROC_WIDTH + EXIT_NATURAL - EXIT_WIDTH +\
+      TIMER_NATURAL - TIMER_WIDTH + DATE_NATURAL - DATE_WIDTH +\
+      CLOCK_NATURAL - CLOCK_WIDTH ))
+    __bb_dashes $(( ROOM + HIDDEN ))
+    FILL="$BORDCOL$__bb_dashes_out"
   fi
 
-  LEFT="\n$BORDCOL\[\016\]$PR_ULCORNER$HBAR\[\017\]$SEPARATOR_COLOR($USERCOL$USER$SEPARATOR_COLOR@${PRIMARY_COLOR}\h:$cur_tty$SEPARATOR_COLOR)$FRAME_SEP$CHLINE$GAP$BGPROCCOL"
+  # The bodies of the elements, drawn now that the line knows how wide it is: the
+  # segment where the theme asks for it, and what an element hands back where it
+  # does not show.
+  # A whole hidden identity hands its width back like every other element; a half
+  # shown one is drawn as it is, and the width it is short is measured out of the
+  # fill rather than padded with dashes that would read as a name of dashes.
+  if [ -z "$ID" ]; then
+    __bb_hidden "$ID_NATURAL"
+    IDENTITY=$__bb_hidden_out
+  fi
+  if [ -n "$CHLINE" ]; then
+    AVATARSEG="$FRAME_SEP$CHLINE"
+  else
+    __bb_hidden "$AVATAR_NATURAL"
+    AVATARSEG=$__bb_hidden_out
+  fi
+  if [ "$PROC_WIDTH" -ne 0 ]; then
+    #BGPROCCOL='\033[1;95;5m'
+    BGPROCCOL="$FRAME_SEP$SEPARATOR_COLOR(${SECONDARY_COLOR}$PROCCNT ↻$SEPARATOR_COLOR)"
+  else
+    __bb_hidden "$PROC_NATURAL"
+    BGPROCCOL=$__bb_hidden_out
+  fi
+  if [ "$EXIT_WIDTH" -ne 0 ]; then
+    if [[ $RETURN_CODE != 0 ]]; then
+      EXIT="$SEPARATOR_COLOR(${ERR_COLOR}$RETURN_CODE ↵$SEPARATOR_COLOR)"
+    else
+      EXIT="$BORDCOL$HBAR$HBAR$HBAR$HBAR$HBAR"
+    fi
+  else
+    __bb_hidden "$EXIT_NATURAL"
+    EXIT=$__bb_hidden_out
+  fi
+  if [ "$TIMER_WIDTH" -ne 0 ]; then
+    TIMERSEG="$FRAME_SEP$SEPARATOR_COLOR(${PRIMARY_COLOR}${BB_TIMER_SHOW}s$SEPARATOR_COLOR)"
+  else
+    __bb_hidden "$TIMER_NATURAL"
+    TIMERSEG=$__bb_hidden_out
+  fi
+  if [ "$DATE_WIDTH" -ne 0 ]; then
+    DATESEG="$FRAME_SEP$SEPARATOR_COLOR($TIME_COLOR\d$SEPARATOR_COLOR)"
+  else
+    __bb_hidden "$DATE_NATURAL"
+    DATESEG=$__bb_hidden_out
+  fi
+  # The clock is drawn in the colour of an error when the command that drew this
+  # prompt left one, whether or not the theme asks for the exit code too: that
+  # colour is what says the last command was an error, and without it the clock
+  # would keep silent about it.
+  if [ "$CLOCK_WIDTH" -ne 0 ]; then
+    CLOCKSEG="$FRAME_SEP$SEPARATOR_COLOR($RCOL\t$SEPARATOR_COLOR)"
+  else
+    __bb_hidden "$CLOCK_NATURAL"
+    CLOCKSEG=$__bb_hidden_out
+  fi
+
+  LEFT="\n$BORDCOL\[\016\]$PR_ULCORNER$HBAR\[\017\]$IDENTITY$AVATARSEG$BGPROCCOL"
+  RIGHT="$EXIT$TIMERSEG$DATESEG$CLOCKSEG$FRAME_TAIL"
 
   PS1="$LEFT$FILL$RIGHT$BOTTOM"
 

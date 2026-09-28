@@ -134,6 +134,42 @@ a:hover {
 .color-modifier-checkboxes .toggle-hint + .toggle-hint {
   margin-left: 16px;
 }
+/* The tiles of the machine and of its top line --------------------------
+
+   Two tiles where the avatar checkbox once had one to itself. The tile of the
+   machine - the name the preview draws from, and the dice that draws new colours -
+   takes one column of the grid, like every colour tile beside it. The tile of the
+   elements spans two and lays its nine boxes in two of their own: wider than a
+   colour tile, and no taller than two of them. On a narrow window, where the grid
+   has only one column to give, both take that one. */
+.machine-tile {
+  gap: 10px;
+}
+.element-tile {
+  grid-column: span 2;
+  gap: 10px;
+}
+.tile-title {
+  font-weight: bold;
+  opacity: 0.9;
+}
+.element-checkboxes {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 6px 14px;
+}
+.element-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: normal;
+  cursor: pointer;
+}
+@media (max-width: 720px) {
+  .element-tile {
+    grid-column: auto;
+  }
+}
 /* The hint bubble of a toggle -------------------------------------------
 
    What the two toggles of the install commands change is not to be seen in the

@@ -6,6 +6,17 @@ import { buildAccentPalette, applyAccentPalette } from './theme';
 import { hostAvatar } from './avatar';
 import { APP_ENV, installCommands } from './config';
 import { copyText } from './clipboard';
+// The theme code and the top line of the prompt, shared with the tests so that
+// what this page writes, shows and calls a theme is one thing read three ways: by
+// the page, by the tests, and by the shell the code is handed to. theme-code.js
+// holds the layout of the code, preview.js builds the line the boxes change.
+import {
+  ALL_ELEMENTS_ON,
+  COLOR_KEYS as ENCODING_ORDERED_COLOR_KEYS,
+  decode as readThemeCode,
+  encode as writeThemeCode,
+} from './theme-code';
+import { ELEMENTS as PROMPT_ELEMENTS, SAMPLE, SAMPLE_ROOT, bitsOfFlags, flagsOf, topLine } from './preview';
 // default theme vN-y_5uA
 
 // Surfaced in the page so a development build cannot be mistaken for the
@@ -24,14 +35,26 @@ const colorLabels = {
   PATH_COLOR: 'Path Color',
 };
 
-// --- Hardcoded order for URL encoding/decoding stability ---
-const ENCODING_ORDERED_COLOR_KEYS = [
-  'PRIMARY_COLOR', 'SECONDARY_COLOR', 'ROOT_COLOR', 'TIME_COLOR',
-  'ERR_COLOR', 'SEPARATOR_COLOR', 'BORDCOL', 'PATH_COLOR'
-];
+// Which element of the top line each box of the page speaks for, and the two
+// halves those boxes stand in, are in preview.js - the file that builds the line
+// the boxes change. The order of the colours in a theme code is in theme-code.js,
+// which the shell library and the tests read it out of as well.
+const promptElements = PROMPT_ELEMENTS;
 
-// Avatar state
-const showAvatar = ref(true);
+// Which elements of the top line the theme shows. Each of them shows unless its
+// box is unticked, and a theme that says nothing about them - a code of eight
+// characters, from before the boxes existed - shows them all.
+const elementFlags = ref(flagsOf(ALL_ELEMENTS_ON));
+
+// The avatar is one of these elements, and its box stood by itself for longer than
+// the rest of them did: it keeps being called that, here and in the tour that
+// points at it.
+const showAvatar = computed({
+  get: () => elementFlags.value.AVATAR !== false,
+  set: (on) => {
+    elementFlags.value.AVATAR = !!on;
+  },
+});
 
 // The prompt draws its avatar from the machine's own name (hashColor over
 // `cat /etc/hostname` in prompt/bb.sh), and this page cannot read that file, so
@@ -42,22 +65,24 @@ const showAvatar = ref(true);
 const previewHostname = ref('myhost');
 const avatarSegments = computed(() => hostAvatar(previewHostname.value, 4));
 
-// __prompt_command of prompt/bb.sh sizes the dashes between the two halves of a
-// prompt from what the two halves show, so a longer host shortens the fill and
-// the line keeps its length. The two numbers are the fill runs the template held
-// before they became computed - the shorter of them is spent by a 33rd character
-// - and tests/test-frame.mjs keeps them such that the two prompt lines of the
-// preview measure the same, with the avatar showing and with it hidden, as the
-// two fill runs of a preview line may not differ by anything else either: one
-// line of the preview stands for a command that ended well and carries the five
-// dashes that stand for it, the other stands for a failed one and carries its
-// exit code. A line longer than the 98 glyphs the template is padded to would
-// break under the font size the box scales to, so the hostname field stops at 32
+// The two top lines of the preview, as prompt/bb.sh would draw them: the same
+// elements, the same separators, the same fill - over the elements the boxes of the
+// page show. One line stands for a command that ended well, the other for a machine
+// logged in as root whose last command failed and nothing runs behind it.
+// prompt/bb.sh sizes the fill from what the two halves show, so a longer host
+// shortens it and the line keeps its length; tests/test-frame.mjs draws the frame
+// with bash and compares it with these lines, glyph for glyph, at a few widths and a
+// few settings of the boxes. A line longer than the preview box is padded to would
+// break under the font size it scales to, so the hostname field stops at 32
 // characters.
-const previewFill = (base) =>
-  computed(() => '─'.repeat(Math.max(1, base + 'myhost'.length - previewHostname.value.length)));
-const previewFillOne = previewFill(16);
-const previewFillTwo = previewFill(21);
+const previewLineOf = (sample) =>
+  topLine({
+    flags: elementFlags.value,
+    host: previewHostname.value,
+    avatar: avatarSegments.value.map((s) => ({ text: s.glyph, code: s.code })),
+    sample,
+  });
+const previewTopLines = computed(() => [previewLineOf(SAMPLE), previewLineOf(SAMPLE_ROOT)]);
 const uninstallFlag = ref(false);
 // Random mode: the install command asks for the word "rand" instead of a theme
 // code, so the machine that runs it draws its own theme - and draws a new one
@@ -248,98 +273,36 @@ const updatePromptDetails = () => {
   // This function is called on change
 };
 
-// --- URL Sharing Logic ---
-function bytesToUrlSafeBase64(bytes) {
-  const base64 = btoa(String.fromCharCode(...bytes));
-  return base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+// --- The theme code -----------------------------------------------------
+//
+// A theme leaves this page as a code and comes back as one: the eight characters
+// the shell library has always read, or the thirteen of a theme that says which
+// elements of its top line it shows. theme-code.js holds that layout, and holds it
+// once - the page, tests/test-theme-code.mjs and prompt/bb-theme.sh read a theme
+// code by the same rules, and disagreeing about one of them is a failing test.
+//
+// Nothing here writes a code of eight characters any more, and everything still
+// reads one: they are out in the wild, and a code of that shape means every element
+// of the top line showing, apart from the avatar, whose bit it always carried.
+function themeCodeFor(attrs, flags) {
+  return writeThemeCode({ colors: attrs, elements: bitsOfFlags(flags) });
 }
 
-function urlSafeBase64ToBytes(base64Str) {
-  let base64 = base64Str.replace(/-/g, '+').replace(/_/g, '/');
-  const padding = base64.length % 4 === 0 ? '' : '='.repeat(4 - (base64.length % 4));
-  const raw = atob(base64 + padding);
-  const bytes = new Uint8Array(raw.length);
-  for (let i = 0; i < raw.length; i++) {
-    bytes[i] = raw.charCodeAt(i);
-  }
-  return bytes;
-}
-
-function generateShareCode(selectedAttrs, avatarEnabled) {
-  const numParts = ENCODING_ORDERED_COLOR_KEYS.length;
-  const bytes = new Uint8Array(6); // 48 bits
-  
-  const fiveBitValues = [];
-  for (const key of ENCODING_ORDERED_COLOR_KEYS) {
-    const attr = selectedAttrs[key];
-    if (!attr) {
-        fiveBitValues.push(0);
-        continue;
-    }
-    const shortBaseCode = attr.baseCode - 30; // 0-7
-    const lightBit = attr.isLight ? 1 : 0;
-    const boldBit = attr.isBold ? 1 : 0;
-    const value = (shortBaseCode << 2) | (lightBit << 1) | boldBit; // 0-31
-    fiveBitValues.push(value);
-  }
-
-  // Pack 8 * 5-bit values (40 bits) into 6 bytes, with avatar bit at the end
-  bytes[0] = (fiveBitValues[0] << 3) | (fiveBitValues[1] >> 2);
-  bytes[1] = ((fiveBitValues[1] & 0x03) << 6) | (fiveBitValues[2] << 1) | (fiveBitValues[3] >> 4);
-  bytes[2] = ((fiveBitValues[3] & 0x0F) << 4) | (fiveBitValues[4] >> 1);
-  bytes[3] = ((fiveBitValues[4] & 0x01) << 7) | (fiveBitValues[5] << 2) | (fiveBitValues[6] >> 3);
-  bytes[4] = ((fiveBitValues[6] & 0x07) << 5) | (fiveBitValues[7]);
-  bytes[5] = avatarEnabled ? 0x80 : 0x00; // Use first bit for avatar state
-
-  return bytesToUrlSafeBase64(bytes);
-}
-
+// The same read the other way, as the page holds a theme: the colours as the
+// pickers hold them, and the elements of the top line as the boxes of its tile hold
+// them. Null for anything that is not a code of either shape, which is also what
+// the page should make of a fragment it cannot read.
 function parseShareCode(code) {
-  try {
-    const bytes = urlSafeBase64ToBytes(code);
-    if (bytes.length !== 6) return null;
-
-    // Extract avatar state from first bit of last byte
-    const avatarEnabled = (bytes[5] & 0x80) !== 0;
-
-    // Extract 8 * 5-bit values
-    const fiveBitValues = [];
-    fiveBitValues.push(bytes[0] >> 3);
-    fiveBitValues.push(((bytes[0] & 0x07) << 2) | (bytes[1] >> 6));
-    fiveBitValues.push((bytes[1] >> 1) & 0x1F);
-    fiveBitValues.push(((bytes[1] & 0x01) << 4) | (bytes[2] >> 4));
-    fiveBitValues.push(((bytes[2] & 0x0F) << 1) | (bytes[3] >> 7));
-    fiveBitValues.push((bytes[3] >> 2) & 0x1F);
-    fiveBitValues.push(((bytes[3] & 0x03) << 3) | (bytes[4] >> 5));
-    fiveBitValues.push(bytes[4] & 0x1F);
-
-    const selectedAttrs = {};
-    for (let i = 0; i < ENCODING_ORDERED_COLOR_KEYS.length; i++) {
-      const key = ENCODING_ORDERED_COLOR_KEYS[i];
-      const value = fiveBitValues[i];
-      const shortBaseCode = value >> 2; // 0-7
-      const lightBit = (value >> 1) & 1;
-      const boldBit = value & 1;
-      
-      selectedAttrs[key] = {
-        baseCode: shortBaseCode + 30, // 30-37
-        isLight: lightBit === 1,
-        isBold: boldBit === 1
-      };
-    }
-
-    return { selectedAttrs, avatarEnabled };
-  } catch (error) {
-    console.error('Error parsing share code:', error);
-    return null;
-  }
+  const read = readThemeCode(code);
+  if (!read) return null;
+  return { selectedAttrs: read.colors, elements: read.elements };
 }
 
 // Theme code of the install commands. In random mode it is the word "rand", and
 // the machine running the command draws the theme itself every time it runs, so
 // the colors selected in the UI are irrelevant for that command.
 const installThemeCode = computed(() =>
-  randomFlag.value ? 'rand' : generateShareCode(selectedColorAttributes.value, showAvatar.value)
+  randomFlag.value ? 'rand' : themeCodeFor(selectedColorAttributes.value, elementFlags.value)
 );
 
 // What the fetched tree is asked to do, and with which theme code.
@@ -382,7 +345,7 @@ const wgetInstallUrl = computed(() => currentInstallCommands.value.wget);
 const opensslInstallUrl = computed(() => currentInstallCommands.value.openssl);
 
 const shareableUrl = computed(() => {
-  const code = generateShareCode(selectedColorAttributes.value, showAvatar.value);
+  const code = themeCodeFor(selectedColorAttributes.value, elementFlags.value);
   return `${window.location.origin}${window.location.pathname}#${code}`;
 });
 
@@ -484,7 +447,9 @@ function loadThemeFromUrl() {
     if (url.includes('#')) {
       code = url.split('#')[1];
     } else {
-      const legacy = url.match(/\/([A-Za-z0-9_-]{8})\/(?:getbb|removebb)\.sh/);
+      // A theme code of either shape, and the longer one first: eight characters
+      // taken from the front of a thirteen character code would match nothing.
+      const legacy = url.match(/\/([A-Za-z0-9_-]{8}|1[A-Za-z0-9_-]{12})\/(?:getbb|removebb)\.sh/);
       code = legacy ? legacy[1] : url;
     }
 
@@ -499,9 +464,8 @@ function loadThemeFromUrl() {
       return;
     }
 
-    // Apply the loaded theme
-    selectedColorAttributes.value = parsed.selectedAttrs;
-    showAvatar.value = parsed.avatarEnabled;
+    // Apply the loaded theme, colours and the elements of its top line alike
+    applyTheme(parsed);
     
     loadSuccess.value = true;
     loadUrlInput.value = '';
@@ -516,11 +480,13 @@ function loadThemeFromUrl() {
   }
 }
 
-// Apply a parsed theme ({ selectedAttrs, avatarEnabled }) to the UI.
+// Apply a parsed theme ({ selectedAttrs, elements }) to the UI. A theme that came
+// from a code of eight characters says nothing about the elements of its top line
+// beyond the avatar, and readThemeCode has already filled the rest in as showing.
 function applyTheme(theme) {
   if (!theme) return;
   selectedColorAttributes.value = theme.selectedAttrs;
-  showAvatar.value = theme.avatarEnabled;
+  elementFlags.value = flagsOf(theme.elements);
 }
 
 // Random attributes for every color slot, in the same shape as a parsed share code.
@@ -550,14 +516,12 @@ function buildRandomAttrs() {
 
 function generateRandomTheme({ silent = false } = {}) {
   try {
-    // Generate random attributes for each color key
+    // Random colours, and only colours: which elements of the top line the theme
+    // shows is asked for in the boxes next to the preview, and a dice that answers
+    // that question too would untick a box the page was opened with.
     const randomAttrs = buildRandomAttrs();
 
-    // Generate random avatar setting
-    const randomAvatar = Math.random() < 0.5;
-
-    // Generate share code from random attributes
-    const shareCode = generateShareCode(randomAttrs, randomAvatar);
+    const shareCode = themeCodeFor(randomAttrs, elementFlags.value);
 
     // Parse and apply the generated theme using existing logic
     const parsed = parseShareCode(shareCode);

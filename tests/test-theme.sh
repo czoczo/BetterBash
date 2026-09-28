@@ -9,6 +9,13 @@
 # The golden fixture in tests/golden/ is the output of the retired Go backend,
 # so a theme code keeps producing the colours every install command published
 # so far produced. tests/golden/README.md explains how to regenerate it.
+#
+# Besides that, what is checked is what the library promises: that a code of
+# either format is read for what it is and anything else refused; that the
+# elements of the top line of the prompt come over from the theme a draw replaces
+# instead of coming up with the colours; that flags written as bits are read back
+# as the assignments prompt/bb.sh sources; and that resolving and writing a theme
+# leave exactly the two files they are supposed to leave.
 
 set -u
 
@@ -140,11 +147,74 @@ validation() {
     fail "accepts a well formed theme code"
   fi
 
+  # The v1 format. The payload of all zero bits is a legal code: no colours and no
+  # elements. Around it, the three things that make thirteen characters not one.
+  if bb_theme_validate "$(_v1_code 000000000 0 0)" 2>/dev/null; then
+    ok "accepts a well formed v1 code"
+  else
+    fail "accepts a well formed v1 code"
+  fi
+  _rejects_thirteen 'refuses a thirteen character code of another version' '2AAAAAAAAAAAA'
+  # 120 ranks the five elements of the left half, so 120 is already no rank, and
+  # 24 ranks the four of the right. The last rank of each is a rank.
+  _rejects_thirteen 'refuses an ordering rank the left half has no name for' \
+    "$(_v1_code 000000000 120 0)"
+  _rejects_thirteen 'refuses an ordering rank the right half has no name for' \
+    "$(_v1_code 000000000 0 24)"
+  _rejects_thirteen 'refuses a reserved bit that version 1 leaves zero' \
+    "$(_v1_code 000000000 0 0 1)"
+  if bb_theme_validate "$(_v1_code 000000000 119 23)" 2>/dev/null; then
+    ok "accepts the last rank of each half, which is a rank and not a mistake"
+  else
+    fail "accepts the last rank of each half, which is a rank and not a mistake"
+  fi
+
+  # The flags are the assignments prompt/bb.sh sources, in the order of
+  # BB_ELEMENTS: a bit of one hides one element and no other.
+  _want='010001101' # host, exit, duration and clock; no user, tty, avatar, jobs, date
+  _flags_out=$(sh "$LIB" decode "$(_v1_code "$_want" 0 0)" | grep '^PROMPT_\|^AVATAR=')
+  _want_out=$(printf "%s\n" \
+    "PROMPT_USER='false'" "PROMPT_HOST='true'" "PROMPT_TTY='false'" "AVATAR='false'" \
+    "PROMPT_JOBS='false'" "PROMPT_EXIT='true'" "PROMPT_DURATION='true'" \
+    "PROMPT_DATE='false'" "PROMPT_CLOCK='true'")
+  if [ "$_flags_out" = "$_want_out" ]; then
+    ok "the flags of a code become the assignments prompt/bb.sh sources"
+  else
+    fail "the flags of a code become the assignments prompt/bb.sh sources"
+    printf '       want %s\n       got  %s\n' "$(printf '%s' "$_want_out" | tr '\n' ' ')" "$(printf '%s' "$_flags_out" | tr '\n' ' ')"
+  fi
+
   # A code that fails validation must never become a file.
   _dir=$WORK/val-dir
   mkdir -p "$_dir"
   bb_theme_write 'no!' "$_dir" >/dev/null 2>&1
   check_fail "bb_theme_write leaves no theme.sh for an invalid code" test -f "$_dir/theme.sh"
+}
+
+# _v1_code FLAGS LEFT RIGHT RESERVED - a v1 code saying those things, built with
+# the library's own encoder: nine flag bits as they are written in BB_ELEMENTS
+# order, the two ordering ranks as numbers, and the reserved field as a number for
+# the one check that means to set it. The colours are zero bits, because they are
+# not what any of these checks is about. A check names the field it means rather
+# than a code, so that a wrong encoder shows up as disagreeing with the other
+# checks instead of agreeing with itself.
+_v1_code() {
+  _bbt_zeros "$BB_THEME_COLOR_BITS"; _vc_bits=$_bbt_bits_out
+  _bbt_cut "$1" 0 "$BB_ELEMENT_COUNT"; _vc_bits="$_vc_bits$_bbt_cut_out"
+  _bbt_bits_of_num "$2" "$BB_THEME_ORDER_LEFT_WIDTH"; _vc_bits="$_vc_bits$_bbt_bits_out"
+  _bbt_bits_of_num "$3" "$BB_THEME_ORDER_RIGHT_WIDTH"; _vc_bits="$_vc_bits$_bbt_bits_out"
+  _bbt_bits_of_num "${4:-0}" "$BB_THEME_RESERVED_BITS"; _vc_bits="$_vc_bits$_bbt_bits_out"
+  _bbt_bits_to_code "$_vc_bits" || return 1
+  printf '%s%s' "$BB_THEME_VERSION" "$_bbt_code_out"
+}
+
+_rejects_thirteen() {
+  _rt_what=$1 _rt_code=$2
+  if bb_theme_validate "$_rt_code" 2>/dev/null; then
+    fail "$_rt_what ($_rt_code)"
+  else
+    ok "$_rt_what ($_rt_code)"
+  fi
 }
 
 # --- random codes -------------------------------------------------------
@@ -169,13 +239,28 @@ random_codes() {
     fail "generated $RANDOM_SAMPLES codes"
   fi
 
-  # Every line exactly eight theme code characters.
-  if grep -v -E '^[A-Za-z0-9_-]{8}$' "$_out" >"$WORK/bad-codes.txt"; then :; fi
+  # Every line a code of the current format: the digit of this version and its
+  # payload, and nothing that validation would refuse.
+  if grep -v -E "^${BB_THEME_VERSION}[A-Za-z0-9_-]{${BB_THEME_V1_PAYLOAD}}$" "$_out" >"$WORK/bad-codes.txt"; then :; fi
   if [ -s "$WORK/bad-codes.txt" ]; then
-    fail "every generated code is ${BB_THEME_CODE_LENGTH} theme code characters"
+    fail "every generated code is a v${BB_THEME_VERSION} code of ${BB_THEME_V1_LENGTH} characters"
     sed 's/^/       /' "$WORK/bad-codes.txt" | head -5
   else
-    ok "every generated code is ${BB_THEME_CODE_LENGTH} theme code characters"
+    ok "every generated code is a v${BB_THEME_VERSION} code of ${BB_THEME_V1_LENGTH} characters"
+  fi
+
+  _bad=''
+  while IFS= read -r _code; do
+    bb_theme_validate "$_code" 2>/dev/null || _bad="$_bad invalid:$_code"
+    # A draw with no theme to replace says nothing about the elements of the
+    # prompt, which is the same as showing all of them.
+    [ "$(bb_theme_flags "$_code")" = "$BB_ELEMENTS_ALL" ] || _bad="$_bad flags:$_code"
+  done <"$_out"
+  if [ -z "$_bad" ]; then
+    ok "every generated code validates and shows every element"
+  else
+    fail "every generated code validates and shows every element"
+    printf '       %s\n' $_bad
   fi
 
   _distinct=$(sort -u "$_out" | wc -l)
@@ -195,13 +280,29 @@ random_codes() {
     ok "no plain black component in generated themes"
   fi
 
-  _true=$(grep -c "AVATAR='true'" "$WORK/random-decoded.txt")
-  _false=$(grep -c "AVATAR='false'" "$WORK/random-decoded.txt")
-  if [ "$_true" -gt 0 ] && [ "$_false" -gt 0 ]; then
-    ok "avatar flag comes up both ways (true: $_true, false: $_false)"
+# What a draw is not: a new set of elements. The two formats carry their elements
+  # differently - v1 in nine bits, v0 in the avatar bit alone - and neither way
+  # may a draw turn the elements into part of the colours it is drawing.
+  _kept_flags='100101100' # everything but the host, the jobs and the clock
+  _kept=$(_v1_code "$_kept_flags" 0 0)
+  _drawn=$(bb_theme_flags "$(bb_random_theme_code "$_kept")")
+  if [ "$_drawn" = "$_kept_flags" ]; then
+    ok "rand keeps the elements of the v1 code it replaces ($_kept)"
   else
-    fail "avatar flag comes up both ways (true: $_true, false: $_false)"
+    fail "rand keeps the elements of the v1 code it replaces ($_kept -> $_drawn)"
   fi
+
+  # vN-y_5uA has its avatar bit set and 02iBiOlH has not; the other eight elements
+  # were never written down in either, and so show in both.
+  for _v0 in 'vN-y_5uA' '02iBiOlH'; do
+    _want=$(bb_theme_flags "$_v0")
+    _drawn=$(bb_theme_flags "$(bb_random_theme_code "$_v0")")
+    if [ "$_drawn" = "$_want" ]; then
+      ok "rand keeps what the v0 code $_v0 said about its elements ($_want)"
+    else
+      fail "rand keeps what the v0 code $_v0 said about its elements ($_want -> $_drawn)"
+    fi
+  done
 }
 
 # --- resolve and write --------------------------------------------------

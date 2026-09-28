@@ -11,6 +11,7 @@
 - :zap: Simple installation without dependencies or additional fonts.
 - :performing_arts: Username (highlighted if root) and hostname.
 - :art: Unique host avatar based on hostname. Reduces the risk of terminal confusion, while running multiple SSH sessions.
+- :white_check_mark: Every element of the first line - username, hostname, terminal, avatar, background jobs, exit code, duration, date, clock - is a box on the page, and the code of a theme carries which of them stand. What is hidden is measured out of the line, so the frame keeps its length and the rest of the row moves up into what is left.
 - :1234: Shows number of background processes if more than zero.
 - :straight_ruler: Line separating commands output.
 - :arrow_down: Shows exit code if other than zero.
@@ -41,10 +42,16 @@ installs the tree into `~/.bb` - the directory it was fetched into - and puts it
 the prompt of that very shell. Nothing is piped into a shell, so the fetched scripts
 can be read before they are run.
 
-The eight characters of the theme are `vN-y_5uA`: one code, one colour scheme.
-The word `rand` draws a random theme on the machine that runs the command, and a
-**new one on every run** - run the command again and you get another theme, so
-`rand` is also how a reroll is asked for. A command that names no theme at all
+The eight characters of the theme are `vN-y_5uA`: one code, one colour scheme. A
+theme that also says which elements of the first line stand is spelled in thirteen
+characters instead: a `1` of a version, then the same colours, the nine boxes of the
+page, and the order the elements of each half of the line stand in - all of it in the
+same alphabet. A code of eight characters keeps meaning exactly what it meant the day
+it was written, whoever reads it. The word `rand` draws a random theme on the machine
+that runs the command, and a **new one on every run** - run the command again and you
+get another theme, so `rand` is also how a reroll is asked for. A draw is a draw of
+colours: which elements stand is never drawn, so rerolling a theme does not hide the
+date behind the reader's back. A command that names no theme at all
 keeps whatever this machine already wears. Configure it at
 [betterbash.cz0.cz](https://betterbash.cz0.cz),
 which prints these commands for what you picked - including the tag of the
@@ -141,7 +148,16 @@ from themselves. The same files are staged loose as
 well, which is what the legacy `getbb.sh` path downloads.
 
 A theme code is an argument of the installer, never part of a URL, and it is
-decoded by `prompt/bb-theme.sh` on the target machine. `tests/golden/` pins the
+decoded by `prompt/bb-theme.sh` on the target machine - and by
+`webpage/frontend/src/theme-code.js` on the page, which is the same reading: the two
+are held to one string of colours, elements and orders by `tests/test-theme-code.mjs`.
+Two shapes are read. Eight characters, which is what the retired Go backend produced
+and what every code handed out so far is: forty bits of colour and the avatar bit.
+Thirteen characters - a `1`, then twelve: the same forty colour bits, nine flags for
+the elements of the first line, and the rank of the order those elements stand in,
+ranked among the elements of their own half of the line. Bits this version does not
+use are written zero and refused otherwise, so a later version can take them without
+two releases ever reading one code differently. `tests/golden/` pins the
 colours of every code that has ever been handed out, so decoding cannot drift.
 
 ### Run the WebUI and the downloaded files locally
@@ -184,6 +200,7 @@ the installer under `sh`, `bash` and `dash`; and the theme rules of a reinstall.
 ```
 ./tests/test-theme.sh        # decoder against the golden fixtures, under dash and bash
 node tests/test-avatar.mjs   # the host avatar of the page, drawn as the shell draws it
+node tests/test-theme-code.mjs # a theme code, spelled alike by the page and the shell
 bash tests/test-timer.sh     # the duration of the last command, in an interactive shell too
 node tests/test-frame.mjs    # the frame of the prompt and the frame the page previews
 bash tests/test-compact.sh   # the one-line prompt Alt+t switches to, key pressed in a pty

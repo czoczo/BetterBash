@@ -22,11 +22,14 @@
 #
 # Options, in any order after the download method:
 #
-#   <code>            theme code from the WebUI, or the word "rand" for a theme
-#                     drawn on this machine - a new one on every run, never the
-#                     one ~/.bb/theme-code already holds - or the word "keep"
-#                     for the theme this machine has, which is also what a
-#                     command without a code means
+#   <code>            theme code from the WebUI: eight characters of colour, or
+#                     thirteen of a theme that also spells out which elements of
+#                     the first line of the prompt stand
+#   "rand"            a theme drawn on this machine - a new one on every run,
+#                     never the one ~/.bb/theme-code already holds; only colours
+#                     are drawn, which elements stand is never drawn
+#   "keep"            the theme this machine has, which is also what a command
+#                     without a code means
 #   --reroll          accepted for compatibility: it means the same as the word
 #                     "rand", which draws a new theme all by itself now
 #   --base-url URL    download from another origin (a development checkout, the
@@ -52,8 +55,10 @@ printHelp() {
   exit 0
 }
 
-# A theme code is eight characters of the theme code alphabet, or one of the two
-# words that stand for "draw one here" and "the theme this machine already has".
+# A theme code is eight characters of the theme code alphabet - the shape the
+# codes have always had - or thirteen of them, which is the same code with the
+# elements of the top line of the prompt added to it, or one of the two words
+# that stand for "draw one here" and "the theme this machine already has".
 # Anything else in the argument list is a mistake and has to be refused before a
 # single request goes out.
 is_theme_code() {
@@ -62,6 +67,12 @@ is_theme_code() {
   case $1 in
     rand | keep) return 0 ;;
     ????????)
+      case $1 in
+        *[!A-Za-z0-9_-]*) return 1 ;;
+        *) return 0 ;;
+      esac
+      ;;
+    1????????????)
       case $1 in
         *[!A-Za-z0-9_-]*) return 1 ;;
         *) return 0 ;;
@@ -86,7 +97,7 @@ while [ $# -gt 0 ]; do
         exit 2
       fi
       if ! is_theme_code "$1"; then
-        printf 'getbb: %s is not a theme code (eight characters of A-Za-z0-9_-, "rand" or "keep"; see --help)\n' "$1" >&2
+        printf 'getbb: %s is not a theme code (eight characters of A-Za-z0-9_-, thirteen of them for a theme with its elements spelled out, "rand" or "keep"; see --help)\n' "$1" >&2
         exit 2
       fi
       BB_CODE=$1

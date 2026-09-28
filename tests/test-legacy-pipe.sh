@@ -277,7 +277,15 @@ check_theme() {
 
   if [ "$2" = "rand" ]; then
     _stored=$(cat "$_home/.bb/theme-code" 2>/dev/null)
-    expect_grep '^[A-Za-z0-9_-]\{8\}$' "$_home/.bb/theme-code" "a random install stores the code it drew"
+    # The shape of a drawn code: either the eight characters a theme code carried
+    # before a theme spelled out its elements, or the thirteen of a theme that does -
+    # a 1, and the twelve characters the colours, the elements and their order are
+    # written in (see prompt/bb-theme.sh).
+    if grep -q -e '^[A-Za-z0-9_-]\{8\}$' -e '^1[A-Za-z0-9_-]\{12\}$' "$_home/.bb/theme-code"; then
+      log_success "a random install stores the code it drew ($_stored)"
+    else
+      log_error "a random install stored $_stored, which is neither a code of eight characters nor one of thirteen"
+    fi
     # shellcheck source=/dev/null
     if ( . "$_home/.bb/bb-theme.sh" && bb_theme_decode "$_stored" ) 2>/dev/null |
       diff -q - "$WORK/actual-theme" >/dev/null 2>&1; then

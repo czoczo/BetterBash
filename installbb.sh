@@ -37,11 +37,14 @@
 #
 # Options, in any order:
 #
-#   <code>            theme code from the WebUI, or the word "rand" for a theme
-#                     drawn on this machine - a new one on every run, never the
-#                     one ~/.bb/theme-code already holds - or the word "keep"
-#                     for the theme this machine has, which is also what a
-#                     command without a code means
+#   <code>            theme code from the WebUI: eight characters of colour, or
+#                     thirteen of a theme that also spells out which elements of
+#                     the first line of the prompt stand
+#   "rand"            a theme drawn on this machine - a new one on every run,
+#                     never the one ~/.bb/theme-code already holds; only colours
+#                     are drawn, which elements stand is never drawn
+#   "keep"            the theme this machine has, which is also what a command
+#                     without a code means
 #   --repo DIR        the fetched tree to copy from (default: the directory this
 #                     script is in, which is what the commands above give)
 #   --dir DIR         install the prompt files into DIR (default ~/.bb)
@@ -96,8 +99,10 @@ bb_print_help() {
   return 0
 }
 
-# A theme code is eight characters of the theme code alphabet, or one of the two
-# words that stand for "draw one here" and "the theme this machine already has".
+# A theme code is eight characters of the theme code alphabet - the shape the
+# codes have always had - or thirteen of them, which is the same code with the
+# elements of the top line of the prompt added to it, or one of the two words
+# that stand for "draw one here" and "the theme this machine already has".
 # Anything else in the argument list is a mistake and has to be refused before
 # anything is written.
 bb_is_theme_code() {
@@ -106,6 +111,12 @@ bb_is_theme_code() {
   case $1 in
     rand | keep) return 0 ;;
     ????????)
+      case $1 in
+        *[!A-Za-z0-9_-]*) return 1 ;;
+        *) return 0 ;;
+      esac
+      ;;
+    1????????????)
       case $1 in
         *[!A-Za-z0-9_-]*) return 1 ;;
         *) return 0 ;;
@@ -135,7 +146,7 @@ bb_parse_options() {
           return 2
         fi
         if ! bb_is_theme_code "$1"; then
-          printf 'installbb: %s is not a theme code (eight characters of A-Za-z0-9_-, "rand" or "keep"; see --help)\n' "$1" >&2
+          printf 'installbb: %s is not a theme code (eight characters of A-Za-z0-9_-, thirteen of them for a theme with its elements spelled out, "rand" or "keep"; see --help)\n' "$1" >&2
           return 2
         fi
         BB_CODE=$1

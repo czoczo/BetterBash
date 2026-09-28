@@ -232,12 +232,17 @@ if (painted.length) {
   fail(`page: ${painted.length} avatar glyph(s) painted into template.html instead of drawn`);
 }
 
+// The compact line of the preview is still drawn in the markup, and loops over
+// avatarSegments; the two top lines come from src/preview.js, and it is App.vue that
+// hands that model the same drawing. Three places an avatar shows, as it were - what
+// may not happen is one of them painting an avatar of its own instead.
 const loops = (template.match(/v-for="\(segment, index\) in avatarSegments"/g) || []).length;
+const fedToModel = /avatar:\s*avatarSegments\.value\./.test(app);
 const hostsNamed = template.match(/myhost/g) || [];
 const defaultHost = app.match(/const previewHostname = ref\('([^']*)'\)/);
-if (loops !== 3 || hostsNamed.length || !defaultHost || defaultHost[1] !== 'myhost') {
+if (loops < 1 || !fedToModel || hostsNamed.length || !defaultHost || defaultHost[1] !== 'myhost') {
   fail(
-    `page: ${loops} avatar loop(s) (want 3), ${hostsNamed.length} hostname(s) spelled out in the template (want 0), default hostname ${JSON.stringify(defaultHost && defaultHost[1])}`
+    `page: ${loops} avatar loop(s) in the markup (want the compact line at least), the model is ${fedToModel ? '' : 'not '}fed the avatar, ${hostsNamed.length} hostname(s) spelled out in the template (want 0), default hostname ${JSON.stringify(defaultHost && defaultHost[1])}`
   );
 } else {
   ok('page: the avatar and the host of the preview all follow the hostname field');

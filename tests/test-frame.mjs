@@ -25,7 +25,8 @@
 // decide how wide the preview is.
 //
 // The prompt is drawn by bash itself, with the same ${PS1@P} an interactive shell
-// expands, and the preview is read out of the markup of the page, so a change to
+// expands; the preview of it on the page is drawn by the model the page draws from
+// (src/preview.js) and compared with that prompt, glyph for glyph, so a change to
 // one of them that the other does not follow fails here.
 //
 // Exit code is the number of failures.
@@ -34,6 +35,20 @@ import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+
+// The theme code and the top line of the prompt, as the page reads and draws them:
+// theme-code.js is what both the page and the shell library spell a code by, and
+// preview.js is what the preview of the page is built from.
+import { ALL_ELEMENTS_ON, ELEMENT_KEYS } from '../webpage/frontend/src/theme-code.js';
+import {
+  ELEMENTS,
+  PREVIEW_WIDTH,
+  SAMPLE,
+  SAMPLE_ROOT,
+  flagsOf,
+  lineText,
+  topLine,
+} from '../webpage/frontend/src/preview.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const repoRoot = dirname(here);
@@ -280,10 +295,12 @@ const succeeding = drawShell(true, ['120:0:42'])[0];
 
 // --- the preview on the page ---------------------------------------------
 
-// The prompt lines of the preview, read out of the markup the way a browser draws
-// it: the <template> that does not apply is left out, the interpolation of the fill
-// is replaced by the run App.vue sizes it to, the avatar loop draws its eight
-// glyphs, and Vue condenses away the whitespace between the elements.
+// The lines of the preview that the markup still holds by hand - the two lines the
+// cursor stands on and the compact line - read out of the markup the way a browser
+// draws it: the <template> that does not apply is left out, the avatar loop draws
+// its eight glyphs, and Vue condenses away the whitespace between the elements. The
+// top lines of the two prompts are not here any more: they are drawn by
+// src/preview.js, and compared with the shell below instead of with the markup.
 function previewPromptLines() {
   const tpl = readFileSync(templateFile, 'utf8');
   const start = tpl.indexOf('<div class="terminal">');
@@ -293,9 +310,7 @@ function previewPromptLines() {
   );
 
   const app = readFileSync(appFile, 'utf8');
-  const bases = [...app.matchAll(/previewFill\((\d+)\)/g)].map((m) => Number(m[1]));
   const host = (app.match(/const previewHostname = ref\('([^']*)'\)/) || [])[1];
-  if (bases.length !== 2) throw new Error('App.vue holds no two previewFill() bases');
   if (!host) throw new Error('App.vue holds no hostname for the preview');
 
   const forAvatar = (showAvatar) =>
@@ -306,8 +321,6 @@ function previewPromptLines() {
           (_m, not, body) => ((not === '!') !== showAvatar ? body : '')
         );
         out = out.replace(/\{\{\s*previewHostname\s*\}\}/g, host);
-        out = out.replace(/\{\{\s*previewFillOne\s*\}\}/g, '─'.repeat(bases[0]));
-        out = out.replace(/\{\{\s*previewFillTwo\s*\}\}/g, '─'.repeat(bases[1]));
         out = out.replace(/<span[^>]*in avatarSegments[\s\S]*?<\/span\s*>/g, '▮▲▲■■▲▲▮');
         out = out.replace(/<!--[\s\S]*?-->/g, '');
         out = out.replace(/<\/span\s*>/g, '</span>');
@@ -318,45 +331,265 @@ function previewPromptLines() {
   return { forAvatar, host };
 }
 
+// --- the preview draws what the shell draws -------------------------------
+
+// What the preview of the page shows of a top line is no longer held in its markup:
+// src/preview.js builds that line out of the same elements, the same separators and
+// the same widths prompt/bb.sh draws with, and the template of the page paints what
+// it returns. So the preview is compared with the prompt itself - the same machine,
+// the same terminal, the same theme of elements - drawn twice, once by bash and once
+// by the model the page draws from, and the two have to come out as one string of
+// glyphs.
+//
+// Whatever a theme hides, the shell measures out of the line, so this holds what the
+// boxes of the page do to the frame as well: an element that hides and leaves a hole
+// where it stood, or that moves the end of the line by a glyph, fails here - and
+// fails twice, above the width where the fill takes what the elements give up and
+// below the width where the fill is gone and an element hands its width back as
+// dashes of the frame, in its own place.
+
+// One prompt of a shell on this machine, drawn with the elements of a theme: columns
+// is the terminal, bits says which of the nine elements stand, code is what the last
+// command left behind it, duration how long it ran, and jobs how many commands run
+// beside it. Along with the line it returns what that shell drew itself out of - the
+// name, the host, the terminal, the avatar the host hashes into, the count of jobs -
+// because the preview draws the same machine and has to say the same things about it.
+function drawPrompt({ columns, bits, code = 0, duration = 42, jobs = 0 }) {
+  const env = {
+    ...process.env,
+    BB_DIR: join(repoRoot, 'prompt'),
+    AVATAR: 'true',
+    COLUMNS: String(columns),
+    USER: process.env.USER || 'tester',
+  };
+  ELEMENT_KEYS.forEach((key, i) => {
+    env[key] = bits[i] === '1' ? 'true' : 'false';
+  });
+  // The command the prompt is drawn for, leaving the code it is to leave. A
+  // subshell, because $? of the shell drawing the prompt is what the code of it is
+  // read from, and `exit` there would end the drawing before it began.
+  const lastCommand = code === 0 ? 'true' : `( exit ${code} )`;
+  const script = `
+. "$BB_DIR/bb.sh" 2>/dev/null
+export COLUMNS
+${jobs > 0 ? 'sleep 30 &' : ':'}
+BB_TIMER=$(( SECONDS - ${duration} ))
+${lastCommand}
+__prompt_command
+line=\${PS1@P}
+line=\${line#*$'\\n'}
+line=\${line%%$'\\n'*}
+line=\${line//$'\\001'/}
+line=\${line//$'\\002'/}
+line=\${line//$'\\016'/}
+line=\${line//$'\\017'/}
+strip='s/\\x1b\\[[0-9;]*[a-zA-Z]//g'
+line=$(printf '%s' "$line" | sed -e "$strip")
+# CH is the avatar as PS1 holds it - the eight glyphs between the colour codes and
+# their \[ \] wrappers - so it is expanded the way a prompt is, and then stripped.
+avatar=$(printf '%s' "\${CH@P}" | sed -e "$strip")
+printf '%s\\x1f%s\\x1f%s\\x1f%s\\x1f%s\\x1f%s\\x1f%s' "$line" "$USER" "$HOSTNAM" "$cur_tty" "$avatar" "$PROCCNT" "$BB_TIMER_SHOW"
+`;
+  const record = execFileSync('bash', ['-c', script, 'test-frame'], { env, cwd: repoRoot }).toString(
+    'utf8'
+  );
+  const [line, user, host, tty, avatar, proccnt, timer] = record.split('\u001f');
+  // BB_TIMER_SHOW is what the shell formatted the duration into - however many
+  // digits and units it chose - and the width of the segment is that string, so it
+  // is taken from the shell rather than computed here.
+  return { line, user, host, tty, avatar, jobs: Number(proccnt), timer };
+}
+
+// The day of \d and the time of \t, as the shell that drew the line put them between
+// their brackets. They are read off that line rather than asked of the clock here,
+// because a prompt and a test run a second apart would disagree over nothing else.
+const PREVIEW_DATE = /\((\w{3} \w{3} [\d ]{2})\)/;
+
+const PREVIEW_CASES = [
+  // The two prompts of the preview, as the page draws them: a command that ended
+  // well with something running behind it, and a failed one with nothing.
+  { columns: 102, bits: ALL_ELEMENTS_ON, code: 0, jobs: 1 },
+  { columns: 102, bits: ALL_ELEMENTS_ON, code: 127, jobs: 0 },
+  // Neither half of the identity and no avatar: the brackets go with them, and the
+  // fill takes what they gave up.
+  { columns: 102, bits: '000011111', code: 0, jobs: 1 },
+  // The counter of jobs and the whole right half gone, an exit code to show.
+  { columns: 102, bits: '111100001', code: 42, jobs: 1 },
+  // Nothing but the day: every other element handed its width to the fill.
+  { columns: 102, bits: '000000010', code: 0, jobs: 0 },
+  // A line of nothing but frame.
+  { columns: 102, bits: '000000000', code: 0, jobs: 0 },
+  // Below the width where the fill is gone, so every element that hides draws its
+  // own width in dashes of the frame instead of handing it over.
+  { columns: 76, bits: ALL_ELEMENTS_ON, code: 0, jobs: 1 },
+  { columns: 70, bits: '101010101', code: 7, jobs: 1 },
+  { columns: 60, bits: '000000000', code: 128, jobs: 1 },
+  // A wide terminal, a duration of four digits and a count of jobs of one.
+  { columns: 200, bits: '011010111', code: 0, duration: 4242, jobs: 1 },
+];
+
 {
-  const { forAvatar, host } = previewPromptLines();
   const wrong = [];
-  const widths = [];
-  let failingLines = 0;
-  for (const showAvatar of [true, false]) {
-    for (const line of forAvatar(showAvatar).filter((l) => l.startsWith('┌'))) {
-      widths.push(width(line));
-      if (!line.includes(`${host}:`)) wrong.push(`the preview line does not name its host ${host}`);
-      for (const [name, re] of [
-        ['the date', DATE],
-        ['the clock', CLOCK],
-      ]) {
-        const run = runBefore(line, re);
-        if (run !== 2) wrong.push(`the preview's ${name} stands behind ${run} dash(es), want 2`);
-      }
-      const tail = closingRun(line);
-      if (tail !== 3)
-        wrong.push(
-          `the preview's top line closes with ${tail} dash(es) and a half dash, want 3 and a half dash`
-        );
-      // The line of a failed command is the one whose duration stands between
-      // brackets of its own, as in the frame above.
-      if (line.includes('↵')) {
-        failingLines += 1;
-        const run = runBefore(line, DURATION);
-        if (run !== 2)
-          wrong.push(`the preview's duration stands behind ${run} dash(es), want 2`);
-      }
+  for (const spec of PREVIEW_CASES) {
+    const drawn = drawPrompt(spec);
+    const sample = {
+      user: drawn.user,
+      tty: drawn.tty,
+      jobs: drawn.jobs,
+      code: spec.code,
+      duration: drawn.timer,
+      date: (drawn.line.match(PREVIEW_DATE) || [, 'Wed May 14'])[1],
+      clock: (drawn.line.match(CLOCK) || [, '00:40:03'])[1],
+    };
+    const previewed = lineText(
+      topLine({
+        flags: flagsOf(spec.bits),
+        host: drawn.host,
+        avatar: [...drawn.avatar].map((glyph) => ({ text: glyph })),
+        sample,
+        columns: spec.columns,
+      })
+    );
+    const where = `${spec.columns} columns, elements ${spec.bits}, code ${spec.code}, ${drawn.jobs} job(s)`;
+    if (previewed !== drawn.line) {
+      wrong.push(`the preview does not draw what the shell drew (${where})\n         shell   ${drawn.line}\n         preview ${previewed}`);
     }
   }
-  if (failingLines !== 2) wrong.push(`the preview holds ${failingLines} failing lines, want 2`);
-  if (!(widths.length === 4 && widths.every((w) => w === widths[0])))
-    wrong.push(`the preview lines are ${widths.join(', ')} wide - they have to be one width`);
-  if (wrong.length) wrong.slice(0, 8).forEach((what) => fail(what));
+  if (wrong.length) wrong.slice(0, 4).forEach((what) => fail(what));
   else
     ok(
-      `the preview wears the same frame as the prompt: ${widths[0]} glyphs, two dashes between its segments`
+      `the preview draws the frame of the shell, glyph for glyph, over ${PREVIEW_CASES.length} settings of the elements`
     );
+}
+
+// The parts of (user@host:tty) in their colours, read out of the escapes bash put in
+// front of them. What is held to one here is which colour a part wears: the terminal
+// of the line in the colour of the host - both say which machine this is - and the
+// bracket and the @ and : of the brackets in the colour of the separator. The text of
+// a line is one thing and the colour of it another, and a preview that drew the same
+// words in another colour than the prompt would be noticed by anyone who looks at
+// both. (The colour of a name belongs to SECONDARY_COLOR, or to ROOT_COLOR for root;
+// prompt/bb.sh decides that, and this does not second-guess it.)
+{
+  const env = {
+    ...process.env,
+    BB_DIR: join(repoRoot, 'prompt'),
+    COLUMNS: '120',
+    USER: process.env.USER || 'tester',
+  };
+  const script = `
+. "$BB_DIR/bb.sh" 2>/dev/null
+export COLUMNS
+true
+__prompt_command
+printf '%s\\x1f%s\\x1f%s\\x1f%s\\x1f%s' "\${PS1@P}" "$HOSTNAM" "$cur_tty" "\${PRIMARY_COLOR@P}" "\${SEPARATOR_COLOR@P}"
+`;
+  // The \[ \] wrappers of the colour variables are turned into \001 and \002 by the
+  // same prompt expansion that turns \033 into an escape, and both are dropped here:
+  // what is left around the text is the escape of a colour and nothing else.
+  const [top, host, tty, primary, separator] = execFileSync(
+    'bash',
+    ['-c', script, 'test-frame'],
+    { env, cwd: repoRoot }
+  )
+    .toString('utf8')
+    .split('\u001f')
+    .map((field) => field.replace(/[\001\002\016\017]/g, ''));
+  // The line of the identity, which is the first of the two the prompt is made of -
+  // and the one a host name is spelled on, so that is how it is picked out.
+  const line = top.split('\n').find((one) => one.includes(host)) || top.split('\n')[0];
+  // The colour in force in the middle of a word, because a separator standing right
+  // in front of a name is not the colour of that name.
+  const colourOf = (word) => {
+    const at = line.indexOf(word);
+    if (at < 0) return null;
+    const codes = line.slice(0, at + Math.floor(word.length / 2)).match(/\x1b\[[0-9;]*m/g) || [];
+    return codes.length ? codes[codes.length - 1] : '';
+  };
+  const wrong = [];
+  if (host && tty) {
+    if (colourOf(host) !== primary)
+      wrong.push('the host of the top line is not drawn in PRIMARY_COLOR');
+    if (colourOf(tty) !== colourOf(host))
+      wrong.push(
+        `the terminal of the top line stands in ${colourOf(tty)}, its host in ${colourOf(host)} - the same colour was asked for`
+      );
+    if (colourOf('(') !== separator)
+      wrong.push('the bracket of the identity is not drawn in SEPARATOR_COLOR');
+  } else {
+    wrong.push(`the prompt names no host and terminal to compare (${JSON.stringify(host)}, ${JSON.stringify(tty)})`);
+  }
+  // And the preview says the same in the keys it hands the template.
+  const segments = topLine({
+    flags: flagsOf(ALL_ELEMENTS_ON),
+    host: 'myhost',
+    avatar: [],
+    sample: { ...SAMPLE, tty: 'pts/7' },
+  });
+  const keyOf = (word) => (segments.find((part) => part.text === word) || {}).colorKey;
+  if (keyOf('myhost') !== 'PRIMARY_COLOR' || keyOf('pts/7') !== 'PRIMARY_COLOR')
+    wrong.push(
+      `the preview colours its host ${keyOf('myhost')} and its terminal ${keyOf('pts/7')}, want both PRIMARY_COLOR`
+    );
+  if (wrong.length) wrong.slice(0, 4).forEach((what) => fail(what));
+  else ok('the terminal of the line wears the colour of the host, in the prompt and in the preview');
+}
+
+// The two prompt lines the page shows are of the width the box is padded to, whatever
+// the theme shows - the invariant the frame has always held, now held of the model
+// rather than of the markup.
+{
+  const wrong = [];
+  const widths = [];
+  for (const sample of [SAMPLE, SAMPLE_ROOT]) {
+    for (const bits of [ALL_ELEMENTS_ON, '000100001', '101010101', '000000000']) {
+      const line = lineText(
+        topLine({
+          flags: flagsOf(bits),
+          host: 'myhost',
+          avatar: [...'▮▲▲■■▲▲▮'].map((glyph) => ({ text: glyph })),
+          sample,
+        })
+      );
+      widths.push(width(line));
+      if (width(line) !== PREVIEW_WIDTH)
+        wrong.push(`the preview line of elements ${bits} is ${width(line)} glyphs, want ${PREVIEW_WIDTH}`);
+      // The three dashes and the half dash the line closes with are only to be
+      // told from the fill while something stands in front of them to end.
+      if (bits[8] === '1' && closingRun(line) !== 3)
+        wrong.push(`the preview line of elements ${bits} closes with ${closingRun(line)} dashes and a half, want 3 and a half`);
+    }
+  }
+  if (new Set(widths).size !== 1) wrong.push(`the preview lines are ${[...new Set(widths)].join(', ')} wide - they have to be one width`);
+  if (wrong.length) wrong.slice(0, 4).forEach((what) => fail(what));
+  else ok(`the preview lines are one width over every setting of the elements: ${widths[0]} glyphs`);
+}
+
+// The markup paints the model, and holds no line of a prompt of its own: a top line
+// written by hand in the template would be a frame that no box of the page can
+// change, and no test of the shell can reach.
+{
+  const tpl = readFileSync(templateFile, 'utf8');
+  const start = tpl.indexOf('<div class="terminal">');
+  const end = tpl.indexOf('<div class="share-section">', start);
+  const painted = [...tpl.slice(start, end).matchAll(/┌─/g)].length;
+  const wrong = [];
+  for (const i of [0, 1])
+    if (!tpl.includes(`previewTopLines[${i}]`))
+      wrong.push(`the template does not render the model's top line ${i}`);
+  if (painted !== 0)
+    wrong.push(`the template holds ${painted} hand-drawn top line(s) of a prompt, want the model to draw them`);
+  // The boxes are one loop over the elements of the line, each bound to the flag of
+  // the element its label names - so the loop, the binding and the order of the
+  // elements are what is checked, rather than nine boxes spelled out.
+  if (!tpl.includes('in promptElements'))
+    wrong.push('the template holds no loop over the elements of the top line');
+  if (!tpl.includes('elementFlags[element.key]'))
+    wrong.push('the boxes of the elements are not bound to what the theme shows');
+  if (ELEMENTS.map((element) => element.key).join(',') !== ELEMENT_KEYS.join(','))
+    wrong.push('the elements the boxes speak for are not the elements the theme code carries, in its order');
+  if (wrong.length) wrong.slice(0, 4).forEach((what) => fail(what));
+  else ok(`the template paints the model's lines and holds a box for each of the ${ELEMENTS.length} elements`);
 }
 
 // And the preview shows what Alt+t leaves of it: one line, the last of the two it
