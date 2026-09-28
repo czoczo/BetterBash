@@ -8,7 +8,7 @@
       <div
         v-if="appEnv !== 'production'"
         class="env-badge"
-        title="Not a production build: the install commands below download from this development server"
+        title="Development build: the commands below fetch from this server"
       >
         {{ appEnv }}
       </div>
@@ -70,7 +70,7 @@
             maxlength="32"
             spellcheck="false"
             autocomplete="off"
-            title="The avatar in the preview is drawn from this name the way the prompt draws it from cat /etc/hostname. Put what that prints here and the preview is the prompt."
+            title="Put what cat /etc/hostname prints here, and the preview is the prompt"
           />
         </div>
         <button @click="generateRandomTheme()" class="default-btn">
@@ -154,7 +154,7 @@
       <!-- What the line below it is, and how to get there: a comment of the shell
            rather than a caption of the page, because inside the black box everything
            is a line of a terminal. -->
-      <div class="ps1-line ps1-comment"># Compact mode, activated using the keyboard shortcut 'Alt+t'</div>
+      <div class="ps1-line ps1-comment"># Compact mode - Alt+t</div>
       <div class="ps1-line">
         <span :class="getColorClassFromBash(generatedColors.BORDCOL)">┈─</span
         ><span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">(</span
@@ -171,9 +171,8 @@
     <div class="share-section">
       <h3>Quick install/uninstall</h3>
       <p class="install-note">
-        Each command fetches the BetterBash tree, asks once, and only then runs the
-        installer of that tree - nothing is piped into a shell, and every file it
-        installs is in the fetched directory while you read it.
+        Nothing is piped into a shell: every command fetches first, asks once, then
+        installs.
       </p>
 
       <!-- Tab navigation -->
@@ -320,7 +319,7 @@
     <div class="share-section">
       <div>
       <h3>What am I looking at?</h3>
-      <p>Mostly Bash configuration focused on usability. Pick your favorite colors and do a quick install to take advantage of the features below, or read about the <a href="https://github.com/czoczo/BetterBash/blob/main/MOTIVATION.md">motivation behind the project</a>. Share your theme with others with the generated URL.</p>
+      <p>Pick your colors, install, and read the <a href="https://github.com/czoczo/BetterBash/blob/main/MOTIVATION.md">motivation</a> if you want the why.</p>
       </div>
 
       <!-- Three features out of the list below and above it. They are the ones no
@@ -343,14 +342,14 @@
               <span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">)</span>
             </span>
           </div>
-          <p>Drawn from the hostname of the machine, so every machine you are logged in to wears a different one. Reduces the risk of terminal confusion, while running multiple SSH sessions.</p>
+          <p>Hashed from the hostname, so no two machines wear the same one.</p>
         </div>
         <div class="feature-card">
           <h4>Rapid history search</h4>
           <div>
             <span class="terminal-inline"><span>&lt;cmd_prefix&gt; + ⇅</span></span>
           </div>
-          <p>The up and down arrows search the history instead of walking it, from whatever has been typed already: type <code>git</code>, press the arrows, and only the <code>git</code> commands come past.</p>
+          <p>The arrows search the history by what you have typed already.</p>
         </div>
         <div class="feature-card">
           <h4>Compact mode</h4>
@@ -367,7 +366,7 @@
               <span :class="getColorClassFromBash(generatedColors.BORDCOL)">-&gt;</span>
             </span>
           </div>
-          <p>Alt+t keeps only the line you type on, for a terminal with more to show than the frame can spare; Alt+t again brings the frame back. It moves to a new line to do it, so the other prompt is drawn at once and what was typed is waiting on it. The key is taken from readline's transpose-words.</p>
+          <p>Alt+t keeps only the line you type on; Alt+t brings the frame back.</p>
         </div>
       </div>
 
@@ -416,7 +415,7 @@
             <span :class="getColorClassFromBash(generatedColors.PRIMARY_COLOR)">00:40:12</span>
             <span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">)</span>
           </span>
-          - Date and time. Time changes color if exit code other than zero.
+          - Date, and a clock in the error color after a failed command.
         </li>
         <li>
           <span class="terminal-inline">
@@ -424,7 +423,7 @@
             <span :class="getColorClassFromBash(generatedColors.PRIMARY_COLOR)">42s</span>
             <span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">)</span>
           </span>
-          - Duration of the previous command in seconds, in the primary color whatever that command ended with.
+          - Duration of the previous command.
         </li>
         <li>
           <span class="terminal-inline">
@@ -443,7 +442,7 @@
             <span :class="getColorClassFromBash(generatedColors.RST)">=</span>
             <span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">)</span>
           </span>
-          - Git status (if current directory inside git repository).
+          - Git status, inside a repository.
         </li>
       </ul>
       </div>

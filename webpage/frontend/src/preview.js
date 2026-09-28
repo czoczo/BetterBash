@@ -20,15 +20,15 @@ import { ELEMENT_KEYS } from './theme-code.js';
 // and `hint` what it says when the pointer rests on it: which part of the line
 // the checkbox takes away.
 export const ELEMENTS = [
-  { key: 'PROMPT_USER', label: 'Username', hint: 'the name in (user@host:tty), the first thing the line says' },
-  { key: 'PROMPT_HOST', label: 'Hostname', hint: 'the machine in (user@host:tty); the @ between a name and a machine stands only when both do' },
-  { key: 'PROMPT_TTY', label: 'Terminal', hint: 'the terminal device in (user@host:tty), the pts/5 of it' },
-  { key: 'AVATAR', label: 'Avatar', hint: 'the machine hashed into eight glyphs, so two terminals wearing different ones are not the same machine' },
-  { key: 'PROMPT_JOBS', label: 'Background jobs', hint: 'how many commands are running in the background, while any is' },
-  { key: 'PROMPT_EXIT', label: 'Exit code', hint: 'the code the last command left, where it left one' },
+  { key: 'PROMPT_USER', label: 'Username', hint: 'the name in (user@host:tty)' },
+  { key: 'PROMPT_HOST', label: 'Hostname', hint: 'the machine in (user@host:tty)' },
+  { key: 'PROMPT_TTY', label: 'Terminal', hint: 'the pts/5 in (user@host:tty)' },
+  { key: 'AVATAR', label: 'Avatar', hint: 'the hostname hashed into eight glyphs' },
+  { key: 'PROMPT_JOBS', label: 'Background jobs', hint: 'commands running in the background' },
+  { key: 'PROMPT_EXIT', label: 'Exit code', hint: 'what the last command returned' },
   { key: 'PROMPT_DURATION', label: 'Duration', hint: 'how long the last command ran' },
   { key: 'PROMPT_DATE', label: 'Date', hint: 'the day the prompt was drawn' },
-  { key: 'PROMPT_CLOCK', label: 'Clock', hint: 'the time the prompt was drawn, to the second' },
+  { key: 'PROMPT_CLOCK', label: 'Clock', hint: 'the time the prompt was drawn' },
 ];
 
 export const LEFT_ELEMENTS = ELEMENTS.slice(0, 5);

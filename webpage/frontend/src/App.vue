@@ -316,14 +316,14 @@ const installKind = computed(() => (uninstallFlag.value ? 'uninstall' : 'install
 // Uninstall is checked Random has nothing to do with the command at all.
 const randomToggleHint = computed(() =>
   uninstallFlag.value
-    ? 'Random theme mode: nothing to do with this command - removing a theme takes neither a code nor the word "rand". Turn Uninstall off and the command carries "rand" in place of a theme code.'
-    : 'Random theme mode: the command carries the word "rand" instead of a theme code, so the machine that runs it draws its own theme - a different one on every run, which makes running the command again a reroll. The colors selected above are ignored; turn this off to install the theme you can see here.',
+    ? 'Random theme mode: nothing to do with a removal - turn Uninstall off and the command carries "rand".'
+    : 'Random theme mode: the command carries "rand" instead of a theme code, so the machine draws its own theme on every run and ignores the colors above.',
 );
 
 const autoToggleHint = computed(() =>
   uninstallFlag.value
-    ? 'Automatic mode: the command drops the question it asks before removing BetterBash, so it removes it without asking anyone. Without a question nothing can be answered, so this is the variant for scripts and containers; an interactive shell should keep being asked.'
-    : 'Automatic mode: the command drops the question it asks before installing anything, so it installs without asking anyone. Without a question nothing can be answered, so this is the variant for scripts and containers; an interactive shell should keep being asked.',
+    ? 'Automatic mode: the command asks nothing before it removes BetterBash - the variant for scripts and containers.'
+    : 'Automatic mode: the command asks nothing before it installs - the variant for scripts and containers.',
 );
 
 // Every install command fetches from the origin serving this page into ~/.bb and

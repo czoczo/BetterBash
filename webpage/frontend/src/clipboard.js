@@ -34,8 +34,7 @@ const REASONS = {
   // A page over plain http: no clipboard API, and no selection to copy either.
   insecure: {
     kind: 'insecure',
-    message:
-      'This page is served over plain http, which leaves the browser no clipboard to write. Serve it over https (or localhost) for the button to work, or select the text and press Ctrl+C.',
+    message: 'Plain http leaves this page no clipboard: serve it over https, or select the text and press Ctrl+C.',
   },
   // The browser has a clipboard and refused to write it: permission off, focus
   // lost, or the page hidden.
