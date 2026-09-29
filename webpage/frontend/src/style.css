@@ -338,7 +338,11 @@ a:hover {
   container-type: inline-size;
   /* One column, sized to the longest prompt line and centred in the box, so the
      preview looks centred as a whole and every shorter line still starts in the
-     same place as the longest one. */
+     same place as the longest one. The column cannot be left to grow and shrink
+     with what the boxes of the page tick off - the whole preview would slide
+     sideways against its own left margin as a theme was edited - so every top line
+     of it measures PREVIEW_WIDTH glyphs, a theme without the border fill padded to
+     that width with spaces nothing shows (see src/preview.js). */
   display: grid;
   justify-content: center;
 }

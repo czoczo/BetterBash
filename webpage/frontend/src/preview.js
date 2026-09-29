@@ -52,6 +52,12 @@ export const RIGHT_ELEMENTS = ELEMENTS.slice(5, 9);   // the fill is neither hal
 // border between them - and the two lines of the preview stay one width, which is
 // what the box is drawn for (see .ps1-line in src/style.css, which scales the font
 // to it so the black box of the page stays as wide as it was).
+//
+// A theme that asks for no fill is kept to that width too: its line is shorter by
+// the stretch the fill never draws, so the same number of spaces of nothing is put
+// behind it (see topLine). The box is drawn around the longest line it holds, and a
+// preview whose line shrinks with every unticked box would slide the elements of it
+// sideways instead of only shortening them.
 export const PREVIEW_WIDTH = 120;
 export const columnsFor = (width) => width + 4;
 
@@ -85,6 +91,11 @@ export const SAMPLE_ROOT = {
 
 const segment = (text, colorKey) => ({ text, colorKey });
 const dashRun = (count) => '─'.repeat(count);
+// The width a line of a theme without the fill falls short of, put in behind its
+// last element as nothing to see. It belongs to the preview alone and to the prompt
+// not at all: a terminal draws its line into the corner it stands in, while the
+// preview centres a box around the longest line it holds.
+const spaceRun = (count) => ({ text: ' '.repeat(count), colorKey: null });
 
 // What an element of the line takes when it shows: its own glyphs and the two
 // dashes of the separator that stands before it, except for the first element of
@@ -250,6 +261,19 @@ export function topLine({ flags, host, avatar = [], sample = SAMPLE, columns = c
   );
 
   out.push(segment('───┈', 'BORDCOL'));
+
+  // The line of a theme without the fill ends behind its last element, and the
+  // box it is previewed in is drawn around the longest line it holds: untick a box
+  // and everything on the line slides to the right, as though the theme had moved
+  // it rather than shortened it. So the width the fill would have stretched to the
+  // edge is padded in at the end, spaces and no colour, and the preview is one
+  // width whatever the boxes say - with the elements of the line where they have
+  // always stood, against the left edge of it.
+  if (!fills) {
+    const drawn = out.flat().reduce((glyphs, piece) => glyphs + [...piece.text].length, 0);
+    const pad = columns - 12 - drawn;
+    if (pad > 0) out.push(spaceRun(pad));
+  }
 
   return out.flat();
 }

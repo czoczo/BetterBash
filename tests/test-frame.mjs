@@ -452,7 +452,7 @@ const PREVIEW_CASES = [
       date: (drawn.line.match(PREVIEW_DATE) || [, 'Wed May 14'])[1],
       clock: (drawn.line.match(CLOCK) || [, '00:40:03'])[1],
     };
-    const previewed = lineText(
+    const padded = lineText(
       topLine({
         flags: flagsOf(spec.bits),
         host: drawn.host,
@@ -461,7 +461,20 @@ const PREVIEW_CASES = [
         columns: spec.columns,
       })
     );
+    // A theme without the border fill gets its line padded out at the end with
+    // spaces, which is a thing of the preview only (see src/preview.js): what the
+    // shell drew ends behind its last element. So the line is compared with the
+    // padding taken back off, and the padding is held to being nothing but spaces,
+    // exactly as many as the fill would have stretched.
+    const previewed = padded.replace(/ +$/, '');
+    const padding = width(padded) - width(previewed);
     const where = `${spec.columns} columns, elements ${spec.bits}, code ${spec.code}, ${drawn.jobs} job(s)`;
+    const fills = spec.bits[ELEMENT_KEYS.length - 1] !== '0';
+    const owed = Math.max(0, spec.columns - 4 - width(previewed));
+    if (!fills && padding !== owed)
+      wrong.push(`the line of elements ${spec.bits} is padded ${padding} glyphs, want the ${owed} the fill would have stretched (${where})`);
+    if (fills && padding)
+      wrong.push(`the line of elements ${spec.bits} is padded ${padding} glyphs where the fill stretches of its own (${where})`);
     if (previewed !== drawn.line) {
       wrong.push(`the preview does not draw what the shell drew (${where})\n         shell   ${drawn.line}\n         preview ${previewed}`);
     }
@@ -549,8 +562,11 @@ printf '%s\\x1f%s\\x1f%s\\x1f%s\\x1f%s' "\${PS1@P}" "$HOSTNAM" "$cur_tty" "\${PR
 // A line without the border fill, of its own: the elements that show, two dashes
 // between neighbours, and the width it does not use left to the terminal. Nothing is
 // stretched and nothing padded in the place of what hides, so the same elements make
-// the same string whatever the terminal is wide - and a preview that held that to be
-// false would be a preview of another line than the one the shell draws.
+// the same visible line whatever the terminal is wide - and a preview that held that
+// to be false would be a preview of another line than the one the shell draws. What
+// the fill would have stretched is put behind the line as spaces, which the shell
+// does not draw and the preview needs: the box is drawn around the longest line it
+// holds, and without them every element of it would slide right as a box got ticked.
 {
   const wrong = [];
   // A code left behind, so that the five dashes standing for a command that ended
@@ -579,9 +595,24 @@ printf '%s\\x1f%s\\x1f%s\\x1f%s\\x1f%s' "\${PS1@P}" "$HOSTNAM" "$cur_tty" "\${PR
         })
       )
     );
-    if (new Set(lines).size !== 1)
-      wrong.push(`elements ${bits} draw ${lines.length} different lines as the terminal grows: ${lines.join(' | ')}`);
-    const line = lines[0];
+    // What the line is - its elements, its tail, and nothing else. Behind them the
+    // preview puts the width the fill would have stretched; that padding is held to
+    // here and nowhere else, because it is nothing to see and has to stay nothing
+    // but that.
+    const shown = lines.map((padded) => padded.replace(/ +$/, ''));
+    if (new Set(shown).size !== 1)
+      wrong.push(`elements ${bits} draw ${lines.length} different lines as the terminal grows: ${shown.join(' | ')}`);
+    const line = shown[0];
+    // Padding to the width of the box, and never past the last element of a line
+    // too long for it: at every terminal the model is asked about, the preview line
+    // measures what a stretched line measures.
+    [60, 102, 200].forEach((columns, i) => {
+      const want = Math.max(width(shown[i]), columns - 4);
+      if (width(lines[i]) !== want)
+        wrong.push(
+          `elements ${bits} of ${columns} columns measure ${width(lines[i])} glyphs with their padding, want ${want}`
+        );
+    });
     // Every run of dashes between two elements of such a line is the two that
     // separate them. The first run of the line carries the single dash of the open
     // corner, and the last is the three and a half it closes with, so neither of
@@ -613,18 +644,22 @@ printf '%s\\x1f%s\\x1f%s\\x1f%s\\x1f%s' "\${PS1@P}" "$HOSTNAM" "$cur_tty" "\${PR
       wrong.push(`elements ${bits} stretch ${Math.max(...runs)} dashes in a row where none is stretched`);
   }
   if (wrong.length) wrong.slice(0, 4).forEach((what) => fail(what));
-  else ok('a line without the border fill is its elements, two dashes apart, at any width');
+  else
+    ok(
+      'a line without the border fill is its elements, two dashes apart, padded to one width at any terminal'
+    );
 }
 
 // The two prompt lines the page shows are of the width the box is padded to, whatever
 // the theme shows - the invariant the frame has always held, now held of the model
-// rather than of the markup. A theme asking for no fill is the one thing that gives
-// the width up on purpose, so it is measured apart, above.
+// rather than of the markup. It holds of a theme asking for no fill as well: such a
+// line is short of that width by the stretch it never drew, and is padded to it with
+// spaces, so that nothing on the line moves as the boxes of the page are ticked.
 {
   const wrong = [];
   const widths = [];
   for (const sample of [SAMPLE, SAMPLE_ROOT]) {
-    for (const bits of [ALL_ELEMENTS_ON, '0001000011', '1010101011', '0000000001']) {
+    for (const bits of [ALL_ELEMENTS_ON, '0001000011', '1010101011', '0000000001', '1111111110', '1100100010']) {
       const line = lineText(
         topLine({
           flags: flagsOf(bits),
@@ -638,7 +673,7 @@ printf '%s\\x1f%s\\x1f%s\\x1f%s\\x1f%s' "\${PS1@P}" "$HOSTNAM" "$cur_tty" "\${PR
         wrong.push(`the preview line of elements ${bits} is ${width(line)} glyphs, want ${PREVIEW_WIDTH}`);
       // The three dashes and the half dash the line closes with are only to be
       // told from the fill while something stands in front of them to end.
-      if (bits[8] === '1' && closingRun(line) !== 3)
+      if (bits[8] === '1' && closingRun(line.replace(/ +$/, '')) !== 3)
         wrong.push(`the preview line of elements ${bits} closes with ${closingRun(line)} dashes and a half, want 3 and a half`);
     }
   }

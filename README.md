@@ -163,7 +163,9 @@ the width of the terminal. That last bit is held against its name, zero meaning 
 fill, because it was one of the bits no release used: every code written before the
 flag says the line stretched to the edge, as it always did. A code asking for no fill
 shortens the line to the elements that show, two dashes between neighbours, and the
-width it does not use belongs to the terminal. Bits this version does not use are
+width it does not use belongs to the terminal - in the preview of the page that
+shortened line is padded out with spaces to the width it always had, so nothing on
+the line moves when the box is ticked. Bits this version does not use are
 written zero and refused otherwise, so a later version can take them without two
 releases ever reading one code differently. `tests/golden/` pins the
 colours of every code that has ever been handed out, so decoding cannot drift.
