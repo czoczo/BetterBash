@@ -43,11 +43,13 @@ the prompt of that very shell. Nothing is piped into a shell, so the fetched scr
 can be read before they are run.
 
 The eight characters of the theme are `vN-y_5uA`: one code, one colour scheme. A
-theme that also says which elements of the first line stand is spelled in thirteen
-characters instead: a `1` of a version, then the same colours, the nine boxes of the
-page, and the order the elements of each half of the line stand in - all of it in the
-same alphabet. A code of eight characters keeps meaning exactly what it meant the day
-it was written, whoever reads it. The word `rand` draws a random theme on the machine
+theme that also says which elements of the first line stand, and whether that line
+stretches to the width of the terminal, is spelled in thirteen characters instead: a
+`1` of a version, then the same colours, the ten boxes of the page - the nine
+elements of the line and its border fill - and the order the elements of each half
+of the line stand in, all of it in the same alphabet. A code of eight characters
+keeps meaning exactly what it meant the day it was written, whoever reads it. The
+word `rand` draws a random theme on the machine
 that runs the command, and a **new one on every run** - run the command again and you
 get another theme, so `rand` is also how a reroll is asked for. A draw is a draw of
 colours: which elements stand is never drawn, so rerolling a theme does not hide the
@@ -154,10 +156,16 @@ are held to one string of colours, elements and orders by `tests/test-theme-code
 Two shapes are read. Eight characters, which is what the retired Go backend produced
 and what every code handed out so far is: forty bits of colour and the avatar bit.
 Thirteen characters - a `1`, then twelve: the same forty colour bits, nine flags for
-the elements of the first line, and the rank of the order those elements stand in,
-ranked among the elements of their own half of the line. Bits this version does not
-use are written zero and refused otherwise, so a later version can take them without
-two releases ever reading one code differently. `tests/golden/` pins the
+the elements of the first line, the rank of the order those elements stand in,
+ranked among the elements of their own half of the line, and a bit for the border
+fill - the dashes between the elements, and the run of them that reaches the line to
+the width of the terminal. That last bit is held against its name, zero meaning the
+fill, because it was one of the bits no release used: every code written before the
+flag says the line stretched to the edge, as it always did. A code asking for no fill
+shortens the line to the elements that show, two dashes between neighbours, and the
+width it does not use belongs to the terminal. Bits this version does not use are
+written zero and refused otherwise, so a later version can take them without two
+releases ever reading one code differently. `tests/golden/` pins the
 colours of every code that has ever been handed out, so decoding cannot drift.
 
 ### Run the WebUI and the downloaded files locally

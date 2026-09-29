@@ -37,13 +37,16 @@ const colorLabels = {
 
 // Which element of the top line each box of the page speaks for, and the two
 // halves those boxes stand in, are in preview.js - the file that builds the line
-// the boxes change. The order of the colours in a theme code is in theme-code.js,
-// which the shell library and the tests read it out of as well.
+// the boxes change. The last of the boxes speaks for the border fill, which is not
+// an element of the line but the dashes between them. The order of the colours in a
+// theme code is in theme-code.js, which the shell library and the tests read it out
+// of as well.
 const promptElements = PROMPT_ELEMENTS;
 
-// Which elements of the top line the theme shows. Each of them shows unless its
-// box is unticked, and a theme that says nothing about them - a code of eight
-// characters, from before the boxes existed - shows them all.
+// Which elements of the top line the theme shows, and whether its border fills the
+// line out to the width of the terminal. Each of them shows unless its box is
+// unticked, and a theme that says nothing about them - a code of eight characters,
+// from before the boxes existed - shows them all and fills the line as it always did.
 const elementFlags = ref(flagsOf(ALL_ELEMENTS_ON));
 
 // The avatar is one of these elements, and its box stood by itself for longer than

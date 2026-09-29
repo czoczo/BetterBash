@@ -124,9 +124,13 @@ done
 
 case $BB_TEST_CODE in
   rand) ;;
+  # Either shape prompt/bb-theme.sh reads - the eight characters of a release, or
+  # the thirteen of a version 1, which also say which elements of the first line
+  # show and whether its border fills the width of the terminal.
   ????????) ;;
+  1????????????) ;;
   *)
-    printf '%s is not a theme code (eight characters of A-Za-z0-9_-, or "rand")\n' "$BB_TEST_CODE" >&2
+    printf '%s is not a theme code (eight characters of A-Za-z0-9_-, thirteen beginning with a 1, or "rand")\n' "$BB_TEST_CODE" >&2
     exit 2
     ;;
 esac

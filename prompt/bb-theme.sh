@@ -45,11 +45,25 @@ BB_THEME_KEYS='PRIMARY_COLOR SECONDARY_COLOR ROOT_COLOR TIME_COLOR ERR_COLOR SEP
 BB_ELEMENTS='PROMPT_USER PROMPT_HOST PROMPT_TTY AVATAR PROMPT_JOBS PROMPT_EXIT PROMPT_DURATION PROMPT_DATE PROMPT_CLOCK'
 BB_ELEMENTS_LEFT='PROMPT_USER PROMPT_HOST PROMPT_TTY AVATAR PROMPT_JOBS'
 BB_ELEMENTS_RIGHT='PROMPT_EXIT PROMPT_DURATION PROMPT_DATE PROMPT_CLOCK'
-
-# The flags of all of them, in the order of BB_ELEMENTS: one bit each, one
-# meaning "show this element", and a theme that names none shows all.
 BB_ELEMENT_COUNT=9
-BB_ELEMENTS_ALL='111111111'
+
+# The border fill: the dashes between the elements of the top line, and the run of
+# them that reaches the line to the width of the terminal. It is a flag like the
+# elements and gets a checkbox like them, but it is not one of them: it stands
+# between the two halves of the line, so it is ranked nowhere and takes the bit
+# right behind the nine of the line.
+BB_FILL='PROMPT_FILL'
+
+# All ten flags, in the order they are read, written and printed: the elements of
+# the line, then the fill. One bit each, one meaning "show this", and a theme that
+# names none shows all. BB_THEME_FLAG_COUNT is the field of flags a code holds,
+# which is the nine of BB_ELEMENTS; the fill follows it in a bit of its own.
+BB_FLAGS="$BB_ELEMENTS $BB_FILL"
+BB_FLAG_COUNT=10
+BB_FLAGS_ALL='1111111111'
+# The field of flags a code holds is the elements of the line and no more, so the
+# count that names it is the count of the elements.
+BB_THEME_FLAG_COUNT=$BB_ELEMENT_COUNT
 
 # The word the WebUI puts in an install command instead of a code, meaning
 # "draw a theme here". Every run of it draws a new one, so the word is also how
@@ -87,7 +101,16 @@ BB_THEME_V1_PAYLOAD=12
 #             permutation in the factorial number system (5! = 120 needs 7 bits);
 #   56 - 60   the order of the four elements of the right half, the same way
 #             (4! = 24 needs 5 bits);
-#   61 - 71   reserved, and zero in every code this release writes.
+#   61        the border fill, BB_FILL, and held against its name: zero for the
+#             fill, and one for a line holding nothing but the elements that show,
+#             two dashes between its neighbours;
+#   62 - 71   reserved, and zero in every code this release writes.
+#
+# The fill is held inverted, zero meaning that it fills, because the bit it takes
+# was reserved: every code written before this flag - every code of eight
+# characters, and every code of thirteen - holds zero in it, and zero is the line
+# stretched to the edge of the terminal, as it has always been. Only a code built
+# now asks for the shorter one.
 #
 # The halves are ranked separately because the frame anchors them separately: the
 # left half grows from the corner, the right half ends at the far end of the line
@@ -112,7 +135,11 @@ BB_THEME_ORDER_RIGHT_BIT=56
 BB_THEME_ORDER_RIGHT_WIDTH=5
 BB_THEME_ORDER_LEFT_COUNT=5
 BB_THEME_ORDER_RIGHT_COUNT=4
-BB_THEME_RESERVED_BITS=11
+# The bit the border fill is held in, and from the bit behind it the bits this
+# release keeps zero.
+BB_THEME_FILL_BIT=61
+BB_THEME_RESERVED_BIT=62
+BB_THEME_RESERVED_BITS=10
 
 # --- the bits of a code --------------------------------------------------
 #
@@ -332,7 +359,7 @@ bb_theme_validate() {
   _bbtv_left=$_bbt_cut_out
   _bbt_cut "$_bbt_bits_out" "$BB_THEME_ORDER_RIGHT_BIT" "$BB_THEME_ORDER_RIGHT_WIDTH" || return 1
   _bbtv_right=$_bbt_cut_out
-  _bbt_cut "$_bbt_bits_out" 61 "$BB_THEME_RESERVED_BITS" || return 1
+  _bbt_cut "$_bbt_bits_out" "$BB_THEME_RESERVED_BIT" "$BB_THEME_RESERVED_BITS" || return 1
   _bbtv_reserved=$_bbt_cut_out
 
   _bbt_factorial "$BB_THEME_ORDER_LEFT_COUNT"
@@ -366,10 +393,10 @@ bb_theme_validate() {
 # --- flags ----------------------------------------------------------------
 
 # bb_theme_flags CODE
-# Prints the nine element flag bits of CODE, in the order of BB_ELEMENTS, and
+# Prints the flags of CODE in the order of BB_ELEMENTS and then BB_FILL, and
 # leaves them in _bbt_flags_out. A v0 code carries one of them - the avatar, at
 # bit 40 - and says nothing about the rest: those show, which is what they did
-# before there were flags at all.
+# before there were flags at all, the fill among them.
 bb_theme_flags() {
   _bbtf_code=$1
 
@@ -378,16 +405,24 @@ bb_theme_flags() {
       _bbt_bits_of "$_bbtf_code" || return 1
       _bbt_cut "$_bbt_bits_out" 40 1 || return 1
       # The avatar bit of a v0 code goes to the place the avatar holds in
-      # BB_ELEMENTS, which is the fourth; everything else shows.
+      # BB_ELEMENTS, which is the fourth; everything else shows, the fill among it,
+      # since a code of eight characters never heard of it.
       _bbtf_avatar=$_bbt_cut_out
-      _bbt_cut "$BB_ELEMENTS_ALL" 0 3 || return 1
-      _bbt_flags_out="${_bbt_cut_out}${_bbtf_avatar}11111"
+      _bbt_cut "$BB_FLAGS_ALL" 0 3 || return 1
+      _bbtf_head=$_bbt_cut_out
+      _bbt_cut "$BB_FLAGS_ALL" 4 "$(( BB_FLAG_COUNT - 4 ))" || return 1
+      _bbt_flags_out="${_bbtf_head}${_bbtf_avatar}${_bbt_cut_out}"
       printf '%s\n' "$_bbt_flags_out"
       ;;
     "$BB_THEME_V1_LENGTH")
       _bbt_bits_of "${_bbtf_code#?}" || return 1
-      _bbt_cut "$_bbt_bits_out" "$BB_THEME_FLAG_BIT" "$BB_ELEMENT_COUNT" || return 1
-      _bbt_flags_out=$_bbt_cut_out
+      _bbt_cut "$_bbt_bits_out" "$BB_THEME_FLAG_BIT" "$BB_THEME_FLAG_COUNT" || return 1
+      _bbtf_line=$_bbt_cut_out
+      # The fill, held against its name: only a one in its bit says that it does
+      # not fill, so a code that never spoke of it fills its line as it always did.
+      _bbt_cut "$_bbt_bits_out" "$BB_THEME_FILL_BIT" 1 || return 1
+      if [ "$_bbt_cut_out" = 1 ]; then _bbtf_fill=0; else _bbtf_fill=1; fi
+      _bbt_flags_out="${_bbtf_line}${_bbtf_fill}"
       printf '%s\n' "$_bbt_flags_out"
       ;;
     *)
@@ -404,7 +439,7 @@ bb_theme_flags() {
 #   KEY='\033[...]'
 # lines, ready to be sourced: the eight colours of both formats, and the element
 # flags the format carries - AVATAR alone for a v0 code, exactly as it has always
-# been printed, and all nine of BB_ELEMENTS for a v1 one.
+# been printed, and all ten of BB_FLAGS for a v1 one.
 bb_theme_decode() {
   _bbtd_code=$1
 
@@ -439,7 +474,7 @@ bb_theme_decode_v1() {
 
   bb_theme_flags "$1" > /dev/null || return 1
   _bbt_d1_n=0
-  for _bbt_d1_key in $BB_ELEMENTS; do
+  for _bbt_d1_key in $BB_FLAGS; do
     _bbt_cut "$_bbt_flags_out" "$_bbt_d1_n" 1 || return 1
     if [ "$_bbt_cut_out" = 1 ]; then
       printf '%s=%s\n' "$_bbt_d1_key" "'true'"
@@ -588,19 +623,24 @@ bb_random_theme_code() {
   if [ -n "${1:-}" ]; then
     _bb_rt_flags=$(bb_theme_flags "$1" 2>/dev/null) || _bb_rt_flags=''
   fi
-  [ -n "$_bb_rt_flags" ] || _bb_rt_flags=$BB_ELEMENTS_ALL
+  [ -n "$_bb_rt_flags" ] || _bb_rt_flags=$BB_FLAGS_ALL
 
   bb_random_color_bits || return 1
 
   # Both order fields at rank zero, which is the order of BB_ELEMENTS_LEFT and
-  # BB_ELEMENTS_RIGHT, and the reserved bits at zero.
+  # BB_ELEMENTS_RIGHT, the fill in its bit and against its name, and the reserved
+  # bits at zero.
   _bbt_order_rank_bits 0 "$BB_THEME_ORDER_LEFT_COUNT" || return 1
   _bb_rt_left=$_bbt_bits_out
   _bbt_order_rank_bits 0 "$BB_THEME_ORDER_RIGHT_COUNT" || return 1
   _bb_rt_right=$_bbt_bits_out
+  _bbt_cut "$_bb_rt_flags" 0 "$BB_THEME_FLAG_COUNT" || return 1
+  _bb_rt_line=$_bbt_cut_out
+  _bbt_cut "$_bb_rt_flags" "$BB_THEME_FLAG_COUNT" 1 || return 1
+  if [ "$_bbt_cut_out" = 1 ]; then _bb_rt_fillbit=0; else _bb_rt_fillbit=1; fi
   _bbt_zeros "$BB_THEME_RESERVED_BITS"
 
-  _bbt_bits_to_code "$_bbt_color_bits_out$_bb_rt_flags$_bb_rt_left$_bb_rt_right$_bbt_bits_out" || return 1
+  _bbt_bits_to_code "$_bbt_color_bits_out$_bb_rt_line$_bb_rt_left$_bb_rt_right$_bb_rt_fillbit$_bbt_bits_out" || return 1
   printf '%s%s\n' "$BB_THEME_VERSION" "$_bbt_code_out"
 }
 

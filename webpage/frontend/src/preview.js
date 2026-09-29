@@ -7,9 +7,11 @@
 // way - a preview in which hiding the clock left a hole where it stood would
 // preview a prompt the shell does not draw.
 //
-// So this holds the elements the checkboxes of the page speak for, and builds the
-// line: the same widths prompt/bb.sh counts, the same separators, the same fill
-// and the same dashes an hidden element hands back when the fill is gone.
+// So this holds what the checkboxes of the page speak for - the nine elements of
+// the line and the border fill - and builds the line: the same widths prompt/bb.sh
+// counts, the same separators, the same fill, and the same dashes a hidden element
+// hands back when the fill is gone. A theme that wants no fill gets the shorter
+// line it asks for, of its elements and the two dashes between neighbours.
 // tests/test-frame.mjs draws the frame with bash and compares it with what this
 // builds, glyph for glyph.
 
@@ -29,10 +31,17 @@ export const ELEMENTS = [
   { key: 'PROMPT_DURATION', label: 'Duration', hint: 'how long the last command ran' },
   { key: 'PROMPT_DATE', label: 'Date', hint: 'the day the prompt was drawn' },
   { key: 'PROMPT_CLOCK', label: 'Clock', hint: 'the time the prompt was drawn' },
+  // The tenth flag, and not one of the elements above: the border fill, which
+  // stands between the two halves of the line rather than in either of them.
+  {
+    key: 'PROMPT_FILL',
+    label: 'Border fill',
+    hint: 'the dashes that stretch the line to the width of the terminal',
+  },
 ];
 
 export const LEFT_ELEMENTS = ELEMENTS.slice(0, 5);
-export const RIGHT_ELEMENTS = ELEMENTS.slice(5);
+export const RIGHT_ELEMENTS = ELEMENTS.slice(5, 9);   // the fill is neither half
 
 // The width of the preview box, in glyphs, and the terminal that would draw the
 // same line: prompt/bb.sh keeps the top line four columns short of the right
@@ -121,7 +130,11 @@ export function topLine({ flags, host, avatar = [], sample = SAMPLE, columns = c
   // theme hides, so a frame with three elements and a frame with seven break at
   // the same width.
   const room = columns - 4 - natural.left - natural.right;
-  const narrow = room <= 0;
+  // The border fill, and with it the two states of the line: stretched to the edge
+  // of the terminal, or holding nothing but what shows. A line without the fill has
+  // no fill to drop when the terminal runs out, so it is never too narrow for one.
+  const fills = on('PROMPT_FILL');
+  const narrow = fills && room <= 0;
 
   // (user@host:tty), measured and drawn as one element with parts of its own. The
   // @ belongs to a name and a machine together and stands between them when both
@@ -196,8 +209,9 @@ export function topLine({ flags, host, avatar = [], sample = SAMPLE, columns = c
   // The fill: whatever width the terminal leaves over, and whatever the elements
   // that hide gave up. When the terminal is too narrow for the row, the fill is
   // dropped rather than keeping the dash it would otherwise carry, because that
-  // dash would push the frame onto the next line.
-  const fill = narrow ? 0 : room + given;
+  // dash would push the frame onto the next line. When the theme asks for no fill
+  // there is none at all, and the line ends where its last element ends.
+  const fill = !fills || narrow ? 0 : room + given;
   if (fill > 0) out.push(segment(dashRun(fill), 'BORDCOL'));
 
   // The right half, hanging from the right edge of the line: the code the last
@@ -207,6 +221,9 @@ export function topLine({ flags, host, avatar = [], sample = SAMPLE, columns = c
   // something next to it.
   if (on('PROMPT_EXIT')) {
     out.push(
+      // Without the fill behind it, the two dashes every other element of the line
+      // carries are what joins the code to what stands before it.
+      ...(fills ? [] : [segment('──', 'BORDCOL')]),
       code
         ? [segment('(', 'SEPARATOR_COLOR'), segment(`${code} ↵`, 'ERR_COLOR'), segment(')', 'SEPARATOR_COLOR')]
         : [segment(dashRun(5), 'BORDCOL')]

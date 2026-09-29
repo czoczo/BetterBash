@@ -13,14 +13,19 @@
 //   v1  thirteen characters: the digit 1, then twelve characters of payload, of
 //       which the first 40 bits are the colours of v0 in the same order, the
 //       next nine are the elements of the top line of the prompt, the next
-//       seven and five are the order of the two halves of that line, and the
-//       last eleven are kept at zero so that a later version cannot be mistaken
-//       for this one.
+//       seven and five are the order of the two halves of that line, the one
+//       behind them is the border fill, and the last ten are kept at zero so
+//       that a later version cannot be mistaken for this one.
+//
+// The fill is held against its name - zero fills the line, one does not - because
+// the bit it takes was one of the kept ones, so every code written before it says
+// the line it always drew.
 //
 // The colours of both shapes, in the order their bits are written.
 //
 // The order of the nine element bits is the order the elements stand in on the
-// top line of the prompt: five of the left half, then four of the right one.
+// top line of the prompt: five of the left half, then four of the right one. The
+// fill follows them, though it stands between the two halves and not after them.
 
 export const ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
 
@@ -35,7 +40,8 @@ export const COLOR_KEYS = [
   'PATH_COLOR',
 ];
 
-export const ELEMENT_KEYS = [
+// The nine elements of the top line, in the order they stand on it.
+export const LINE_ELEMENTS = [
   'PROMPT_USER',
   'PROMPT_HOST',
   'PROMPT_TTY',
@@ -47,13 +53,22 @@ export const ELEMENT_KEYS = [
   'PROMPT_CLOCK',
 ];
 
-// The elements of the two halves of the top line, in the order of ELEMENT_KEYS.
-// The halves are ordered apart from one another because the frame anchors them
-// apart: the left half hangs from the opening corner, the right one from the
-// closing. Five elements have 120 orders and need seven bits, four have 24 and
-// need five.
-export const LEFT_ELEMENTS = ELEMENT_KEYS.slice(0, 5);
-export const RIGHT_ELEMENTS = ELEMENT_KEYS.slice(5);
+// The border fill: the dashes between the elements of the top line, and the run of
+// them that reaches the line to the width of the terminal. A flag like the elements
+// and a checkbox like them, but not one of them: it stands between the two halves
+// of the line, so it is ranked nowhere and takes the bit behind the nine.
+export const FILL_KEY = 'PROMPT_FILL';
+
+// The flags in the order they are read, written and shown as checkboxes: the
+// elements of the line, then the fill.
+export const ELEMENT_KEYS = [...LINE_ELEMENTS, FILL_KEY];
+
+// The elements of the two halves of the top line. The halves are ordered apart
+// from one another because the frame anchors them apart: the left half hangs from
+// the opening corner, the right one from the closing. Five elements have 120 orders
+// and need seven bits, four have 24 and need five.
+export const LEFT_ELEMENTS = LINE_ELEMENTS.slice(0, 5);
+export const RIGHT_ELEMENTS = LINE_ELEMENTS.slice(5);
 
 export const VERSION = '1';
 export const V0_LENGTH = 8;
@@ -62,8 +77,13 @@ export const COLOR_BITS = 40;
 export const FLAG_BITS = 9;
 export const LEFT_ORDER_BITS = 7;
 export const RIGHT_ORDER_BITS = 5;
-export const RESERVED_BITS = 11;
-export const V1_PAYLOAD_BITS = COLOR_BITS + FLAG_BITS + LEFT_ORDER_BITS + RIGHT_ORDER_BITS + RESERVED_BITS;
+export const FILL_BITS = 1;
+export const RESERVED_BITS = 10;
+export const V1_PAYLOAD_BITS = COLOR_BITS + FLAG_BITS + LEFT_ORDER_BITS + RIGHT_ORDER_BITS +
+  FILL_BITS + RESERVED_BITS;
+
+// Where the fill is held in the payload, and the string that says every flag shows.
+const FILL_BIT = COLOR_BITS + FLAG_BITS + LEFT_ORDER_BITS + RIGHT_ORDER_BITS;
 
 export const ALL_ELEMENTS_ON = '1'.repeat(ELEMENT_KEYS.length);
 
@@ -173,13 +193,21 @@ const bitsToNumber = (bits) => bits.reduce((value, bit) => (value << 1) | bit, 0
 
 // --- the code in full ------------------------------------------------------
 
-// A theme: the eight colours, the nine elements of the top line, and the two
-// orders. `elements` is the bit string of the nine element flags in the order of
-// ELEMENT_KEYS, '1' showing one; the orders are ranks, and both are 0 - the
-// order of ELEMENT_KEYS - until the page can be asked to reorder them.
+// A theme: the eight colours, the nine elements of the top line and the border
+// fill, and the two orders. `elements` is the bit string of the flags in the order
+// of ELEMENT_KEYS - the nine of the line and the fill last - '1' showing one; the
+// orders are ranks, and both are 0 - the order of LINE_ELEMENTS - until the page
+// can be asked to reorder them.
+//
+// The fill goes into its bit against its name: a flag that shows becomes a zero,
+// because every code written before this flag holds zero there and means the line
+// stretched to the edge of the terminal.
 export function encode({ colors, elements = ALL_ELEMENTS_ON, leftOrder = 0, rightOrder = 0 }) {
-  const bits = colorBitsString(colors) + elements + leftOrder.toString(2).padStart(7, '0') +
-    rightOrder.toString(2).padStart(5, '0') + '0'.repeat(RESERVED_BITS);
+  const fill = elements.charAt(FLAG_BITS) === '1' ? '0' : '1';
+  const bits = colorBitsString(colors) + elements.slice(0, FLAG_BITS) +
+    leftOrder.toString(2).padStart(LEFT_ORDER_BITS, '0') +
+    rightOrder.toString(2).padStart(RIGHT_ORDER_BITS, '0') +
+    fill + '0'.repeat(RESERVED_BITS);
   return VERSION + bitsToCode(bits.split('').map(Number));
 }
 
@@ -192,7 +220,7 @@ export function decode(code) {
     if (!bits) return null;
     // The avatar bit is the first of the 48 that the shape has room for, and it
     // is the only element a code of this shape says anything about: the rest of
-    // them were never asked for, and show.
+    // them were never asked for, and show - the fill among them.
     const avatar = bits[COLOR_BITS] === 1 ? '1' : '0';
     return {
       version: 0,
@@ -214,7 +242,10 @@ export function decode(code) {
   return {
     version: 1,
     colors: colorsFromBits(bits.slice(0, COLOR_BITS)),
-    elements: bits.slice(COLOR_BITS, COLOR_BITS + FLAG_BITS).join(''),
+    // The flags of the line, then the fill out of its bit and back to its name:
+    // only a one there says it does not fill.
+    elements: bits.slice(COLOR_BITS, COLOR_BITS + FLAG_BITS).join('') +
+      (bits[FILL_BIT] === 1 ? '0' : '1'),
     leftOrder: left,
     rightOrder: right,
   };
@@ -224,5 +255,5 @@ export function isThemeCode(code) {
   return decode(code) !== null;
 }
 
-// The flag of one element out of a bit string of nine.
+// The flag of one element, or of the fill, out of the bit string of them all.
 export const elementFlag = (elements, key) => elements.charAt(ELEMENT_KEYS.indexOf(key)) === '1';

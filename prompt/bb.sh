@@ -314,6 +314,11 @@ esac
 # eight glyphs - is the one of them that was there before the rest had names. A
 # theme that does not mention an element shows it: the theme.sh of an older
 # install names the avatar alone, and a machine without a theme shows everything.
+#
+# PROMPT_FILL is the tenth flag, and the last of them: the border fill, the dashes
+# between the elements and the run of them that reaches the line to the width of
+# the terminal. It is asked for like an element and hidden like one, but it is not
+# one - see __prompt_command for what a line without it looks like.
 [ -z "${PROMPT_USER}" ] && PROMPT_USER='true'
 [ -z "${PROMPT_HOST}" ] && PROMPT_HOST='true'
 [ -z "${PROMPT_TTY}" ] && PROMPT_TTY='true'
@@ -322,6 +327,7 @@ esac
 [ -z "${PROMPT_DURATION}" ] && PROMPT_DURATION='true'
 [ -z "${PROMPT_DATE}" ] && PROMPT_DATE='true'
 [ -z "${PROMPT_CLOCK}" ] && PROMPT_CLOCK='true'
+[ -z "${PROMPT_FILL}" ] && PROMPT_FILL='true'
 
 # Whether the theme asks for an element. The flags are the strings the theme file
 # holds, and only 'true' shows an element; 'false', an empty value and a word
@@ -545,7 +551,14 @@ function __prompt_command() {
   RIGHT_NATURAL=$(( EXIT_NATURAL + TIMER_NATURAL + DATE_NATURAL + CLOCK_NATURAL + FRAME_TAIL_WIDTH ))
   ROOM=$(( $(tput cols) - 4 - LEFT_NATURAL - RIGHT_NATURAL ))
   BB_TOP_NARROW=0
-  if [ "$ROOM" -le 0 ]; then
+  if ! __bb_shown PROMPT_FILL; then
+    # The theme asked for no fill, so the line is only what it holds: every element
+    # that shows, two dashes between its neighbours, and no run of them reaching
+    # the edge of the terminal. There is no fill to hand the width of a hidden
+    # element to, so nothing is handed back and nothing padded - the line is simply
+    # shorter, and the width it does not use belongs to the terminal.
+    FILL=''
+  elif [ "$ROOM" -le 0 ]; then
     BB_TOP_NARROW=1
     FILL=''
   else
@@ -588,6 +601,10 @@ function __prompt_command() {
     else
       EXIT="$BORDCOL$HBAR$HBAR$HBAR$HBAR$HBAR"
     fi
+    # The exit code is the one element of the line that carries no separator of its
+    # own: the fill always ran up to it. Where there is no fill, the two dashes the
+    # other elements carry are what joins it to what stands before it.
+    if ! __bb_shown PROMPT_FILL; then EXIT="$FRAME_SEP$EXIT"; fi
   else
     __bb_hidden "$EXIT_NATURAL"
     EXIT=$__bb_hidden_out

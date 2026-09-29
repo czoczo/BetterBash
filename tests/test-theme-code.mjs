@@ -25,8 +25,12 @@ import {
   ALL_ELEMENTS_ON,
   COLOR_KEYS,
   ELEMENT_KEYS,
+  FILL_KEY,
+  FLAG_BITS,
+  RESERVED_BITS,
   bitsToCode,
   decode,
+  elementFlag,
   encode,
   orderByRank,
   orderRank,
@@ -76,6 +80,10 @@ function shellReads(codes) {
     const code = record.slice(0, at);
     const flags = rest.slice(0, rest.indexOf('|'));
     const colors = {};
+    // The assignments that are not colours - the element flags prompt/bb.sh sources
+    // - are kept as the library wrote them, quotes and all, because what is asked
+    // of them is whether the file says PROMPT_FILL='true' or ='false'.
+    const assignments = [];
     for (const pair of rest.slice(rest.indexOf('|') + 1).split('\u001f')) {
       if (!pair.includes('=')) continue;
       const key = pair.slice(0, pair.indexOf('='));
@@ -83,8 +91,9 @@ function shellReads(codes) {
       // with; what is compared here is what that shell expands to.
       if (COLOR_KEYS.includes(key))
         colors[key] = pair.slice(pair.indexOf('=') + 1).replace(/^'(.*)'$/, '$1');
+      else assignments.push(pair);
     }
-    read.set(code, { flags, colors });
+    read.set(code, { flags, colors, assignments: assignments.join(';') });
   }
   return read;
 }
@@ -124,6 +133,25 @@ const escapeOf = (attrs) =>
   }
   if (wrong.length) wrong.slice(0, 8).forEach((what) => fail(what));
   else ok(`the page and the shell read ${codes.length} codes of the corpus alike`);
+}
+
+// A code of the new shape out of its fields, every other bit of it zero: the
+// element flags of the line (nine, the tenth flag of the fill following them), the
+// two ordering ranks, the fill bit as a code holds it, and the bits a later
+// release is asked to keep zero. A check names the field it means rather than a
+// code, because which character carries a bit depends on every bit before it.
+function withFields({ left = 0, right = 0, fill = 0, reserved = 0 } = {}) {
+  const bits = (
+    '0'.repeat(40) +
+    ALL_ELEMENTS_ON.slice(0, FLAG_BITS) +
+    left.toString(2).padStart(7, '0') +
+    right.toString(2).padStart(5, '0') +
+    fill.toString(2).padStart(1, '0') +
+    reserved.toString(2).padStart(RESERVED_BITS, '0')
+  )
+    .split('')
+    .map(Number);
+  return '1' + bitsToCode(bits);
 }
 
 // --- codes the page writes --------------------------------------------------
@@ -203,6 +231,63 @@ const escapeOf = (attrs) =>
   else ok(`the page reads the code the shell drew (${out})`);
 }
 
+// --- the border fill --------------------------------------------------------
+
+// Nine flags of the elements, and the tenth of the fill that stands between them.
+// The bit it takes was one of the reserved ones, so its meaning is held against
+// its name: zero is the fill, which is what every code written before the flag -
+// every code of eight characters, and every code of thirteen with its tail of zero
+// bits - says, and one is a line holding nothing but the elements that show. What
+// a code therefore means is checked of both readers, because a theme the page
+// shortens has to be shortened by the shell too.
+{
+  const silent = withFields(); // every reserved bit zero, as an older code holds it
+  const shortened = withFields({ fill: 1 });
+  const wrong = [];
+  const read = shellReads([silent, shortened]);
+
+  for (const [code, fills, what] of [
+    [silent, true, 'a code that never spoke of the fill'],
+    [shortened, false, 'a code asking for no fill'],
+  ]) {
+    const decoded = decode(code);
+    if (!decoded) {
+      wrong.push(`${code}: the page refuses a code of this shape (${what})`);
+      continue;
+    }
+    if (elementFlag(decoded.elements, FILL_KEY) !== fills)
+      wrong.push(
+        `${code}: ${what} reads as fill ${elementFlag(decoded.elements, FILL_KEY)} in the page, want ${fills}`
+      );
+    const fromShell = read.get(code);
+    if (!fromShell || !fromShell.colors[COLOR_KEYS[0]]) {
+      wrong.push(`${code}: the shell refuses a code of this shape (${what})`);
+      continue;
+    }
+    // bb_theme_flags prints the flags as they are meant, the fill last and back to
+    // its name, so a one there is the fill showing.
+    if (fromShell.flags.charAt(ELEMENT_KEYS.indexOf(FILL_KEY)) !== (fills ? '1' : '0'))
+      wrong.push(
+        `${code}: ${what} reads as ${fromShell.flags} in the shell, want the fill ${fills ? 'on' : 'off'}`
+      );
+    // And the assignment prompt/bb.sh sources says the same.
+    if (!fromShell.assignments.includes(`${FILL_KEY}=${fills ? "'true'" : "'false'"}`))
+      wrong.push(`${code}: ${what} leaves no ${FILL_KEY}=${fills ? "'true'" : "'false'"} to source`);
+  }
+
+  // The fill is written back into the bit it was read out of, and the page agrees
+  // with itself about a code it read: what it encodes from a decoded theme is that
+  // theme's code again.
+  for (const code of [silent, shortened]) {
+    const decoded = decode(code);
+    if (decoded && encode(decoded) !== code)
+      wrong.push(`${code}: encoding what it decodes writes ${encode(decoded)}`);
+  }
+
+  if (wrong.length) wrong.slice(0, 6).forEach((what) => fail(what));
+  else ok('the fill of a code is held against its name, and both readers say so');
+}
+
 // --- the shape of a code ---------------------------------------------------
 
 // A code of the new shape is refused when it is not one: of another version, of
@@ -215,14 +300,6 @@ const escapeOf = (attrs) =>
     'AAAAAAAAAAAAB', // eight and a bit characters, of neither shape
     '1AAAAAAAAAAB?', // out of the alphabet
   ];
-  // A field of the code, at its rank, as a code: which character carries an order
-  // depends on every bit before it, so these are built out of bits.
-  const withFields = ({ left = 0, right = 0, reserved = 0 }) => {
-    const bits = ('0'.repeat(40) + ALL_ELEMENTS_ON + left.toString(2).padStart(7, '0') +
-      right.toString(2).padStart(5, '0') + reserved.toString(2).padStart(11, '0')).split('').map(Number);
-    return '1' + bitsToCode(bits);
-  };
-
   const codes = [
     ...rejected,
     withFields({ left: 120 }),
@@ -230,7 +307,7 @@ const escapeOf = (attrs) =>
     withFields({ right: 24 }),
     withFields({ right: 31 }),
     withFields({ reserved: 1 }),
-    withFields({ reserved: 2047 }),
+    withFields({ reserved: (1 << RESERVED_BITS) - 1 }),
   ];
   // The last order that does exist, of each half, is read by both.
   const valid = [[119, 23], [0, 0], [1, 1]].map(([left, right]) => ({ code: withFields({ left, right }), left, right }));

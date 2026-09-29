@@ -349,9 +349,10 @@ function previewPromptLines() {
 // dashes of the frame, in its own place.
 
 // One prompt of a shell on this machine, drawn with the elements of a theme: columns
-// is the terminal, bits says which of the nine elements stand, code is what the last
-// command left behind it, duration how long it ran, and jobs how many commands run
-// beside it. Along with the line it returns what that shell drew itself out of - the
+// is the terminal, bits says which of the nine elements stand and which the border
+// fill among them, code is what the last command left behind it, duration how long
+// it ran, and jobs how many commands run beside it. Along with the line it returns
+// what that shell drew itself out of - the
 // name, the host, the terminal, the avatar the host hashes into, the count of jobs -
 // because the preview draws the same machine and has to say the same things about it.
 function drawPrompt({ columns, bits, code = 0, duration = 42, jobs = 0 }) {
@@ -412,20 +413,30 @@ const PREVIEW_CASES = [
   { columns: 102, bits: ALL_ELEMENTS_ON, code: 127, jobs: 0 },
   // Neither half of the identity and no avatar: the brackets go with them, and the
   // fill takes what they gave up.
-  { columns: 102, bits: '000011111', code: 0, jobs: 1 },
+  { columns: 102, bits: '0000111111', code: 0, jobs: 1 },
   // The counter of jobs and the whole right half gone, an exit code to show.
-  { columns: 102, bits: '111100001', code: 42, jobs: 1 },
+  { columns: 102, bits: '1111000011', code: 42, jobs: 1 },
   // Nothing but the day: every other element handed its width to the fill.
-  { columns: 102, bits: '000000010', code: 0, jobs: 0 },
+  { columns: 102, bits: '0000000101', code: 0, jobs: 0 },
   // A line of nothing but frame.
-  { columns: 102, bits: '000000000', code: 0, jobs: 0 },
+  { columns: 102, bits: '0000000001', code: 0, jobs: 0 },
   // Below the width where the fill is gone, so every element that hides draws its
   // own width in dashes of the frame instead of handing it over.
   { columns: 76, bits: ALL_ELEMENTS_ON, code: 0, jobs: 1 },
-  { columns: 70, bits: '101010101', code: 7, jobs: 1 },
-  { columns: 60, bits: '000000000', code: 128, jobs: 1 },
+  { columns: 70, bits: '1010101011', code: 7, jobs: 1 },
+  { columns: 60, bits: '0000000001', code: 128, jobs: 1 },
   // A wide terminal, a duration of four digits and a count of jobs of one.
-  { columns: 200, bits: '011010111', code: 0, duration: 4242, jobs: 1 },
+  { columns: 200, bits: '0110101111', code: 0, duration: 4242, jobs: 1 },
+  // With no border fill: the line ends where its last element ends. The counter of
+  // jobs and an exit code to show, and everything else hidden; the identity and the
+  // clock of it, which is the shortest line anyone asks for; and nothing to stand
+  // between the corners at all.
+  { columns: 102, bits: '0000111110', code: 127, jobs: 1 },
+  { columns: 102, bits: '1100100010', code: 0, jobs: 1 },
+  { columns: 102, bits: '0000000000', code: 0, jobs: 0 },
+  // Too narrow for the whole row and no fill either: there is no fill to drop, so
+  // the line is as long as its elements and nothing is padded in their places.
+  { columns: 60, bits: '1111111110', code: 7, jobs: 1 },
 ];
 
 {
@@ -535,14 +546,85 @@ printf '%s\\x1f%s\\x1f%s\\x1f%s\\x1f%s' "\${PS1@P}" "$HOSTNAM" "$cur_tty" "\${PR
   else ok('the terminal of the line wears the colour of the host, in the prompt and in the preview');
 }
 
+// A line without the border fill, of its own: the elements that show, two dashes
+// between neighbours, and the width it does not use left to the terminal. Nothing is
+// stretched and nothing padded in the place of what hides, so the same elements make
+// the same string whatever the terminal is wide - and a preview that held that to be
+// false would be a preview of another line than the one the shell draws.
+{
+  const wrong = [];
+  // A code left behind, so that the five dashes standing for a command that ended
+  // well - which are an element of the line, not a stretch of it - never turn up in
+  // the middle of what is measured here.
+  const sample = { ...SAMPLE, code: 7 };
+  // The last of the ten bits is the fill, and it is off in every one of these: both
+  // halves whole, only the identity and the clock, nothing at all, and one element
+  // of each half with a hidden one between them.
+  // A theme of every element and a theme of three are both asked of a terminal of
+  // 60 columns: only the second of them can stop short of its edge.
+  for (const [bits, sparse] of [
+    ['1111111110', false],
+    ['1100100010', true],
+    ['0000000000', true],
+    ['1001000100', false],
+  ]) {
+    const lines = [60, 102, 200].map((columns) =>
+      lineText(
+        topLine({
+          flags: flagsOf(bits),
+          host: 'myhost',
+          avatar: [...'▮▲▲■■▲▲▮'].map((glyph) => ({ text: glyph })),
+          sample,
+          columns,
+        })
+      )
+    );
+    if (new Set(lines).size !== 1)
+      wrong.push(`elements ${bits} draw ${lines.length} different lines as the terminal grows: ${lines.join(' | ')}`);
+    const line = lines[0];
+    // Every run of dashes between two elements of such a line is the two that
+    // separate them. The first run of the line carries the single dash of the open
+    // corner, and the last is the three and a half it closes with, so neither of
+    // those two is held to it.
+    const runs = (line.match(/─+/g) || []).map((run) => run.length);
+    const between = runs.slice(1, -1);
+    if (between.some((run) => run !== 2))
+      wrong.push(`elements ${bits} stand ${between.join(', ')} dashes apart, want two between neighbours`);
+    // What the fill would have stretched to the edge is gone from it: the same
+    // theme with the fill on is longer by exactly that much.
+    const stretched = lineText(
+      topLine({
+        flags: flagsOf(`${bits.slice(0, 9)}1`),
+        host: 'myhost',
+        avatar: [...'▮▲▲■■▲▲▮'].map((glyph) => ({ text: glyph })),
+        sample,
+        columns: 102,
+      })
+    );
+    if (width(line) >= width(stretched))
+      wrong.push(
+        `elements ${bits} are ${width(line)} glyphs with the fill off and ${width(stretched)} with it on - the fill was asked to stay away`
+      );
+    // And a theme of few elements stops well short of the edge of a narrow terminal
+    // rather than reaching for it.
+    if (sparse && width(line) >= 60 - 4)
+      wrong.push(`elements ${bits} still reach the edge of a terminal of 60 columns (${width(line)} glyphs)`);
+    if (runs.some((run) => run > 4))
+      wrong.push(`elements ${bits} stretch ${Math.max(...runs)} dashes in a row where none is stretched`);
+  }
+  if (wrong.length) wrong.slice(0, 4).forEach((what) => fail(what));
+  else ok('a line without the border fill is its elements, two dashes apart, at any width');
+}
+
 // The two prompt lines the page shows are of the width the box is padded to, whatever
 // the theme shows - the invariant the frame has always held, now held of the model
-// rather than of the markup.
+// rather than of the markup. A theme asking for no fill is the one thing that gives
+// the width up on purpose, so it is measured apart, above.
 {
   const wrong = [];
   const widths = [];
   for (const sample of [SAMPLE, SAMPLE_ROOT]) {
-    for (const bits of [ALL_ELEMENTS_ON, '000100001', '101010101', '000000000']) {
+    for (const bits of [ALL_ELEMENTS_ON, '0001000011', '1010101011', '0000000001']) {
       const line = lineText(
         topLine({
           flags: flagsOf(bits),

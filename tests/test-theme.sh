@@ -169,19 +169,44 @@ validation() {
     fail "accepts the last rank of each half, which is a rank and not a mistake"
   fi
 
-  # The flags are the assignments prompt/bb.sh sources, in the order of
-  # BB_ELEMENTS: a bit of one hides one element and no other.
+  # The flags are the assignments prompt/bb.sh sources, in the order of BB_FLAGS:
+  # a bit of one hides one element and no other. The last of the ten is the border
+  # fill, and a code that says nothing about it - the one here - shows it.
   _want='010001101' # host, exit, duration and clock; no user, tty, avatar, jobs, date
   _flags_out=$(sh "$LIB" decode "$(_v1_code "$_want" 0 0)" | grep '^PROMPT_\|^AVATAR=')
   _want_out=$(printf "%s\n" \
     "PROMPT_USER='false'" "PROMPT_HOST='true'" "PROMPT_TTY='false'" "AVATAR='false'" \
     "PROMPT_JOBS='false'" "PROMPT_EXIT='true'" "PROMPT_DURATION='true'" \
-    "PROMPT_DATE='false'" "PROMPT_CLOCK='true'")
+    "PROMPT_DATE='false'" "PROMPT_CLOCK='true'" "PROMPT_FILL='true'")
   if [ "$_flags_out" = "$_want_out" ]; then
     ok "the flags of a code become the assignments prompt/bb.sh sources"
   else
     fail "the flags of a code become the assignments prompt/bb.sh sources"
     printf '       want %s\n       got  %s\n' "$(printf '%s' "$_want_out" | tr '\n' ' ')" "$(printf '%s' "$_flags_out" | tr '\n' ' ')"
+  fi
+
+  # The tenth flag, and the only one of them held against its name: the zero its
+  # bit carries by default is the fill showing, and only a one takes it away - and
+  # takes nothing else with it.
+  _fills=$(_v1_code 111111111 0 0)
+  _nofill=$(_v1_code 111111111 0 0 0 1)
+  _fill_flags=$(bb_theme_flags "$_nofill")
+  _fill_said=$(bb_theme_decode "$_nofill" | grep "^${BB_FILL}=")
+  if [ "$(bb_theme_flags "$_fills")" = "$BB_FLAGS_ALL" ] &&
+    [ "$_fill_flags" = '1111111110' ] && [ "$_fill_said" = "${BB_FILL}='false'" ]; then
+    ok "a code asking for no fill takes the fill and nothing else ($_nofill)"
+  else
+    fail "a code asking for no fill takes the fill and nothing else ($_nofill)"
+    printf '       flags %s, assignment %s\n' "$_fill_flags" "$_fill_said"
+  fi
+
+  # A code of eight characters says nothing about the fill either, and means the
+  # line it always drew: stretched to the edge of the terminal.
+  if [ "$(bb_theme_flags 'vN-y_5uA')" = "$BB_FLAGS_ALL" ] &&
+    ! bb_theme_decode 'vN-y_5uA' | grep -q "^${BB_FILL}="; then
+    ok "a code of eight characters shows the fill and does not mention it"
+  else
+    fail "a code of eight characters shows the fill and does not mention it"
   fi
 
   # A code that fails validation must never become a file.
@@ -191,18 +216,20 @@ validation() {
   check_fail "bb_theme_write leaves no theme.sh for an invalid code" test -f "$_dir/theme.sh"
 }
 
-# _v1_code FLAGS LEFT RIGHT RESERVED - a v1 code saying those things, built with
-# the library's own encoder: nine flag bits as they are written in BB_ELEMENTS
-# order, the two ordering ranks as numbers, and the reserved field as a number for
-# the one check that means to set it. The colours are zero bits, because they are
-# not what any of these checks is about. A check names the field it means rather
-# than a code, so that a wrong encoder shows up as disagreeing with the other
-# checks instead of agreeing with itself.
+# _v1_code FLAGS LEFT RIGHT RESERVED NOFILL - a v1 code saying those things, built
+# with the library's own encoder: nine flag bits as they are written in BB_ELEMENTS
+# order, the two ordering ranks as numbers, the border fill as a code holds it - a
+# one meaning it does not fill - and the reserved field as a number for the one
+# check that means to set it. The colours are zero bits, because they are not what
+# any of these checks is about. A check names the field it means rather than a
+# code, so that a wrong encoder shows up as disagreeing with the other checks
+# instead of agreeing with itself.
 _v1_code() {
   _bbt_zeros "$BB_THEME_COLOR_BITS"; _vc_bits=$_bbt_bits_out
-  _bbt_cut "$1" 0 "$BB_ELEMENT_COUNT"; _vc_bits="$_vc_bits$_bbt_cut_out"
+  _bbt_cut "$1" 0 "$BB_THEME_FLAG_COUNT"; _vc_bits="$_vc_bits$_bbt_cut_out"
   _bbt_bits_of_num "$2" "$BB_THEME_ORDER_LEFT_WIDTH"; _vc_bits="$_vc_bits$_bbt_bits_out"
   _bbt_bits_of_num "$3" "$BB_THEME_ORDER_RIGHT_WIDTH"; _vc_bits="$_vc_bits$_bbt_bits_out"
+  _bbt_bits_of_num "${5:-0}" 1; _vc_bits="$_vc_bits$_bbt_bits_out"
   _bbt_bits_of_num "${4:-0}" "$BB_THEME_RESERVED_BITS"; _vc_bits="$_vc_bits$_bbt_bits_out"
   _bbt_bits_to_code "$_vc_bits" || return 1
   printf '%s%s' "$BB_THEME_VERSION" "$_bbt_code_out"
@@ -254,7 +281,7 @@ random_codes() {
     bb_theme_validate "$_code" 2>/dev/null || _bad="$_bad invalid:$_code"
     # A draw with no theme to replace says nothing about the elements of the
     # prompt, which is the same as showing all of them.
-    [ "$(bb_theme_flags "$_code")" = "$BB_ELEMENTS_ALL" ] || _bad="$_bad flags:$_code"
+    [ "$(bb_theme_flags "$_code")" = "$BB_FLAGS_ALL" ] || _bad="$_bad flags:$_code"
   done <"$_out"
   if [ -z "$_bad" ]; then
     ok "every generated code validates and shows every element"
@@ -281,16 +308,23 @@ random_codes() {
   fi
 
 # What a draw is not: a new set of elements. The two formats carry their elements
-  # differently - v1 in nine bits, v0 in the avatar bit alone - and neither way
-  # may a draw turn the elements into part of the colours it is drawing.
-  _kept_flags='100101100' # everything but the host, the jobs and the clock
-  _kept=$(_v1_code "$_kept_flags" 0 0)
-  _drawn=$(bb_theme_flags "$(bb_random_theme_code "$_kept")")
-  if [ "$_drawn" = "$_kept_flags" ]; then
-    ok "rand keeps the elements of the v1 code it replaces ($_kept)"
-  else
-    fail "rand keeps the elements of the v1 code it replaces ($_kept -> $_drawn)"
-  fi
+  # differently - v1 in nine bits and the fill in a bit of its own, v0 in the avatar
+  # bit alone - and neither way may a draw turn the elements into part of the
+  # colours it is drawing.
+  # Everything but the host, the jobs and the clock, once with the fill and once
+  # without: the fill of the theme a draw replaces is kept along with the elements.
+  for _kept_flags in '1001011001' '1001011000'; do
+    _bbt_cut "$_kept_flags" 9 1 || return 1
+    # The fill goes into its bit against its name, as every encoder of this release
+    # does: a flag of one shows it, and the bit of it stays zero.
+    _kept=$(_v1_code "$_kept_flags" 0 0 0 "$(( 1 - _bbt_cut_out ))")
+    _drawn=$(bb_theme_flags "$(bb_random_theme_code "$_kept")")
+    if [ "$_drawn" = "$_kept_flags" ]; then
+      ok "rand keeps the elements and the fill of the v1 code it replaces ($_kept)"
+    else
+      fail "rand keeps the elements and the fill of the v1 code it replaces ($_kept -> $_drawn)"
+    fi
+  done
 
   # vN-y_5uA has its avatar bit set and 02iBiOlH has not; the other eight elements
   # were never written down in either, and so show in both.
