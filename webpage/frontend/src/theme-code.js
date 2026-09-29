@@ -255,5 +255,33 @@ export function isThemeCode(code) {
   return decode(code) !== null;
 }
 
+// --- asking for a draw ---------------------------------------------------
+
+// The word an install command carries instead of a code when the machine that
+// runs it is asked to draw the colours itself, and the separator between that
+// word and a theme code the draw is asked to wear.
+export const RANDOM_WORD = 'rand';
+export const RANDOM_SEPARATOR = ':';
+
+// The word, and the code whose elements the draw should wear. A code is always
+// carried: the boxes of the top line are the one thing a draw never picks for
+// itself, so the page hands them over even while its colours are random. The
+// colours of a code behind the separator are not used - the machine draws its
+// own - and what it says about the line is.
+export function randomRequest(code = '') {
+  return code ? `${RANDOM_WORD}${RANDOM_SEPARATOR}${code}` : RANDOM_WORD;
+}
+
+// The code a request carries, '' when it carries none and null when the request
+// asks for no draw or carries something that is not a code. Reading a request
+// back is what lets the page - and the tests - show what a machine will wear.
+export function randomRequestCode(request) {
+  if (typeof request !== 'string') return null;
+  if (request === RANDOM_WORD) return '';
+  if (!request.startsWith(`${RANDOM_WORD}${RANDOM_SEPARATOR}`)) return null;
+  const code = request.slice(RANDOM_WORD.length + RANDOM_SEPARATOR.length);
+  return isThemeCode(code) ? code : null;
+}
+
 // The flag of one element, or of the fill, out of the bit string of them all.
 export const elementFlag = (elements, key) => elements.charAt(ELEMENT_KEYS.indexOf(key)) === '1';

@@ -15,6 +15,7 @@ import {
   COLOR_KEYS as ENCODING_ORDERED_COLOR_KEYS,
   decode as readThemeCode,
   encode as writeThemeCode,
+  randomRequest,
 } from './theme-code';
 import { ELEMENTS as PROMPT_ELEMENTS, SAMPLE, SAMPLE_ROOT, bitsOfFlags, flagsOf, topLine } from './preview';
 // default theme vN-y_5uA
@@ -87,9 +88,11 @@ const previewLineOf = (sample) =>
   });
 const previewTopLines = computed(() => [previewLineOf(SAMPLE), previewLineOf(SAMPLE_ROOT)]);
 const uninstallFlag = ref(false);
-// Random mode: the install command asks for the word "rand" instead of a theme
-// code, so the machine that runs it draws its own theme - and draws a new one
-// every time the command is run again.
+// Random mode: the install command asks for a theme drawn on the machine that
+// runs it - a new one every time the command is run again - by putting the word
+// "rand" in front of the theme code instead of the code alone. The code is kept
+// behind the word, because a draw is a draw of colours only: which elements of
+// the top line stand stays what the boxes of the page say.
 const randomFlag = ref(false);
 // Automatic mode: the command drops the question it asks before running the
 // installer. It is meant for scripts and containers, where nobody can answer.
@@ -301,26 +304,30 @@ function parseShareCode(code) {
   return { selectedAttrs: read.colors, elements: read.elements };
 }
 
-// Theme code of the install commands. In random mode it is the word "rand", and
-// the machine running the command draws the theme itself every time it runs, so
-// the colors selected in the UI are irrelevant for that command.
-const installThemeCode = computed(() =>
-  randomFlag.value ? 'rand' : themeCodeFor(selectedColorAttributes.value, elementFlags.value)
-);
+// Theme code of the install commands - or, in random mode, the request for a
+// draw: the word "rand", the separator, and the code of the page. The machine
+// running the command draws its own colors every time it runs, so the colors
+// selected in the UI are irrelevant for that command; the code travels with the
+// word because it says which elements of the top line stand, and those are never
+// drawn - not by the page's dice, and not by /dev/urandom either.
+const installThemeCode = computed(() => {
+  const code = themeCodeFor(selectedColorAttributes.value, elementFlags.value);
+  return randomFlag.value ? randomRequest(code) : code;
+});
 
 // What the fetched tree is asked to do, and with which theme code.
 const installKind = computed(() => (uninstallFlag.value ? 'uninstall' : 'install'));
 
 // The sentences of the two bubbles the template hangs over the Random and Auto
 // checkboxes. A toggle changes the command line below it in ways that are not to be
-// seen in it - the word "rand" where a theme code stands, one clause less where the
+// seen in it - the word "rand:" in front of a theme code, one clause less where the
 // question of the command was - so the consequence is spelled out here, and spelled
 // out for the command that is actually being shown: removing takes no theme, so while
 // Uninstall is checked Random has nothing to do with the command at all.
 const randomToggleHint = computed(() =>
   uninstallFlag.value
-    ? 'Random theme mode: nothing to do with a removal - turn Uninstall off and the command carries "rand".'
-    : 'Random theme mode: the command carries "rand" instead of a theme code, so the machine draws its own theme on every run and ignores the colors above.',
+    ? 'Random theme mode: nothing to do with a removal - turn Uninstall off and the command asks for a draw.'
+    : 'Random theme mode: the command carries "rand:" in front of the theme code, so the machine draws its own colors on every run - of a line wearing the boxes ticked above.',
 );
 
 const autoToggleHint = computed(() =>

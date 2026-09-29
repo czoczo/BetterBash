@@ -53,8 +53,11 @@ word `rand` draws a random theme on the machine
 that runs the command, and a **new one on every run** - run the command again and you
 get another theme, so `rand` is also how a reroll is asked for. A draw is a draw of
 colours: which elements stand is never drawn, so rerolling a theme does not hide the
-date behind the reader's back. A command that names no theme at all
-keeps whatever this machine already wears. Configure it at
+date behind the reader's back. The word may carry a code behind it - `rand:CODE` -
+and the draw then wears whatever that code says about the line: the colours of the
+code are drawn over, its boxes and the order of its elements are kept. That is how
+the page draws colours on your machine and still gets the line you ticked there. A
+command that names no theme at all keeps whatever this machine already wears. Configure it at
 [betterbash.cz0.cz](https://betterbash.cz0.cz),
 which prints these commands for what you picked - including the tag of the
 release it points at, which is worth knowing when you update.
@@ -130,7 +133,7 @@ Everything BetterBash needs is in this repository, and nothing runs a server:
 | Path | What it is |
 |---|---|
 | `prompt/bb.sh` | the prompt itself (bash) |
-| `prompt/bb-theme.sh` | theme library: validates a code, decodes it to the nine prompt colours, draws a random one (`sh`, POSIX) |
+| `prompt/bb-theme.sh` | theme library: validates a code, decodes it to the nine prompt colours, draws a random one - bare, or wearing the elements of a code it was handed (`sh`, POSIX) |
 | `prompt/git-prompt.sh` | vendored [git-prompt](https://github.com/git/git/blob/master/contrib/prompt/git-prompt.sh) |
 | `installbb.sh` | installer: copies the prompt out of a fetched tree into `~/.bb`, the directory the tree itself was fetched into; sourced by `prompt/bb.sh` of that tree, run directly by a script (`sh`, POSIX) |
 | `install-pending` | the flag inside a fetched tree: its first `prompt/bb.sh` sourcing installs it, and this file is what the install takes away |

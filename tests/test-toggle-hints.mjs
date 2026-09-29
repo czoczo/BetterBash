@@ -5,10 +5,10 @@
 //   node tests/test-toggle-hints.mjs
 //
 // The Random and Auto checkboxes of the page change the command shown under them in
-// ways that are not to be seen in it: one puts the word "rand" where a theme code
-// stands, the other takes the question out of the command. The page says so in a
-// bubble painted in the accent colour, hung over the pair it belongs to, and this
-// checks three things around it:
+// ways that are not to be seen in it: one puts the word "rand:" in front of a theme
+// code - the colors drawn there, the line the code spells out - the other takes the
+// question out of the command. The page says so in a bubble painted in the accent
+// colour, hung over the pair it belongs to, and this checks three things around it:
 //
 //   * every tab panel has one bubble per toggle, wrapped around the checkbox and its
 //     label, which is the pair the pointer of a user finds,
@@ -29,6 +29,8 @@
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+
+import { RANDOM_WORD, randomRequest, randomRequestCode } from '../webpage/frontend/src/theme-code.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const repoRoot = dirname(here);
@@ -137,16 +139,46 @@ if (!randomHint || !autoHint) {
   process.exit(failures);
 }
 
-// "the command carries the word rand in place of a theme code" - and the colors of
-// the page are out of it, so a code of the page is nowhere in it.
+// "the command carries rand: in front of the theme code": the machine that runs it
+// draws its own colors, and draws them over the line the code spells out. The claim
+// is tried against src/config.js, which builds both commands, and against the code
+// the page hands it - which has to be the code of the page, boxes and all, or the
+// sentence of the bubble is a promise nothing keeps.
 const pageCode = 'vN-y_5uA';
-const randomCommand = installCommands({ kind: 'install', code: 'rand' }).curl;
+const request = randomRequest(pageCode);
+const randomCommand = installCommands({ kind: 'install', code: request }).curl;
 const themedCommand = installCommands({ kind: 'install', code: pageCode }).curl;
-const claimsRandom = randomCommand === themedCommand.replace(pageCode, 'rand');
+const claimsRandom = randomCommand === themedCommand.replace(pageCode, request);
 if (!claimsRandom) {
-  fail('the bubble of Random says the command carries "rand" in place of a theme code, and it does not');
+  fail(`the bubble of Random says the command carries "${RANDOM_WORD}:" in front of a theme code, and it does not`);
 } else {
   ok('the bubble of Random says what the command does with the theme code');
+}
+
+// The second half of the sentence: "a line wearing the boxes ticked above". What
+// stands behind the word is read back the way prompt/bb-theme.sh reads it, and the
+// elements of it are the elements of the page - the colors behind the word are the
+// one thing a draw takes back.
+const carried = randomRequestCode(randomCommand.split(/\s+/).pop());
+if (carried !== pageCode) {
+  fail(`the bubble of Random says the boxes ticked above are worn, and the command carries ${randomCommand.split(/\s+/).pop()} behind the word`);
+} else if (!/[Bb]ox/.test(randomHint.install)) {
+  fail('the bubble of Random says which elements of the line the draw wears (no "boxes" in it)');
+} else {
+  ok('the boxes of the page travel with the word rand, so no draw loses them');
+}
+
+// And the page hands that over in both of its modes: the code of the page always,
+// the word in front of it only while Random is ticked.
+const installCodeBlock = app.match(/const installThemeCode = computed\(\(\) => \{([\s\S]*?)\n\}\);/)?.[1] ?? '';
+if (
+  !/themeCodeFor\(selectedColorAttributes\.value, elementFlags\.value\)/.test(installCodeBlock) ||
+  !/randomRequest\(/.test(installCodeBlock) ||
+  !/randomFlag\.value/.test(installCodeBlock)
+) {
+  fail('App.vue builds the code of the page for the install command, and asks for a draw with randomRequest when Random is ticked');
+} else {
+  ok('App.vue writes rand:<code> for the command while Random is ticked');
 }
 
 // "the command drops the question it asks" - with Auto, and asks without it; for an

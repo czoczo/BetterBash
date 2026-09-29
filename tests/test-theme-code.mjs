@@ -17,7 +17,8 @@
 // Exit code is the number of failures.
 
 import { execFileSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -27,6 +28,7 @@ import {
   ELEMENT_KEYS,
   FILL_KEY,
   FLAG_BITS,
+  RANDOM_WORD,
   RESERVED_BITS,
   bitsToCode,
   decode,
@@ -34,6 +36,8 @@ import {
   encode,
   orderByRank,
   orderRank,
+  randomRequest,
+  randomRequestCode,
 } from '../webpage/frontend/src/theme-code.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -229,6 +233,73 @@ function withFields({ left = 0, right = 0, fill = 0, reserved = 0 } = {}) {
   else if (decoded.elements !== ALL_ELEMENTS_ON)
     fail(`the code the shell drew hides elements of its own accord (${out}: ${decoded.elements})`);
   else ok(`the page reads the code the shell drew (${out})`);
+}
+
+// --- asking for a draw ------------------------------------------------------
+
+// While its Random box is ticked the page writes `rand:<code>` into the install
+// command: the colours are drawn on the machine that runs it, the elements of the
+// line come from the code. The word, the separator and what the shell reads out of
+// such a request have to be one thing read two ways, or the boxes ticked on the
+// page are quietly exchanged for the ones some earlier install left behind in
+// ~/.bb/theme-code.
+{
+  const colors = Object.fromEntries(
+    COLOR_KEYS.map((key) => [key, { baseCode: 36, isLight: false, isBold: false }]),
+  );
+  // The boxes the page shows, and the very different ones the machine wears already.
+  const worn = encode({ colors, elements: '1111110001' });
+  const machine = encode({ colors, elements: '0101010101' });
+  const request = randomRequest(worn);
+
+  const wornDir = mkdtempSync(join(tmpdir(), 'bb-request-'));
+  const codeFile = join(wornDir, 'theme-code');
+  writeFileSync(codeFile, `${machine}\n`);
+
+  const out = execFileSync(
+    'bash',
+    [
+      '-c',
+      '. "$1" && bb_theme_random_tail "$2" && bb_theme_resolve "$2" "$3"',
+      'test-theme-code',
+      library,
+      request,
+      codeFile,
+    ],
+    { cwd: repoRoot, encoding: 'utf8' },
+  )
+    .trim()
+    .split('\n');
+
+  const drawn = decode(out[1]);
+  if (out[0] !== worn)
+    fail(`the shell reads '${out[0]}' out of the request the page wrote (${request})`);
+  else if (!drawn) fail(`the shell drew what the page cannot read (${out[1]})`);
+  else if (drawn.elements !== decode(worn).elements)
+    fail(`the draw dropped the boxes the request carried (${request} -> ${out[1]}: ${drawn.elements})`);
+  else if (drawn.elements === decode(machine).elements)
+    fail(`the draw wore the boxes of the machine, not the ones it was handed (${out[1]})`);
+  else ok(`rand:<code> reaches the shell with the boxes of the page intact (${request} -> ${out[1]})`);
+
+  rmSync(wornDir, { recursive: true, force: true });
+
+  // The shapes of a request, as the page reads them: the bare word carries no code,
+  // a tail that is not a code is no request, and neither is a word of another kind.
+  const shapes = [
+    [RANDOM_WORD, ''],
+    [`rand:${worn}`, worn],
+    ['rand:zz', null],
+    ['rand:', null],
+    ['keep', null],
+  ];
+  const wrongShapes = shapes
+    .filter(([shape, want]) => randomRequestCode(shape) !== want)
+    .map(
+      ([shape, want]) =>
+        `'${shape}' reads as ${JSON.stringify(randomRequestCode(shape))}, want ${JSON.stringify(want)}`,
+    );
+  if (wrongShapes.length) wrongShapes.forEach((what) => fail(`the page reads its own request: ${what}`));
+  else ok('the page reads the five shapes of a request as they are');
 }
 
 // --- the border fill --------------------------------------------------------

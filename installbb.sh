@@ -43,6 +43,10 @@
 #   "rand"            a theme drawn on this machine - a new one on every run,
 #                     never the one ~/.bb/theme-code already holds; only colours
 #                     are drawn, which elements stand is never drawn
+#   "rand:<code>"     the same draw, wearing the elements <code> spells out
+#                     instead of the ones this machine already wore - which is
+#                     what the WebUI writes while its Random box is ticked, so
+#                     the boxes ticked on the page are never lost to the draw
 #   "keep"            the theme this machine has, which is also what a command
 #                     without a code means
 #   --repo DIR        the fetched tree to copy from (default: the directory this
@@ -102,14 +106,21 @@ bb_print_help() {
 # A theme code is eight characters of the theme code alphabet - the shape the
 # codes have always had - or thirteen of them, which is the same code with the
 # elements of the top line of the prompt added to it, or one of the two words
-# that stand for "draw one here" and "the theme this machine already has".
-# Anything else in the argument list is a mistake and has to be refused before
-# anything is written.
+# that stand for "draw one here" and "the theme this machine already has", or
+# the first of those words, a colon and a code: a draw asked to wear the
+# elements of that code. Anything else in the argument list is a mistake and has
+# to be refused before anything is written.
 bb_is_theme_code() {
   # The words are spelled out, because this runs before bb-theme.sh is sourced
   # and its constants are only BB_THEME_RANDOM and BB_THEME_KEEP there.
   case $1 in
     rand | keep) return 0 ;;
+    # Behind the word, the code whose elements the draw is to wear; only its
+    # shape is checked here, and it is checked as the code it is.
+    rand:*)
+      bb_is_theme_code "${1#rand:}"
+      return $?
+      ;;
     ????????)
       case $1 in
         *[!A-Za-z0-9_-]*) return 1 ;;
@@ -146,7 +157,7 @@ bb_parse_options() {
           return 2
         fi
         if ! bb_is_theme_code "$1"; then
-          printf 'installbb: %s is not a theme code (eight characters of A-Za-z0-9_-, thirteen of them for a theme with its elements spelled out, "rand" or "keep"; see --help)\n' "$1" >&2
+          printf 'installbb: %s is not a theme code (eight characters of A-Za-z0-9_-, thirteen of them for a theme with its elements spelled out, "rand", "rand:<code>" or "keep"; see --help)\n' "$1" >&2
           return 2
         fi
         BB_CODE=$1
@@ -377,6 +388,9 @@ bb_theme_note() {
   case $BB_CODE in
     "$BB_THEME_RANDOM")
       printf 'drawn here, as a new theme on every run'
+      ;;
+    "$BB_THEME_RANDOM$BB_THEME_RANDOM_SEP"*)
+      printf 'drawn here, as a new theme on every run, over the elements of %s' "${BB_CODE#*"$BB_THEME_RANDOM_SEP"}"
       ;;
     "$BB_THEME_KEEP")
       if [ -n "$BB_PREV_CODE" ] && [ "$BB_RESOLVED" = "$BB_PREV_CODE" ]; then

@@ -337,6 +337,57 @@ random_codes() {
       fail "rand keeps what the v0 code $_v0 said about its elements ($_want -> $_drawn)"
     fi
   done
+
+  # The word may carry a code with it, behind a colon: `rand:CODE`. The colours of
+  # that code are drawn over - they are what a draw draws - and everything else it
+  # says is worn: the ten boxes of the top line and the order of its two halves.
+  # This is the form the WebUI writes while its Random box is ticked, so the boxes
+  # ticked on the page reach a machine whose colours come from /dev/urandom.
+  for _wear_flags in '1001011001' '0110100110' "$BB_FLAGS_ALL"; do
+    _bbt_cut "$_wear_flags" 9 1 || return 1
+    _wear=$(_v1_code "$_wear_flags" 0 0 0 "$(( 1 - _bbt_cut_out ))")
+    _request="$BB_THEME_RANDOM:$_wear"
+
+    bb_theme_is_random "$_request" && _says=yes || _says=no
+    check "the word with a code behind it still asks for a draw ($_request)" test "$_says" = yes
+
+    _tail=$(bb_theme_random_tail "$_request")
+    if [ "$_tail" = "$_wear" ]; then
+      ok "the code behind the word is read out of it ($_wear)"
+    else
+      fail "the code behind the word is read out of it ($_wear)"
+    fi
+
+    _drawn=$(bb_theme_resolve "$_request" "$WORK/absent-code-file")
+    _drawn_flags=$(bb_theme_flags "$_drawn" 2>/dev/null)
+    if bb_theme_validate "$_drawn" 2>/dev/null && [ "$_drawn_flags" = "$_wear_flags" ]; then
+      ok "rand:$_wear draws colours over the elements of the code ($_wear_flags)"
+    else
+      fail "rand:$_wear draws colours over the elements of the code ($_wear_flags -> $_drawn_flags)"
+    fi
+  done
+
+  # A request of that form is not a code, and never becomes one: it is refused as
+  # what it is, and not quietly read as the bare word.
+  _bad_requests='rand: rand:zz rand:AAAAAAAAAAAAB rand:vN-y_5uA/x'
+  for _request in $_bad_requests; do
+    if bb_theme_resolve "$_request" "$WORK/absent-code-file" >"$WORK/req.out" 2>"$WORK/req.err"; then
+      fail "refuses '$_request'"
+    else
+      ok "refuses '$_request'"
+    fi
+    if [ -s "$WORK/req.out" ]; then
+      fail "  and prints nothing for $_request"
+    fi
+  done
+
+  # What the page draws with the same flags it hands over: the colours of a request
+  # differ from run to run, its elements do not. Two runs of one request.
+  _wear=$(_v1_code '1001011001' 0 0 0 0)
+  _one=$(bb_theme_resolve "$BB_THEME_RANDOM:$_wear" "$WORK/absent-code-file")
+  _two=$(bb_theme_resolve "$BB_THEME_RANDOM:$_wear" "$WORK/absent-code-file")
+  check "a request worn over a code draws a theme twice over" test "$_one" != "$_two"
+  check "and both of them wear the same elements" test "$(bb_theme_flags "$_one")" = "$(bb_theme_flags "$_two")"
 }
 
 # --- resolve and write --------------------------------------------------
@@ -384,6 +435,14 @@ resolve_and_write() {
   check "keep resolves to the stored code" test "$_kept" = "$_first"
   _noarg=$(bb_theme_resolve '' "$_codefile")
   check "no code at all resolves to the stored code" test "$_noarg" = "$_first"
+
+  # A request that carries a code wears that code's elements and not the ones the
+  # machine happens to hold: the boxes written into the request were written for
+  # this run, and ~/.bb/theme-code is what the last one happened to leave.
+  _wear=$(_v1_code '0110100111' 0 0 0 0)
+  _worn=$(bb_theme_resolve "$BB_THEME_RANDOM:$_wear" "$_codefile")
+  check "rand:CODE wears the elements of CODE and not of this machine" \
+    test "$(bb_theme_flags "$_worn")" = '0110100111'
 
   # The point of rand: it is a draw, not a lookup of what is already there.
   _second=$(bb_theme_resolve "$BB_THEME_RANDOM" "$_codefile")

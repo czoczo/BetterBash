@@ -138,8 +138,9 @@ export function confirmClause(kind = 'install', dir = BB_DIR) {
  * second step to reload the shell into, and every later sourcing of that file is
  * only a prompt.
  *
- * `code` is the theme code (or the word "rand", which lets the machine draw its
- * own theme); it is an argument of the sourcing.
+ * `code` is the theme code, or the request for a draw the page writes when its
+ * Random box is ticked: "rand:<code>", colours drawn there, elements as the code
+ * says; it is an argument of the sourcing.
  */
 function installClause({ code = null, dir = BB_DIR } = {}) {
   const args = [`. ${dir}/prompt/${PROMPT}`];

@@ -145,6 +145,18 @@ done
 
 case $BB_TEST_CODE in
   rand) ;;
+  # The word and a code behind it: a draw asked to wear the elements of that code.
+  # The tail is checked as the code it is, of either shape below.
+  rand:*)
+    BB_TEST_CODE_TAIL=${BB_TEST_CODE#rand:}
+    case $BB_TEST_CODE_TAIL in
+      ???????? | 1????????????) ;;
+      *)
+        printf 'rand:%s carries no theme code (eight characters of A-Za-z0-9_-, or thirteen beginning with a 1)\n' "$BB_TEST_CODE_TAIL" >&2
+        exit 2
+        ;;
+    esac
+    ;;
   # Either shape prompt/bb-theme.sh reads: the eight characters a release handed out
   # for years, or thirteen - the digit 1 and twelve of payload, which say which
   # elements of the first line show, in which order, and whether its border fills
@@ -152,7 +164,7 @@ case $BB_TEST_CODE in
   ????????) ;;
   1????????????) ;;
   *)
-    printf '%s is not a theme code (eight characters of A-Za-z0-9_-, thirteen beginning with a 1, or "rand")\n' "$BB_TEST_CODE" >&2
+    printf '%s is not a theme code (eight characters of A-Za-z0-9_-, thirteen beginning with a 1, "rand" or "rand:<code>")\n' "$BB_TEST_CODE" >&2
     exit 2
     ;;
 esac
@@ -386,10 +398,11 @@ check_theme() {
     return
   fi
 
-  # A random install is checked through the code it drew and stored.
-  if [ "$_code" = rand ]; then
-    _code=$(cat "$_home/.bb/theme-code" 2>/dev/null)
-  fi
+  # A random install is checked through the code it drew and stored - the word
+  # alone, or the word and the elements it was asked to wear.
+  case $_code in
+    rand | rand:*) _code=$(cat "$_home/.bb/theme-code" 2>/dev/null) ;;
+  esac
 
   # Decode the code with the library that was installed and compare.
   # shellcheck source=/dev/null
@@ -927,6 +940,67 @@ else
 fi
 check_theme "$_home" rand
 
+log_info 'rand:<code> draws new colours and wears the elements the code spells out'
+_home=$(new_home)
+HOMES="$HOMES $_home"
+
+# The boxes ticked on the page reach the machine even while its colours come from
+# /dev/urandom: the word carries the code of the page behind it, and only the
+# colours of that code are drawn over. Both codes below are built by the encoder of
+# the page (tests/test-theme-code.mjs holds it to the shell's own decoder):
+# 1xjGMYxj8AAAA hides the duration, the date and the clock, and 1xjGMYxiqgAQA the
+# host, the avatar, the exit code and the date, asking for no border fill as well.
+# Both are v1 codes, and neither is the theme any test machine wore before.
+code_flags() {
+  ( . "$TREE/prompt/bb-theme.sh" >/dev/null 2>&1 && bb_theme_flags "$1" )
+}
+code_boxes() {
+  ( . "$TREE/prompt/bb-theme.sh" >/dev/null 2>&1 && bb_theme_decode "$1" | grep -E '^(PROMPT_|AVATAR=)' )
+}
+
+for _worn in '1xjGMYxj8AAAA' '1xjGMYxiqgAQA'; do
+  _worn_seen=$WORK/worn-codes
+  : >"$_worn_seen"
+  _i=0
+  while [ "$_i" -lt 3 ]; do
+    HOME=$_home sh "$TREE/installbb.sh" --repo "$TREE" "rand:$_worn" >"$WORK/worn-$_worn-$_i.log" 2>&1
+    printf '%s\n' "$(stored_code "$_home")" >>"$_worn_seen"
+    _i=$((_i + 1))
+  done
+
+  # A draw is still a draw: three runs, three themes.
+  _worn_runs=$(sed '/^$/d' "$_worn_seen" | wc -l)
+  _worn_themes=$(sed '/^$/d' "$_worn_seen" | sort -u | wc -l)
+  if [ "$_worn_runs" = 3 ] && [ "$_worn_themes" = 3 ]; then
+    log_success "rand:$_worn draws three different themes ($(tr '\n' ' ' <"$_worn_seen"))"
+  else
+    log_error "rand:$_worn draws three different themes ($(tr '\n' ' ' <"$_worn_seen"), $_worn_themes distinct)"
+  fi
+  expect_grep 'over the elements of' "$WORK/worn-$_worn-0.log" 'and says which elements the draw wore'
+
+  # And a draw is still only a draw: the elements of the code behind the word are
+  # what the machine ends up wearing, read both ways - as the ten bits they are, and
+  # as the assignments prompt/bb.sh sources.
+  _drawn=$(stored_code "$_home")
+  if [ "$(code_flags "$_drawn")" = "$(code_flags "$_worn")" ]; then
+    log_success "$_drawn wears the elements of $_worn ($(code_flags "$_worn"))"
+  else
+    log_error "$_drawn should wear the elements of $_worn ($(code_flags "$_drawn") instead of $(code_flags "$_worn"))"
+  fi
+  if [ "$(code_boxes "$_drawn")" = "$(code_boxes "$_worn")" ]; then
+    log_success 'and theme.sh carries the boxes of the code as the assignments of the prompt'
+  else
+    log_error 'theme.sh carries the boxes of the code as the assignments of the prompt'
+    printf '       want %s\n       got  %s\n' "$(code_boxes "$_worn" | tr '\n' ' ')" "$(code_boxes "$_drawn" | tr '\n' ' ')"
+  fi
+
+  # The code behind the word is a code, and no more: nothing of it is left in
+  # ~/.bb, which holds the drawn one and only that one.
+  expect_not_grep "$_worn" "$_home/.bb/theme-code" 'the code behind the word is not stored as the theme'
+
+  check_theme "$_home" "rand:$_worn"
+done
+
 log_info 'a reinstall with another code replaces the theme, one without keeps it'
 _home=$(new_home)
 HOMES="$HOMES $_home"
@@ -938,11 +1012,20 @@ if [ -n "$_first_theme" ] && [ "$_first_theme" = "$(cat "$_home/.bb/theme-code" 
 else
   log_error "a reinstall without a code keeps one theme (theme-code: $(cat "$_home/.bb/theme-code" 2>/dev/null))"
 fi
-if [ "$BB_TEST_CODE" != rand ] && [ "$_first_theme" != "$BB_TEST_CODE" ]; then
-  log_error "the theme of $BB_TEST_CODE is the one written (got $_first_theme)"
-else
-  log_success "the theme of $BB_TEST_CODE is the one written"
-fi
+# A draw is not the code it was asked with - the code behind the word says the
+# elements, and those are what comes back of it, checked above.
+case $BB_TEST_CODE in
+  rand*)
+    log_success "the theme of $BB_TEST_CODE is the one written (drawn: $_first_theme)"
+    ;;
+  *)
+    if [ "$_first_theme" != "$BB_TEST_CODE" ]; then
+      log_error "the theme of $BB_TEST_CODE is the one written (got $_first_theme)"
+    else
+      log_success "the theme of $BB_TEST_CODE is the one written"
+    fi
+    ;;
+esac
 HOME=$_home sh "$TREE/installbb.sh" --repo "$TREE" q-_8Ttne >"$WORK/re3.log" 2>&1
 if grep -q 'q-_8Ttne' "$_home/.bb/theme-code" 2>/dev/null; then
   log_success 'a reinstall with another code replaces the theme'

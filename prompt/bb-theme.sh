@@ -31,6 +31,7 @@
 #   sh prompt/bb-theme.sh flags 1AAAAAAAAAAAA
 #   sh prompt/bb-theme.sh random
 #   sh prompt/bb-theme.sh resolve rand ~/.bb/theme-code
+#   sh prompt/bb-theme.sh resolve rand:1AAAAAAAAAAAA ~/.bb/theme-code
 #   sh prompt/bb-theme.sh write vN-y_5uA ~/.bb
 #
 # Every name starting with _bbt_ is internal and clobbered by these functions.
@@ -73,6 +74,10 @@ BB_THEME_RANDOM='rand'
 # The word that means "the theme this machine already has", which is what an
 # install command naming no code asks for: reinstalling must not change colours.
 BB_THEME_KEEP='keep'
+
+# The word above may carry a theme code with it, and this is what separates the
+# word from the code: `rand:1ABCDEFGHIJKLMNOP`. See "asking for a draw" below.
+BB_THEME_RANDOM_SEP=':'
 
 # Characters a theme code may consist of, in the order of their values: the url
 # safe alphabet of Base64, where '-' is the 62nd character and '_' the 63rd. The
@@ -616,8 +621,9 @@ bb_random_color_bits() {
 # bb_random_theme_code [CODE]
 # Prints a freshly drawn theme code of the current version. Its colours come up
 # from /dev/urandom; its elements are taken from CODE when CODE is a theme code -
-# which in practice is the theme this machine already wears - and are all shown
-# when CODE is not there or says nothing.
+# which in practice is the theme this machine already wears, or the code a
+# `rand:CODE` asked to wear - and are all shown when CODE is not there or says
+# nothing.
 bb_random_theme_code() {
   _bb_rt_flags=''
   if [ -n "${1:-}" ]; then
@@ -661,6 +667,66 @@ _bbt_order_rank_bits() {
   _bbt_bits_of_num "$1" "$_bbt_or_width"
 }
 
+# --- asking for a draw ----------------------------------------------------
+#
+# The word "rand" asks for a theme drawn on this machine, and it may carry a
+# theme code with it: `rand:1ABCDEFGHIJKLMNOP`. What that code says about the
+# colours is not used - the colours are what this machine draws - and what it
+# says about the top line of the prompt is: its ten boxes, and the order of its
+# two halves. So a draw stays a draw of colours and nothing else, and still
+# wears the elements somebody chose, whoever chose them and wherever they were
+# chosen. This is what the WebUI writes when its Random box is ticked: the
+# boxes of the page reach the machine that runs the command even though its
+# colours come from /dev/urandom there.
+#
+# A word standing alone says nothing about the line, and then the line of the
+# theme already worn here is kept, which is what it always did.
+
+# bb_theme_is_random ARG
+# Reports whether ARG asks for a theme drawn here: the bare word, or the word
+# and a theme code behind it.
+bb_theme_is_random() {
+  case ${1:-} in
+    "$BB_THEME_RANDOM") return 0 ;;
+    "$BB_THEME_RANDOM$BB_THEME_RANDOM_SEP"*) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+# bb_theme_random_tail ARG
+# Prints the theme code ARG carries behind the word - and leaves it in
+# _bbt_random_tail_out - printing nothing when ARG is the word standing alone.
+# Anything else than a code behind the separator is refused rather than read as
+# if it were not there: a command line that means something else is a command
+# line worth stopping at.
+bb_theme_random_tail() {
+  _bbtrt_arg=${1:-}
+  _bbt_random_tail_out=''
+
+  case $_bbtrt_arg in
+    "$BB_THEME_RANDOM") return 0 ;;
+    "$BB_THEME_RANDOM$BB_THEME_RANDOM_SEP"*) ;;
+    *)
+      printf 'bb-theme: %s does not ask for a drawn theme\n' "$_bbtrt_arg" >&2
+      return 1
+      ;;
+  esac
+
+  _bbtrt_tail=${_bbtrt_arg#"$BB_THEME_RANDOM$BB_THEME_RANDOM_SEP"}
+  if [ -z "$_bbtrt_tail" ]; then
+    printf 'bb-theme: %s asks for a theme behind the word and carries none\n' "$_bbtrt_arg" >&2
+    return 1
+  fi
+  if ! bb_theme_validate "$_bbtrt_tail"; then
+    printf 'bb-theme: %s is no theme to draw over\n' "$_bbtrt_tail" >&2
+    return 1
+  fi
+
+  _bbt_random_tail_out=$_bbtrt_tail
+  printf '%s\n' "$_bbt_random_tail_out"
+  return 0
+}
+
 # --- storing and resolving ------------------------------------------------
 
 # bb_theme_stored CODE_FILE
@@ -690,6 +756,9 @@ bb_theme_stored() {
 #   BB_THEME_RANDOM ("rand")     a freshly drawn one, whose elements are the ones
 #                                the theme CODE_FILE holds already had, so "rand"
 #                                loses colours and not a machine's choices;
+#   BB_THEME_RANDOM, the word, the separator and a code
+#                                a freshly drawn one wearing the elements that
+#                                code spells out, whatever the machine wore before;
 #   BB_THEME_KEEP ("keep"), or no CODE
 #                                the code CODE_FILE holds, or a freshly drawn
 #                                one on a machine that has no theme yet.
@@ -707,19 +776,28 @@ bb_theme_resolve() {
   fi
   _bbtr_stored=$(bb_theme_stored "$_bbtr_file")
 
+  if bb_theme_is_random "$_bbtr_code"; then
+    # The elements the draw is asked to wear: those of the code behind the word
+    # when the word carries one, and those of the theme already worn here when
+    # it does not. Only the colours are drawn, either way.
+    bb_theme_random_tail "$_bbtr_code" > /dev/null || return 1
+    _bbtr_wear=$_bbt_random_tail_out
+    [ -n "$_bbtr_wear" ] || _bbtr_wear=$_bbtr_stored
+
+    _bbtr_drawn=$(bb_random_theme_code "$_bbtr_wear") || return 1
+    # Redraw when the code that came up is the theme already worn here. One
+    # chance in 2^40 says this never happens; "rand" promises a different
+    # theme, so it is not left to chance.
+    _bbtr_again=0
+    while [ "$_bbtr_drawn" = "$_bbtr_stored" ] && [ "$_bbtr_again" -lt 3 ]; do
+      _bbtr_again=$(( _bbtr_again + 1 ))
+      _bbtr_drawn=$(bb_random_theme_code "$_bbtr_wear") || return 1
+    done
+    printf '%s\n' "$_bbtr_drawn"
+    return 0
+  fi
+
   case $_bbtr_code in
-    "$BB_THEME_RANDOM")
-      _bbtr_drawn=$(bb_random_theme_code "$_bbtr_stored") || return 1
-      # Redraw when the code that came up is the theme already worn here. One
-      # chance in 2^40 says this never happens; "rand" promises a different
-      # theme, so it is not left to chance.
-      _bbtr_again=0
-      while [ "$_bbtr_drawn" = "$_bbtr_stored" ] && [ "$_bbtr_again" -lt 3 ]; do
-        _bbtr_again=$(( _bbtr_again + 1 ))
-        _bbtr_drawn=$(bb_random_theme_code "$_bbtr_stored") || return 1
-      done
-      printf '%s\n' "$_bbtr_drawn"
-      ;;
     "$BB_THEME_KEEP" | "")
       if [ -n "$_bbtr_stored" ]; then
         printf '%s\n' "$_bbtr_stored"
