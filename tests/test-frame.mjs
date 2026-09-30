@@ -15,7 +15,9 @@
 //     exit code, the digits of a duration, the background jobs and the width of
 //     the terminal,
 //   * the preview on the page wears the same frame: the same separators, and its
-//     two prompt lines of one length in both avatar states.
+//     two prompt lines of one length per state of the border fill, in both avatar
+//     states - the two states are the two widths the preview has, see the padding
+//     held to below.
 //
 // The compact shape of the prompt - Alt+t, which takes the top line away - is held to
 // the frame it comes from too: the line it keeps is that line, glyph for glyph, with
@@ -45,6 +47,7 @@ import {
   PREVIEW_WIDTH,
   SAMPLE,
   SAMPLE_ROOT,
+  columnsFor,
   flagsOf,
   lineText,
   topLine,
@@ -60,6 +63,32 @@ const fail = (what) => {
   console.log(`  \x1b[31mFAIL\x1b[0m ${what}`);
   failures += 1;
 };
+
+// The width a line of the preview comes to, of the terminal it was drawn for and of
+// the one state of the border fill it was drawn in. src/preview.js arrives at both by
+// its own arithmetic, and is held to that arithmetic here rather than to an idea of
+// what a padded line ought to measure - which is what changed when the fill became
+// optional and the two states of the line stopped measuring the same thing:
+//
+//   * with the fill, the line is the whole of what the terminal leaves - the fill
+//     soaks up whatever the elements gave up - so it ends four columns short of the
+//     terminal, exactly as the line of the shell does,
+//   * without it, the model pads nothing but `columns - 12` behind the last element,
+//     which is eight glyphs less than the stretch the fill would have been. The line
+//     is that much shorter than its filled sister, and stays a line of its elements
+//     and its tail.
+//
+// So the two states of the fill are the two widths of the preview. What neither
+// state moves is where the elements stand on the line: they hang off the same corner,
+// and only the nothing behind the last of them changes. The width itself belongs to
+// the box the frame is drawn in, which scales its font to whatever the longest line
+// it holds measures (see .ps1-line in src/style.css).
+const paddedTo = (columns, fills) => columns - (fills ? 4 : 12);
+
+// The same, at the width the page draws its preview at: PREVIEW_WIDTH is the filled
+// line and `columns - 12` the unfilled one.
+const FILLED_PREVIEW = paddedTo(columnsFor(PREVIEW_WIDTH), true);
+const UNFILLED_PREVIEW = paddedTo(columnsFor(PREVIEW_WIDTH), false);
 
 // ${PS1@P} of an older bash cannot expand a prompt, and without it there is no
 // frame to look at - the same guard tests/test-timer.sh makes.
@@ -467,14 +496,15 @@ const PREVIEW_CASES = [
     // spaces, which is a thing of the preview only (see src/preview.js): what the
     // shell drew ends behind its last element. So the line is compared with the
     // padding taken back off, and the padding is held to being nothing but spaces,
-    // exactly as many as the fill would have stretched.
+    // exactly as many as the model pads - up to `columns - 12`, eight short of the
+    // width a filled line reaches (see paddedTo above).
     const previewed = padded.replace(/ +$/, '');
     const padding = width(padded) - width(previewed);
     const where = `${spec.columns} columns, elements ${spec.bits}, code ${spec.code}, ${drawn.jobs} job(s)`;
     const fills = spec.bits[ELEMENT_KEYS.length - 1] !== '0';
-    const owed = Math.max(0, spec.columns - 4 - width(previewed));
+    const owed = Math.max(0, paddedTo(spec.columns, fills) - width(previewed));
     if (!fills && padding !== owed)
-      wrong.push(`the line of elements ${spec.bits} is padded ${padding} glyphs, want the ${owed} the fill would have stretched (${where})`);
+      wrong.push(`the line of elements ${spec.bits} is padded ${padding} glyphs, want the ${owed} up to ${paddedTo(spec.columns, false)} (${where})`);
     if (fills && padding)
       wrong.push(`the line of elements ${spec.bits} is padded ${padding} glyphs where the fill stretches of its own (${where})`);
     if (previewed !== drawn.line) {
@@ -598,18 +628,18 @@ printf '%s\\x1f%s\\x1f%s\\x1f%s\\x1f%s' "\${PS1@P}" "$HOSTNAM" "$cur_tty" "\${PR
       )
     );
     // What the line is - its elements, its tail, and nothing else. Behind them the
-    // preview puts the width the fill would have stretched; that padding is held to
-    // here and nowhere else, because it is nothing to see and has to stay nothing
-    // but that.
+    // preview puts the nothing it pads a line without the fill with; that padding is
+    // held to here and nowhere else, because it is nothing to see and has to stay
+    // nothing but that.
     const shown = lines.map((padded) => padded.replace(/ +$/, ''));
     if (new Set(shown).size !== 1)
       wrong.push(`elements ${bits} draw ${lines.length} different lines as the terminal grows: ${shown.join(' | ')}`);
     const line = shown[0];
-    // Padding to the width of the box, and never past the last element of a line
-    // too long for it: at every terminal the model is asked about, the preview line
-    // measures what a stretched line measures.
+    // Padding to the width of an unfilled preview line, and never past the last
+    // element of a line too long for it: at every terminal the model is asked about,
+    // the line measures `columns - 12`, the width a line without the fill has.
     [60, 102, 200].forEach((columns, i) => {
-      const want = Math.max(width(shown[i]), columns - 4);
+      const want = Math.max(width(shown[i]), paddedTo(columns, false));
       if (width(lines[i]) !== want)
         wrong.push(
           `elements ${bits} of ${columns} columns measure ${width(lines[i])} glyphs with their padding, want ${want}`
@@ -648,20 +678,23 @@ printf '%s\\x1f%s\\x1f%s\\x1f%s\\x1f%s' "\${PS1@P}" "$HOSTNAM" "$cur_tty" "\${PR
   if (wrong.length) wrong.slice(0, 4).forEach((what) => fail(what));
   else
     ok(
-      'a line without the border fill is its elements, two dashes apart, padded to one width at any terminal'
+      'a line without the border fill is its elements, two dashes apart, padded to `columns - 12` at any terminal'
     );
 }
 
-// The two prompt lines the page shows are of the width the box is padded to, whatever
-// the theme shows - the invariant the frame has always held, now held of the model
-// rather than of the markup. It holds of a theme asking for no fill as well: such a
-// line is short of that width by the stretch it never drew, and is padded to it with
-// spaces, so that nothing on the line moves as the boxes of the page are ticked.
+// The two prompt lines the page shows are of one width per state of the border fill,
+// whatever else the theme shows - the invariant the frame holds, held here of the
+// model rather than of the markup. Filled, that width is what the terminal leaves,
+// unfilled it is the shorter width src/preview.js pads to (see paddedTo above). A
+// theme unticking an element of either kind moves nothing on the line: the elements
+// hang off the same corner in both states and at both widths, and only the nothing
+// behind the last of them differs.
 {
   const wrong = [];
-  const widths = [];
+  const widths = { filled: [], unfilled: [] };
   for (const sample of [SAMPLE, SAMPLE_ROOT]) {
     for (const bits of [ALL_ELEMENTS_ON, '0001000011', '1010101011', '0000000001', '1111111110', '1100100010']) {
+      const fills = bits[ELEMENTS.length - 1] !== '0';
       const line = lineText(
         topLine({
           flags: flagsOf(bits),
@@ -670,18 +703,27 @@ printf '%s\\x1f%s\\x1f%s\\x1f%s\\x1f%s' "\${PS1@P}" "$HOSTNAM" "$cur_tty" "\${PR
           sample,
         })
       );
-      widths.push(width(line));
-      if (width(line) !== PREVIEW_WIDTH)
-        wrong.push(`the preview line of elements ${bits} is ${width(line)} glyphs, want ${PREVIEW_WIDTH}`);
+      const want = fills ? FILLED_PREVIEW : UNFILLED_PREVIEW;
+      (fills ? widths.filled : widths.unfilled).push(width(line));
+      if (width(line) !== want)
+        wrong.push(`the preview line of elements ${bits} is ${width(line)} glyphs ${fills ? 'with' : 'without'} the fill, want ${want}`);
       // The three dashes and the half dash the line closes with are only to be
       // told from the fill while something stands in front of them to end.
       if (bits[8] === '1' && closingRun(line.replace(/ +$/, '')) !== 3)
         wrong.push(`the preview line of elements ${bits} closes with ${closingRun(line)} dashes and a half, want 3 and a half`);
     }
   }
-  if (new Set(widths).size !== 1) wrong.push(`the preview lines are ${[...new Set(widths)].join(', ')} wide - they have to be one width`);
+  for (const [state, measured] of Object.entries(widths)) {
+    if (new Set(measured).size !== 1)
+      wrong.push(`the preview lines ${state} the fill are ${[...new Set(measured)].join(', ')} wide - they have to be one width`);
+  }
+  if (!widths.filled.length || !widths.unfilled.length)
+    wrong.push(`the widths were measured over ${widths.filled.length} filled and ${widths.unfilled.length} unfilled settings, want some of both states`);
   if (wrong.length) wrong.slice(0, 4).forEach((what) => fail(what));
-  else ok(`the preview lines are one width over every setting of the elements: ${widths[0]} glyphs`);
+  else
+    ok(
+      `the preview lines are ${widths.filled[0]} glyphs with the fill and ${widths.unfilled[0]} without it, over every setting of the elements`
+    );
 }
 
 // The markup paints the model, and holds no line of a prompt of its own: a top line
