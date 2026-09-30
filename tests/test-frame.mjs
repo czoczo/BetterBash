@@ -53,7 +53,6 @@ import {
 const here = dirname(fileURLToPath(import.meta.url));
 const repoRoot = dirname(here);
 const templateFile = join(repoRoot, 'webpage', 'frontend', 'src', 'template.html');
-const appFile = join(repoRoot, 'webpage', 'frontend', 'src', 'App.vue');
 
 let failures = 0;
 const ok = (what) => console.log(`  \x1b[32mok\x1b[0m   ${what}`);
@@ -309,9 +308,12 @@ function previewPromptLines() {
     (m) => m[1]
   );
 
-  const app = readFileSync(appFile, 'utf8');
-  const host = (app.match(/const previewHostname = ref\('([^']*)'\)/) || [])[1];
-  if (!host) throw new Error('App.vue holds no hostname for the preview');
+  // The name the field of the page holds is drawn afresh on every load of it
+  // (src/hostname.js), so this cannot ask the page which name it drew and none of
+  // what is measured below may depend on the answer: the markup is filled with a name
+  // of this test's own, the same one into the line the cursor stands on and into the
+  // compact line drawn from it, which is all either of them is compared over.
+  const host = 'previewhost';
 
   const forAvatar = (showAvatar) =>
     chunks

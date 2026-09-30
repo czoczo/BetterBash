@@ -16,6 +16,11 @@
 // page quietly disagreeing with every prompt. md5Hex of avatar.js is checked
 // against node:crypto in passing, since everything the avatar is comes from it.
 //
+// The page draws the name it previews an avatar of - src/hostname.js does, on every
+// load of the page - so the last section holds that draw too: that the page really
+// asks for a name rather than spelling one out, and that whatever name it gets fits
+// the field the name is typed into.
+//
 // Exit code is the number of failures.
 
 import { execFileSync } from 'node:child_process';
@@ -25,6 +30,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { hostAvatar, md5Hex } from '../webpage/frontend/src/avatar.js';
+import { ADJECTIVES, MAX_HOSTNAME_LENGTH, NOUNS, randomHostname } from '../webpage/frontend/src/hostname.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const repoRoot = dirname(here);
@@ -46,7 +52,9 @@ const fail = (what) => {
 // a script that is not ASCII, a name of many characters, a name that keeps its
 // trailing newline. --write draws the fixture from exactly this list.
 const builtinHosts = [
-  'myhost', // what the preview on the page shows by default
+  // The name the preview showed by default for as long as the page had one, and the
+  // name every fixture below has been drawn over since - the page draws its own now.
+  'myhost',
   '',
   'localhost',
   'HOST',
@@ -220,9 +228,8 @@ if (wrongDigests.length) {
 // The page draws its avatar, it does not paint one. The preview used to carry
 // eight spans of glyphs and colours - the avatar of "myhost", baked into the
 // markup. Drawing it from the hostname field is what is checked here: that no
-// avatar glyph is left in the markup, that every place an avatar shows is fed by
-// the field, and that the field starts at the name the fixture pins, so the
-// default preview is still the drawing in tests/golden/avatars.txt.
+// avatar glyph is left in the markup, and that every place an avatar shows is fed by
+// the field.
 const srcDir = join(repoRoot, 'webpage', 'frontend', 'src');
 const template = readFileSync(join(srcDir, 'template.html'), 'utf8');
 const app = readFileSync(join(srcDir, 'App.vue'), 'utf8');
@@ -239,13 +246,102 @@ if (painted.length) {
 const loops = (template.match(/v-for="\(segment, index\) in avatarSegments"/g) || []).length;
 const fedToModel = /avatar:\s*avatarSegments\.value\./.test(app);
 const hostsNamed = template.match(/myhost/g) || [];
-const defaultHost = app.match(/const previewHostname = ref\('([^']*)'\)/);
-if (loops < 1 || !fedToModel || hostsNamed.length || !defaultHost || defaultHost[1] !== 'myhost') {
+if (loops < 1 || !fedToModel || hostsNamed.length) {
   fail(
-    `page: ${loops} avatar loop(s) in the markup (want the compact line at least), the model is ${fedToModel ? '' : 'not '}fed the avatar, ${hostsNamed.length} hostname(s) spelled out in the template (want 0), default hostname ${JSON.stringify(defaultHost && defaultHost[1])}`
+    `page: ${loops} avatar loop(s) in the markup (want the compact line at least), the model is ${fedToModel ? '' : 'not '}fed the avatar, ${hostsNamed.length} hostname(s) spelled out in the template (want 0)`
   );
 } else {
   ok('page: the avatar and the host of the preview all follow the hostname field');
+}
+
+// --- the name the page draws ---------------------------------------------
+
+// The name the field starts at is drawn rather than written down: a page cannot know
+// the machine it was opened on, so it names one for itself and draws another on
+// every load. Two things are worth holding of a name chosen by dice - that the page
+// really asks for one (a name written into App.vue would be the same machine for
+// everyone, which is what the draw replaced), and that however the dice fall the
+// name is short enough for the field it lands in.
+//
+// The field is the awkward half of that second one: maxlength stops a *typed* name
+// at its number of characters, but stops a name set by the page not at all, and a
+// host longer than the field would be a host whose avatar is not the avatar of what
+// the field shows. So the longest name src/hostname.js can make is measured against
+// the maxlength of the input, and not against a guess of a reasonable length.
+const drawnFromDice = /const previewHostname = ref\(randomHostname\(\)\)/.test(app);
+const pinnedHost = app.match(/const previewHostname = ref\('([^']*)'\)/);
+if (drawnFromDice && pinnedHost) {
+  fail(`page: App.vue both draws its host and pins one (${JSON.stringify(pinnedHost[1])})`);
+} else if (!drawnFromDice) {
+  fail('page: App.vue does not start the hostname field from randomHostname() of src/hostname.js');
+} else {
+  ok('page: the host of the preview is drawn on every load, not written down');
+}
+
+// The maxlength the input of the field gives itself, and the shape of a name: two
+// words of the two lists and the dash between them, and nothing else - in particular
+// no digits, for the number `hostnamegen` puts behind its two words is left out of
+// the names of the page on purpose.
+const maxlength = Number((template.match(/id="avatar-host"[\s\S]*?maxlength="(\d+)"/) || [])[1]);
+const NAME = /^([a-z]+)-([a-z]+)$/;
+
+const wrong = [];
+if (!maxlength) wrong.push('the hostname field of the page has no maxlength to be kept to');
+
+// The longest name the file can make, measured again over the lists it makes names
+// out of, so that the constant the file states is not one it quietly forgot to
+// widen when it widened a word.
+const longest =
+  Math.max(...ADJECTIVES.map((w) => w.length)) + 1 + Math.max(...NOUNS.map((w) => w.length));
+if (MAX_HOSTNAME_LENGTH !== longest) {
+  wrong.push(`src/hostname.js states ${MAX_HOSTNAME_LENGTH} as its longest name, the lists allow ${longest}`);
+}
+if (maxlength && longest > maxlength) {
+  wrong.push(`the longest name src/hostname.js can make is ${longest} characters and the field takes ${maxlength}`);
+}
+
+// Every word of both lists has to be able to stand in a name: one with a dash, an
+// upper case letter or a space in it would be a name the shape below does not find.
+for (const [list, what] of [[ADJECTIVES, 'adjective'], [NOUNS, 'noun']]) {
+  const odd = list.filter((word) => !/^[a-z]+$/.test(word));
+  if (odd.length) wrong.push(`${what} list of src/hostname.js holds ${odd.map((w) => JSON.stringify(w)).join(', ')}`);
+}
+
+// The two draws a name is spelled out of, in the order they are spelled with, and
+// the limits they are drawn under - the contract the page does not use but this
+// holds, because it is what makes `below` below.
+const limits = [];
+const first = randomHostname({
+  below: (limit) => (limits.push(limit), 0),
+});
+if (limits.join(',') !== [ADJECTIVES.length, NOUNS.length].join(',')) {
+  wrong.push(`a name draws its two words under limits ${limits.join(', ')}, want ${[ADJECTIVES.length, NOUNS.length].join(', ')}`);
+}
+if (first !== `${ADJECTIVES[0]}-${NOUNS[0]}`) {
+  wrong.push(`a name of two zeroes is ${JSON.stringify(first)}, want ${JSON.stringify(`${ADJECTIVES[0]}-${NOUNS[0]}`)}`);
+}
+
+// A sweep of the real dice: every name of the shape, none of it longer than the
+// field, every word of it a word of the lists, and the names differing - a draw that
+// drew the same name every load would be a name written down.
+const sweep = Array.from({ length: 2000 }, () => randomHostname());
+const malformed = sweep.filter((name) => !NAME.test(name));
+const overlong = sweep.filter((name) => [...name].length > maxlength);
+const offList = sweep.filter((name) => {
+  const parts = NAME.exec(name);
+  return parts && (!ADJECTIVES.includes(parts[1]) || !NOUNS.includes(parts[2]));
+});
+const distinct = new Set(sweep).size;
+if (malformed.length) wrong.push(`${malformed.length} of ${sweep.length} names are not of the shape adjective-noun (${malformed.slice(0, 3).join(', ')})`);
+if (overlong.length) wrong.push(`${overlong.length} of ${sweep.length} names are too long for the field (${overlong.slice(0, 3).join(', ')})`);
+if (offList.length) wrong.push(`${offList.length} of ${sweep.length} names are made of words of no list (${offList.slice(0, 3).join(', ')})`);
+if (distinct < 1000) wrong.push(`${sweep.length} draws came up ${distinct} distinct name(s)`);
+
+if (wrong.length) wrong.forEach((what) => fail(what));
+else {
+  ok(
+    `src/hostname.js draws names of adjective-noun over ${sweep.length} draws, at most ${longest} characters into a ${maxlength} character field (${distinct} of them distinct)`
+  );
 }
 
 if (write) {

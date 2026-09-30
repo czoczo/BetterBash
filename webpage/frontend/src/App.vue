@@ -4,6 +4,7 @@
 import { ref, computed, watchEffect, onMounted, onBeforeUnmount } from 'vue';
 import { buildAccentPalette, applyAccentPalette } from './theme';
 import { hostAvatar } from './avatar';
+import { randomHostname } from './hostname';
 import { APP_ENV, installCommands } from './config';
 import { copyText } from './clipboard';
 // The theme code and the top line of the prompt, shared with the tests so that
@@ -63,10 +64,15 @@ const showAvatar = computed({
 // The prompt draws its avatar from the machine's own name (hashColor over
 // `cat /etc/hostname` in prompt/bb.sh), and this page cannot read that file, so
 // the name is asked for. It is the same string the preview line prints as the
-// host, so what the preview hashes and what it shows are one name. "myhost" is
-// the host the preview always showed, and the avatar of the preview is therefore
-// the one it always showed - see tests/golden/avatars.txt.
-const previewHostname = ref('myhost');
+// host, so what the preview hashes and what it shows are one name.
+//
+// The name the page starts with is drawn rather than written down, out of the word
+// lists of `hostnamegen` (src/hostname.js): a page that has never seen a machine
+// has no name of a machine to keep either, so every load of it - and every reload -
+// stands for another one, wearing the avatar its name hashes into. What is drawn
+// stays in a field that can be typed over, since the point of the name of a machine
+// is that it is not random to whoever has it.
+const previewHostname = ref(randomHostname());
 const avatarSegments = computed(() => hostAvatar(previewHostname.value, 4));
 
 // The two top lines of the preview, as prompt/bb.sh would draw them: the same
