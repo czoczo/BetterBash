@@ -80,6 +80,7 @@ a:hover {
   display: flex;
   flex-direction: column;
   gap: 14px;
+  margin: 10px 0px;
 }
 .color-controls {
   display: grid;
@@ -90,7 +91,7 @@ a:hover {
   display: flex;
   flex-direction: column;
   background-color: #2d2d2d;
-  padding: 12px;
+  padding: 10px;
   border-radius: 8px;
   font-family: Consolas, Monaco, 'Lucida Console', monospace;
   gap: 4px;
@@ -332,7 +333,6 @@ a:hover {
   border-radius: 8px;
   font-family: "Source Code Pro", Consolas, Monaco, 'Lucida Console', monospace;
   overflow-x: auto;
-  margin-top: 10px;
   white-space: pre-wrap;
   line-height: 0.9;
   container-type: inline-size;
@@ -420,7 +420,7 @@ a:hover {
   border-radius: 4px;
   font-family: Consolas, Monaco, 'Lucida Console', monospace;
   resize: vertical;
-  min-height: 80px;
+  min-height: 50px;
 }
 .share-url-container.multiline {
   align-items: flex-start;
