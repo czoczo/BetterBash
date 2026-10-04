@@ -127,8 +127,11 @@ validation() {
   printf '==> validation\n'
 
   # Some of these are meant to look like shell syntax: they are input, and the
-  # decoder must not react to any of them.
-  # shellcheck disable=SC2016
+  # decoder must not react to any of them. Neither the command substitution of
+  # one nor the quotes of another are code of this script - every word below is
+  # handed to the decoder as an argument and never run - so the two findings that
+  # read them as shell of this script are silenced here and only here.
+  # shellcheck disable=SC2016,SC2089
   for _code in '' 'rand' 'vN-y_5u' 'vN-y_5uA!' 'vN-y_5uA/' 'vN-y_5uA+' \
                'vN y_5uA' 'vN-y_5uAB' 'AAAAAAAA=' '..' '/etc/passwd' '$(id)' "'; rm -rf /;'"; do
     if bb_theme_decode "$_code" >"$WORK/val.out" 2>"$WORK/val.err"; then
@@ -224,6 +227,11 @@ validation() {
 # any of these checks is about. A check names the field it means rather than a
 # code, so that a wrong encoder shows up as disagreeing with the other checks
 # instead of agreeing with itself.
+#
+# The _bbt_*_out of the body are written by the helpers of the library this test
+# sourced; a linter that does not follow a sourced shell function reads them as
+# never assigned.
+# shellcheck disable=SC2154
 _v1_code() {
   _bbt_zeros "$BB_THEME_COLOR_BITS"; _vc_bits=$_bbt_bits_out
   _bbt_cut "$1" 0 "$BB_THEME_FLAG_COUNT"; _vc_bits="$_vc_bits$_bbt_cut_out"
@@ -276,18 +284,21 @@ random_codes() {
     ok "every generated code is a v${BB_THEME_VERSION} code of ${BB_THEME_V1_LENGTH} characters"
   fi
 
-  _bad=''
+  # One bad code per line, in a file rather than in one word of the script: a
+  # report split by spaces would make two faults of a code that holds a space.
+  _bad=$WORK/bad-random.txt
+  : >"$_bad"
   while IFS= read -r _code; do
-    bb_theme_validate "$_code" 2>/dev/null || _bad="$_bad invalid:$_code"
+    bb_theme_validate "$_code" 2>/dev/null || printf 'invalid: %s\n' "$_code" >>"$_bad"
     # A draw with no theme to replace says nothing about the elements of the
     # prompt, which is the same as showing all of them.
-    [ "$(bb_theme_flags "$_code")" = "$BB_FLAGS_ALL" ] || _bad="$_bad flags:$_code"
+    [ "$(bb_theme_flags "$_code")" = "$BB_FLAGS_ALL" ] || printf 'flags: %s\n' "$_code" >>"$_bad"
   done <"$_out"
-  if [ -z "$_bad" ]; then
+  if [ ! -s "$_bad" ]; then
     ok "every generated code validates and shows every element"
   else
     fail "every generated code validates and shows every element"
-    printf '       %s\n' $_bad
+    sed 's/^/       /' "$_bad"
   fi
 
   _distinct=$(sort -u "$_out" | wc -l)

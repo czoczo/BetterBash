@@ -110,12 +110,21 @@ jobs:
 
       - name: Check the installed commands of the production bundle
         # The commands fetch from the canonical origin, which is the fallback
-        # compiled into config.js when the page has no origin of its own.
+        # compiled into config.js when the page has no origin of its own. The rest
+        # of the words are those of the four fetch methods and of the uninstaller,
+        # so that a bundle which lost a method of installing is caught here rather
+        # than by a user following the page. Only fragments config.js writes as
+        # literals are named: the commands are assembled at run time, so no whole
+        # command is a string of the bundle. installbb.sh is deliberately not named
+        # either - no command says it, the fetched tree installs itself from its own
+        # prompt - and its place in the package is held by
+        # ./tests/check-deployment-payload.sh, which the deploy workflows run.
         run: |
           bundle=$(find webpage/frontend/dist/assets -name 'index-*.js' | head -1)
           echo "$bundle"
-          for expected in betterbash.cz0.cz bb.tgz installbb.sh removebb.sh; do
-            if grep -q "$expected" "$bundle"; then
+          for expected in betterbash.cz0.cz bb.tgz '~/.bb' 'curl -sL' 'wget -q -O -' \
+                          'git clone -q --depth 1 --branch' 'openssl s_client' removebb.sh; do
+            if grep -qF "$expected" "$bundle"; then
               echo "  ok   $expected"
             else
               echo "  FAIL $expected missing from $bundle" >&2
@@ -135,7 +144,7 @@ jobs:
           bundle=$(find webpage/frontend/dist/assets -name 'index-*.js' | head -1)
           echo "$bundle"
           for expected in localhost:5173 localhost:8443; do
-            if grep -q "$expected" "$bundle"; then
+            if grep -qF "$expected" "$bundle"; then
               echo "  ok   $expected"
             else
               echo "  FAIL $expected missing from $bundle" >&2
