@@ -34,7 +34,7 @@ jobs:
       - name: The duration of the last command, in an interactive shell too
         run: bash tests/test-timer.sh
 
-      - name: The one-line prompt of Alt+t, and the key itself
+      - name: The one-line prompt of Alt+c, and the key itself
         # Both shapes are drawn by bash and compared with each other - what is kept
         # is the second line of the frame with its corner exchanged - and the key is
         # pressed in a pseudo terminal, since whether a binding fires at all, and

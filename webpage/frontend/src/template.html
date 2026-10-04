@@ -148,7 +148,7 @@
         ><span :class="getColorClassFromBash(generatedColors.BORDCOL)">-&gt;</span>
       </div>
 
-      <!-- The same prompt as Alt+t draws it: the frame is gone, and with it the line
+      <!-- The same prompt as Alt+c draws it: the frame is gone, and with it the line
            above, so the corner that opens this one is only the lower half of a dash.
            prompt/bb.sh calls the shape compact, tests/test-frame.mjs holds this line to
            being the line above it with that one glyph exchanged. -->
@@ -156,7 +156,7 @@
       <!-- What the line below it is, and how to get there: a comment of the shell
            rather than a caption of the page, because inside the black box everything
            is a line of a terminal. -->
-      <div class="ps1-line ps1-comment"># Compact mode - Alt+t</div>
+      <div class="ps1-line ps1-comment"># Compact mode - Alt+c</div>
       <div class="ps1-line">
         <span :class="getColorClassFromBash(generatedColors.BORDCOL)">┈─</span
         ><span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">(</span
@@ -367,7 +367,7 @@
               <span :class="getColorClassFromBash(generatedColors.BORDCOL)">-&gt;</span>
             </span>
           </div>
-          <p>Alt+t keeps only the line you type on; Alt+t brings the frame back.</p>
+          <p>Alt+c keeps only the line you type on; Alt+c brings the frame back.</p>
         </div>
       </div>
 

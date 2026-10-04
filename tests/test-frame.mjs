@@ -19,7 +19,7 @@
 //     states - the two states are the two widths the preview has, see the padding
 //     held to below.
 //
-// The compact shape of the prompt - Alt+t, which takes the top line away - is held to
+// The compact shape of the prompt - Alt+c, which takes the top line away - is held to
 // the frame it comes from too: the line it keeps is that line, glyph for glyph, with
 // only its opening corner exchanged for half a dash, in the prompt and on the page.
 // On the page the compact line is labelled besides: a comment of the shell stands
@@ -143,7 +143,7 @@ done
 
 // drawShell(avatar, specs, { compact, line }) - the lines of the prompt an
 // interactive shell with the avatar of this machine on or off drew for each spec.
-// compact is the shape Alt+t switches to, and line which of its lines to look at.
+// compact is the shape Alt+c switches to, and line which of its lines to look at.
 function drawShell(avatar, specs, { compact = false, line = 'top' } = {}) {
   if (!(line in lineOf)) throw new Error(`no line of a prompt named ${line}`);
   const env = {
@@ -286,9 +286,9 @@ const succeeding = drawShell(true, ['120:0:42'])[0];
     );
 }
 
-// --- the compact prompt, Alt+t -------------------------------------------
+// --- the compact prompt, Alt+c -------------------------------------------
 
-// Alt+t takes the top line away, and with it the frame. What is kept is the line the
+// Alt+c takes the top line away, and with it the frame. What is kept is the line the
 // cursor stands on, drawn as it is drawn in the frame; only the corner that opens it
 // differs, because a corner needs the line that hung from it.
 {
@@ -753,7 +753,7 @@ printf '%s\\x1f%s\\x1f%s\\x1f%s\\x1f%s' "\${PS1@P}" "$HOSTNAM" "$cur_tty" "\${PR
   else ok(`the template paints the model's lines and holds a box for each of the ${ELEMENTS.length} elements`);
 }
 
-// And the preview shows what Alt+t leaves of it: one line, the last of the two it
+// And the preview shows what Alt+c leaves of it: one line, the last of the two it
 // previews, with the same half dash the prompt puts in place of the corner.
 {
   const { forAvatar } = previewPromptLines();
@@ -811,7 +811,7 @@ printf '%s\\x1f%s\\x1f%s\\x1f%s\\x1f%s' "\${PS1@P}" "$HOSTNAM" "$cur_tty" "\${PR
     const comment = painted[at].text.trim();
     const under = painted[at + 1];
     if (!comment.startsWith('#')) wrong.push(`a comment line does not open with a hash (${comment})`);
-    else if (!/Alt\+t/.test(comment))
+    else if (!/Alt\+c/.test(comment))
       wrong.push(`the comment does not name the shortcut that draws the shape under it (${comment})`);
     else if ([...comment].length > PREVIEW_WIDTH)
       wrong.push(`the comment is ${[...comment].length} glyphs and would decide the width of the preview`);

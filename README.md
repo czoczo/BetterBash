@@ -20,7 +20,7 @@
 - :file_folder: Current directory.
 - :traffic_light: Git status (if current directory inside git repository).
 - :scroll: Rapid history search with up/down arrows based on current input.
-- :accordion: Alt+t collapses the prompt to the line you type on, Alt+t draws the two-line frame back.
+- :accordion: Alt+c collapses the prompt to the line you type on, Alt+c draws the two-line frame back.
 - :lock: No service behind it: the prompt, the installer and the theme decoder are shell scripts, the configurator is a static page.
 
 ## Preview
@@ -141,7 +141,7 @@ node tests/test-avatar.mjs   # the host avatar of the page, drawn as the shell d
 node tests/test-theme-code.mjs # a theme code, spelled alike by the page and the shell
 bash tests/test-timer.sh     # the duration of the last command, in an interactive shell too
 node tests/test-frame.mjs    # the frame of the prompt and the frame the page previews
-bash tests/test-compact.sh   # the one-line prompt Alt+t switches to, key pressed in a pty
+bash tests/test-compact.sh   # the one-line prompt Alt+c switches to, key pressed in a pty
 node tests/test-accent.mjs   # the colour of the theme that skins the page (BORDCOL)
 node tests/test-copy.mjs     # the copy buttons: clipboard API, selection, and neither
 ./test-install.sh            # the fetch commands of the page, see above

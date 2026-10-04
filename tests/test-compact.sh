@@ -1,11 +1,11 @@
 #!/bin/bash
 #
-# The compact prompt of BetterBash, and the Alt+t that switches it.
+# The compact prompt of BetterBash, and the Alt+c that switches it.
 #
 #   ./tests/test-compact.sh
 #
 # The frame is two lines and one of them is spent on the machine rather than on the
-# command being typed, so Alt+t takes that line away and keeps the other. Two things
+# command being typed, so Alt+c takes that line away and keeps the other. Two things
 # are held here: the shape of what is left - the second line of the frame and nothing
 # else, opened by a corner that has no line hanging from it any more - and the key,
 # which is tried in a real interactive shell in a pseudo terminal, because a binding
@@ -97,7 +97,7 @@ last_line() {
 
 printf '==> sourcing prompt/bb.sh of %s\n' "$BB_DIR"
 
-# Sourced by a script, the prompt has no readline to bind Alt+t on, and has to keep
+# Sourced by a script, the prompt has no readline to bind Alt+c on, and has to keep
 # quiet about it: scripts and tests source this file all the time.
 _noise=$(bash -c ". '$BB_DIR/bb.sh'" 2>&1 >/dev/null)
 if [ -z "$_noise" ]; then
@@ -232,7 +232,7 @@ fi
 # --- an interactive shell, with the key pressed ---------------------------
 
 # One bash with the prompt of this tree and the readline block of it, in a pseudo
-# terminal, because whether Alt+t is bound at all is bash's and readline's doing and
+# terminal, because whether Alt+c is bound at all is bash's and readline's doing and
 # cannot be driven from a script. The commands it runs are markers: the prompts drawn
 # between two of them belong to that stretch, and a toggle shows only there.
 interactive_shell() {
@@ -246,7 +246,7 @@ HISTFILE=$WORK/history
 HISTSIZE=100
 RC
 
-  # What is typed, in the order it is typed. The Alt+t presses are bytes in the
+  # What is typed, in the order it is typed. The Alt+c presses are bytes in the
   # stream of keystrokes, which is the only place a key exists.
   {
     printf 'echo MARK_A\n'
@@ -255,14 +255,14 @@ RC
     # it. The answer is spelled apart from the question, so that only the answer is
     # one word.
     printf 'echo MARK_B'
-    printf '\Et'
+    printf '\Ec'
     printf '\n'
     printf 'echo MARK_C\n'
     # The same press from the other shape round: the prompt MARK_D was typed on is a
     # compact line, so the single top line of a frame printed between MARK_C and
     # MARK_D belongs to the key, and to nothing else.
     printf 'echo MARK_D'
-    printf '\Et'
+    printf '\Ec'
     printf '\n'
     printf 'echo MARK_E\n'
     # The key on an empty line - and on one whose kill ring still holds text, so
@@ -272,7 +272,7 @@ RC
     printf 'STALE'
     printf '\025'
     printf '\n'
-    printf '\Et'
+    printf '\Ec'
     printf 'echo MARK_F\n'
     # The history, asked whether the key left anything in it: the line the key
     # accepts is empty and an empty line is no command at all, so neither of its two
@@ -285,7 +285,7 @@ RC
     # cannot be mistaken for the answer.
     printf '%s\n' 'bind -X | grep -qF "\"\\C-x\\C-p\": \"__bb_line_take\"" && echo T""AKE'
     printf '%s\n' 'bind -X | grep -qF "\"\\C-x\\C-b\": \"__bb_line_give\"" && echo G""IVE'
-    printf '%s\n' 'bind -s | grep -qF "\"\\et\": \"\\C-x\\C-p\\C-m\\C-x\\C-b\"" && echo M""ACRO'
+    printf '%s\n' 'bind -s | grep -qF "\"\\ec\": \"\\C-x\\C-p\\C-m\\C-x\\C-b\"" && echo M""ACRO'
     printf 'bind -p | grep -q history-search-backward && echo S""EARCHED\n'
     printf 'exit\n'
   } >"$WORK/typed"
@@ -369,15 +369,15 @@ RC
   fi
 
   # The three keys of the key, asked of the shell that holds them: the two halves
-  # bound to shell functions with bind -x, and Alt+t bound to the macro that runs
-  # them around an accept-line. Alt+t is spelled \e rather than \M- because a terminal
-  # sends Alt and t as Escape followed by t, while \M-t is the single byte a terminal
+  # bound to shell functions with bind -x, and Alt+c bound to the macro that runs
+  # them around an accept-line. Alt+c is spelled \e rather than \M- because a terminal
+  # sends Alt and c as Escape followed by c, while \M-c is the single byte a terminal
   # only produces when it is 8-bit clean.
   for _answer in TAKE GIVE MACRO; do
     if cleaned | grep -qx "$_answer"; then
-      ok "Alt+t is bound to the pair and an accept-line ($_answer)"
+      ok "Alt+c is bound to the pair and an accept-line ($_answer)"
     else
-      fail "Alt+t is bound to the pair and an accept-line ($_answer missing)"
+      fail "Alt+c is bound to the pair and an accept-line ($_answer missing)"
     fi
   done
 
@@ -385,9 +385,9 @@ RC
   # does, and neither binding may take the other away: the two shapes of the prompt
   # and the search of the history have to be bound in the same shell at once.
   if cleaned | grep -q '^SEARCHED$'; then
-    ok 'Alt+t and the history search of the arrow keys hold each other'
+    ok 'Alt+c and the history search of the arrow keys hold each other'
   else
-    fail 'Alt+t and the history search of the arrow keys hold each other'
+    fail 'Alt+c and the history search of the arrow keys hold each other'
   fi
 }
 
@@ -400,7 +400,7 @@ else
 fi
 
 if [ "$FAILURES" = 0 ]; then
-  printf '\nAlt+t collapses the prompt to its second line and back\n'
+  printf '\nAlt+c collapses the prompt to its second line and back\n'
 else
   printf '\n%d check(s) failed\n' "$FAILURES" >&2
 fi

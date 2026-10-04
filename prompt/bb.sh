@@ -116,7 +116,7 @@ PR_LLCORNER="└"
 # Half a dash: the lower half of HBAR. It is drawn where the frame ends instead of
 # turning - at the far end of its top line, and at the corner of a prompt that has
 # no frame above it, where it is what is left of └ once the line it hung from is
-# gone (Alt+t, see the compact prompt below).
+# gone (Alt+c, see the compact prompt below).
 HALF_HBAR="┈"
 PR_LLCORNER_COMPACT=$HALF_HBAR
 
@@ -215,9 +215,9 @@ trap '__bb_timer_start' DEBUG
 
 export PROMPT_COMMAND=__prompt_command
 
-# --- the compact prompt, Alt+t ---------------------------------------------
+# --- the compact prompt, Alt+c ---------------------------------------------
 # A prompt of two lines spends one of them on the machine: who, where, when, how
-# long. Alt+t takes that line away and keeps only the one the command is typed on,
+# long. Alt+c takes that line away and keeps only the one the command is typed on,
 # for a small terminal, a crowded one, or a reader who has just seen all of that
 # above. The corner that opens the kept line loses its frame, so it is drawn as the
 # lower half of a dash instead of a corner.
@@ -225,7 +225,7 @@ export PROMPT_COMMAND=__prompt_command
 # A prompt is drawn once, out of PS1, and bash will not redraw the one that already
 # stands on the screen: a new shape comes with the next prompt and with no other.
 # So the key does not only flip the switch - it asks bash for a prompt, which it can
-# be asked for exactly one way: by accepting the line. Alt+t is three keys, and each
+# be asked for exactly one way: by accepting the line. Alt+c is three keys, and each
 # of them is a thing a user could do by hand:
 #
 #   \C-x\C-p  the line being typed is put aside and the line emptied, and the shape
@@ -241,9 +241,9 @@ export PROMPT_COMMAND=__prompt_command
 # shells only - `bind` in a script has no readline to bind on, and a warning about
 # that would be noise in somebody else's output.
 #
-# Alt+t is spelled \et and not \M-t, because a terminal sends Alt and t as Escape
-# followed by t, while \M-t is the single byte a terminal only produces when it is
-# 8-bit clean. The key is taken from readline's transpose-words.
+# Alt+c is spelled \ec and not \M-c, because a terminal sends Alt and c as Escape
+# followed by c, while \M-c is the single byte a terminal only produces when it is
+# 8-bit clean. The key is taken from readline's capitalize-word.
 #
 # A bash older than 4.4 hands a `bind -x` command no READLINE_LINE to put the typed
 # text aside in, and a key that accepted the line would then run whatever the user
@@ -280,9 +280,9 @@ function __bb_line_give {
 function __bb_toggle_prompt_note {
   __bb_toggle_prompt
   if [ "$BB_COMPACT" = 1 ]; then
-    printf 'BetterBash: compact prompt - the next prompt is one line (Alt+t for the frame)\n'
+    printf 'BetterBash: compact prompt - the next prompt is one line (Alt+c for the frame)\n'
   else
-    printf 'BetterBash: frame prompt - the next prompt is two lines again (Alt+t for one line)\n'
+    printf 'BetterBash: frame prompt - the next prompt is two lines again (Alt+c for one line)\n'
   fi
 }
 
@@ -300,9 +300,9 @@ case $- in
     if [ "$BB_PROMPT_KEYS" = 1 ]; then
       bind -x '"\C-x\C-p": __bb_line_take' 2>/dev/null || true
       bind -x '"\C-x\C-b": __bb_line_give' 2>/dev/null || true
-      bind '"\et": "\C-x\C-p\C-m\C-x\C-b"' 2>/dev/null || true
+      bind '"\ec": "\C-x\C-p\C-m\C-x\C-b"' 2>/dev/null || true
     else
-      bind -x '"\et": __bb_toggle_prompt_note' 2>/dev/null || true
+      bind -x '"\ec": __bb_toggle_prompt_note' 2>/dev/null || true
     fi
     ;;
 esac
