@@ -1,31 +1,21 @@
-// The theme code of the install commands and of a shared link, in the two shapes
-// it has.
+// The theme code of the install commands and of a shared link, in its two shapes. A
+// code is characters of the base64url alphabet, six bits of the theme each.
+// prompt/bb-theme.sh decodes the same characters on the machine that installs, and
+// tests/test-theme-code.mjs holds the two to each other bit for bit.
 //
-// A code is characters of the base64url alphabet, and every one of them carries
-// six bits of the theme. prompt/bb-theme.sh decodes the same characters on the
-// machine that installs, and tests/test-theme-code.mjs holds the two of them to
-// each other bit for bit.
+//   v0  eight characters, 48 bits: eight colours of five bits and the avatar bit. They
+//       are in shared links and in ~/.bb/theme-code, so they are read as they always
+//       were and never written again.
+//   v1  thirteen characters: the digit 1, then twelve of payload - 40 colour bits (the
+//       colours of v0, same places), 9 element bits, 7 + 5 for the order of the two
+//       halves of the top line, 1 for the border fill, 10 kept at zero so a later
+//       version cannot be mistaken for this one.
 //
-//   v0  eight characters, 48 bits: eight colours of five bits each, and the bit
-//       of the avatar behind them. Codes of this shape are in shared links and
-//       in ~/.bb/theme-code of every machine that installed one, so they are
-//       read as they always were and never written again.
-//   v1  thirteen characters: the digit 1, then twelve characters of payload, of
-//       which the first 40 bits are the colours of v0 in the same order, the
-//       next nine are the elements of the top line of the prompt, the next
-//       seven and five are the order of the two halves of that line, the one
-//       behind them is the border fill, and the last ten are kept at zero so
-//       that a later version cannot be mistaken for this one.
+// The fill is held against its name (zero fills, one does not) because its bit was one
+// of the kept ones, so every older code means the line it always drew.
 //
-// The fill is held against its name - zero fills the line, one does not - because
-// the bit it takes was one of the kept ones, so every code written before it says
-// the line it always drew.
-//
-// The colours of both shapes, in the order their bits are written.
-//
-// The order of the nine element bits is the order the elements stand in on the
-// top line of the prompt: five of the left half, then four of the right one. The
-// fill follows them, though it stands between the two halves and not after them.
+// Element bits are in the order the elements stand on the line: five of the left half,
+// then four of the right. The fill follows them, though it stands between the halves.
 
 export const ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
 
@@ -53,22 +43,17 @@ export const LINE_ELEMENTS = [
   'PROMPT_CLOCK',
 ];
 
-// The border fill: the dashes between the elements of the top line, and the run of
-// them that reaches the line to the width of the terminal. A flag like the elements
-// and a checkbox like them, but not one of them: it stands between the two halves
-// of the line, so it is ranked nowhere and takes the bit behind the nine.
+// The border fill: a flag with a checkbox like the elements, but not one - it stands
+// between the halves, so it is ranked nowhere and takes the bit behind the nine.
 export const FILL_KEY = 'PROMPT_FILL';
 
 // The flags in the order they are read, written and shown as checkboxes: the
 // elements of the line, then the fill.
 export const ELEMENT_KEYS = [...LINE_ELEMENTS, FILL_KEY];
 
-// The elements of the two halves of the top line. The halves are ordered apart
-// from one another because the frame anchors them apart: the left half hangs from
-// the opening corner, the right one from the closing. Five elements have 120 orders
-// and need seven bits, four have 24 and need five.
-export const LEFT_ELEMENTS = LINE_ELEMENTS.slice(0, 5);
-export const RIGHT_ELEMENTS = LINE_ELEMENTS.slice(5);
+// The two halves of the top line are the first five elements of LINE_ELEMENTS and the
+// next four. They are ordered apart because the frame anchors them apart: five have 120
+// orders (7 bits), four have 24 (5 bits).
 
 export const VERSION = '1';
 export const V0_LENGTH = 8;
@@ -89,9 +74,8 @@ export const ALL_ELEMENTS_ON = '1'.repeat(ELEMENT_KEYS.length);
 
 // --- bits and characters ---------------------------------------------------
 
-// The value of a character of the alphabet, or -1 for anything else. - is 62 and
-// _ is 63: the same way round base64url, prompt/bb-theme.sh and the Go backend
-// whose corpus tests/golden pins all agree on.
+// The value of a character, or -1 for anything else. - is 62 and _ is 63, as base64url
+// and prompt/bb-theme.sh read them.
 export function charValue(char) {
   return ALPHABET.indexOf(char);
 }
@@ -118,9 +102,8 @@ export function bitsToCode(bits) {
 
 // --- the orders ------------------------------------------------------------
 
-// The rank of an order among all orders of n things, the way a factorial number
-// system counts them: 0 is the order the elements stand in by default, and the
-// last rank is n! - 1.
+// The rank of an order in the factorial number system: 0 is the default order, the last
+// rank is n! - 1.
 export function orderRank(order, count) {
   if (order.length !== count) return null;
   const pool = [...Array(count).keys()];
@@ -129,7 +112,7 @@ export function orderRank(order, count) {
     const at = pool.indexOf(order[i]);
     if (at < 0) return null;
     pool.splice(at, 1);
-    // The weight of this place is the number of orders of what is left after it.
+    // The weight of this place: the number of orders of what is left after it.
     let place = 1;
     for (let k = count - 1 - i; k > 1; k--) place *= k;
     rank += at * place;
@@ -159,8 +142,7 @@ export const MAX_RIGHT_ORDER = 24;
 
 // --- colours ---------------------------------------------------------------
 
-// The five bits of one colour slot: three for which of the eight colours, one
-// for the bright half of the palette and one for bold.
+// The five bits of a colour slot: three for the colour, one for bright, one for bold.
 export function colorBits(attrs) {
   const short = attrs.baseCode - 30;
   const light = attrs.isLight ? 1 : 0;
@@ -193,15 +175,13 @@ const bitsToNumber = (bits) => bits.reduce((value, bit) => (value << 1) | bit, 0
 
 // --- the code in full ------------------------------------------------------
 
-// A theme: the eight colours, the nine elements of the top line and the border
-// fill, and the two orders. `elements` is the bit string of the flags in the order
-// of ELEMENT_KEYS - the nine of the line and the fill last - '1' showing one; the
-// orders are ranks, and both are 0 - the order of LINE_ELEMENTS - until the page
-// can be asked to reorder them.
-//
-// The fill goes into its bit against its name: a flag that shows becomes a zero,
-// because every code written before this flag holds zero there and means the line
-// stretched to the edge of the terminal.
+/**
+ * A theme into a code. `elements` is the bit string of the flags in the order of
+ * ELEMENT_KEYS (the nine of the line, the fill last), '1' showing one; the orders are
+ * ranks, both 0 - the order of LINE_ELEMENTS - until the page can reorder them. The
+ * fill goes in against its name, so every older code still means a line stretched to
+ * the edge.
+ */
 export function encode({ colors, elements = ALL_ELEMENTS_ON, leftOrder = 0, rightOrder = 0 }) {
   const fill = elements.charAt(FLAG_BITS) === '1' ? '0' : '1';
   const bits = colorBitsString(colors) + elements.slice(0, FLAG_BITS) +
@@ -211,16 +191,13 @@ export function encode({ colors, elements = ALL_ELEMENTS_ON, leftOrder = 0, righ
   return VERSION + bitsToCode(bits.split('').map(Number));
 }
 
-// Both shapes are read: eight characters are a code of the first shape, whose
-// only element is the avatar, and thirteen are a code of this one.
+/** Reads both shapes: eight characters, whose only element is the avatar, or thirteen. */
 export function decode(code) {
   if (typeof code !== 'string') return null;
   if (code.length === V0_LENGTH) {
     const bits = bitsOf(code);
     if (!bits) return null;
-    // The avatar bit is the first of the 48 that the shape has room for, and it
-    // is the only element a code of this shape says anything about: the rest of
-    // them were never asked for, and show - the fill among them.
+    // The only element a v0 code speaks of; the rest were never asked for, and show.
     const avatar = bits[COLOR_BITS] === 1 ? '1' : '0';
     return {
       version: 0,
@@ -236,14 +213,13 @@ export function decode(code) {
   const left = bitsToNumber(bits.slice(COLOR_BITS + FLAG_BITS, COLOR_BITS + FLAG_BITS + LEFT_ORDER_BITS));
   const right = bitsToNumber(bits.slice(COLOR_BITS + FLAG_BITS + LEFT_ORDER_BITS, COLOR_BITS + FLAG_BITS + LEFT_ORDER_BITS + RIGHT_ORDER_BITS));
   if (left >= MAX_LEFT_ORDER || right >= MAX_RIGHT_ORDER) return null;
-  // What is kept is kept at zero, so that a code with something in it is never
-  // read as a theme of this shape by a release that means it as another.
+  // Kept bits are zero, so a code holding something is never read as this shape.
   if (bits.slice(V1_PAYLOAD_BITS - RESERVED_BITS).some((bit) => bit !== 0)) return null;
   return {
     version: 1,
     colors: colorsFromBits(bits.slice(0, COLOR_BITS)),
-    // The flags of the line, then the fill out of its bit and back to its name:
-    // only a one there says it does not fill.
+    // The flags of the line, then the fill back from its bit: a one there says it does
+    // not fill.
     elements: bits.slice(COLOR_BITS, COLOR_BITS + FLAG_BITS).join('') +
       (bits[FILL_BIT] === 1 ? '0' : '1'),
     leftOrder: left,
@@ -257,24 +233,20 @@ export function isThemeCode(code) {
 
 // --- asking for a draw ---------------------------------------------------
 
-// The word an install command carries instead of a code when the machine that
-// runs it is asked to draw the colours itself, and the separator between that
-// word and a theme code the draw is asked to wear.
+// The word an install command carries instead of a code, when the machine running it
+// should draw the colours, and the separator before a code the draw should wear.
 export const RANDOM_WORD = 'rand';
 export const RANDOM_SEPARATOR = ':';
 
-// The word, and the code whose elements the draw should wear. A code is always
-// carried: the boxes of the top line are the one thing a draw never picks for
-// itself, so the page hands them over even while its colours are random. The
-// colours of a code behind the separator are not used - the machine draws its
-// own - and what it says about the line is.
+// The word, and the code whose elements the draw wears. A code is always carried: the
+// boxes of the top line are the one thing a draw never picks for itself. The colours of
+// that code are ignored - the machine draws its own.
 export function randomRequest(code = '') {
   return code ? `${RANDOM_WORD}${RANDOM_SEPARATOR}${code}` : RANDOM_WORD;
 }
 
-// The code a request carries, '' when it carries none and null when the request
-// asks for no draw or carries something that is not a code. Reading a request
-// back is what lets the page - and the tests - show what a machine will wear.
+// The code a request carries: '' when it carries none, null when it is no draw or
+// carries something that is not a code.
 export function randomRequestCode(request) {
   if (typeof request !== 'string') return null;
   if (request === RANDOM_WORD) return '';

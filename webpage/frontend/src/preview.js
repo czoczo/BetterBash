@@ -1,26 +1,16 @@
 // The top line of the prompt, as the page draws it in its preview.
 //
-// prompt/bb.sh draws the frame of a prompt out of elements, every one of them
-// optional, and sizes the dashes between its two halves from what the two halves
-// show: the line is as long as the terminal leaves, whatever is hidden. The page
-// shows a prompt of its own, of a fixed width, and it has to be built the same
-// way - a preview in which hiding the clock left a hole where it stood would
-// preview a prompt the shell does not draw.
-//
-// So this holds what the checkboxes of the page speak for - the nine elements of
-// the line and the border fill - and builds the line: the same widths prompt/bb.sh
-// counts, the same separators, the same fill, and the same dashes a hidden element
-// hands back when the fill is gone. A theme that wants no fill gets the shorter
-// line it asks for, of its elements and the two dashes between neighbours.
-// tests/test-frame.mjs draws the frame with bash and compares it with what this
-// builds, glyph for glyph.
+// prompt/bb.sh builds the frame from optional elements and sizes the dashes between its
+// halves from what shows. The page previews a prompt of a fixed width and has to be
+// built the same way - a preview where hiding the clock left a hole would preview a
+// prompt the shell does not draw - so this holds the nine elements and the border fill,
+// and counts the same widths, separators, fill and handed back dashes.
+// tests/test-frame.mjs draws the frame with bash and compares it glyph for glyph.
 
 import { ELEMENT_KEYS } from './theme-code.js';
 
-// The elements of the top line, in the order their bits are written and in the
-// order they stand in the frame. `label` is what the checkbox of the page says,
-// and `hint` what it says when the pointer rests on it: which part of the line
-// the checkbox takes away.
+// The elements of the top line, in the order of their bits and of the frame. `label` is
+// what the checkbox says, `hint` what it says on hover.
 export const ELEMENTS = [
   { key: 'PROMPT_USER', label: 'Username', hint: 'the name in (user@host:tty)' },
   { key: 'PROMPT_HOST', label: 'Hostname', hint: 'the machine in (user@host:tty)' },
@@ -31,8 +21,7 @@ export const ELEMENTS = [
   { key: 'PROMPT_DURATION', label: 'Duration', hint: 'how long the last command ran' },
   { key: 'PROMPT_DATE', label: 'Date', hint: 'the day the prompt was drawn' },
   { key: 'PROMPT_CLOCK', label: 'Clock', hint: 'the time the prompt was drawn' },
-  // The tenth flag, and not one of the elements above: the border fill, which
-  // stands between the two halves of the line rather than in either of them.
+  // The tenth flag and not an element: the border fill, between the two halves.
   {
     key: 'PROMPT_FILL',
     label: 'Border fill',
@@ -40,31 +29,16 @@ export const ELEMENTS = [
   },
 ];
 
-export const LEFT_ELEMENTS = ELEMENTS.slice(0, 5);
-export const RIGHT_ELEMENTS = ELEMENTS.slice(5, 9);   // the fill is neither half
-
-// The width of the preview box, in glyphs, and the terminal that would draw the
-// same line: prompt/bb.sh keeps the top line four columns short of the right
-// edge of the terminal it is drawn in.
-//
-// Growing this grows the fill of both prompt lines by the same number of glyphs -
-// the two halves take what they take, so every glyph added here is a glyph of the
-// border between them - and the two lines of the preview stay one width, which is
-// what the box is drawn for (see .ps1-line in src/style.css, which scales the font
-// to it so the black box of the page stays as wide as it was).
-//
-// A theme that asks for no fill is kept to that width too: its line is shorter by
-// the stretch the fill never draws, so the same number of spaces of nothing is put
-// behind it (see topLine). The box is drawn around the longest line it holds, and a
-// preview whose line shrinks with every unticked box would slide the elements of it
-// sideways instead of only shortening them.
+// The width of the preview box in glyphs, and the terminal that would draw the same
+// line (prompt/bb.sh keeps four columns short of its right edge). Growing it grows the
+// fill and keeps both preview lines one width; a theme without the fill is padded to the
+// same width (see topLine), because a line that shrank with every unticked box would
+// slide its elements sideways. .ps1-line in style.css scales the font to it.
 export const PREVIEW_WIDTH = 120;
 export const columnsFor = (width) => width + 4;
 
-// The state of the checkboxes of the page, which is also a theme of a machine:
-// what the prompt of a preview shows, apart from the colours and the name of the
-// host. `jobs` is the number of background commands, and 0 stands for a machine
-// with none, which has no counter to show rather than one hiding it.
+// The state of the checkboxes, which is also a theme of a machine. `jobs` 0 means a
+// machine with no background commands: absent rather than hidden.
 export const SAMPLE = {
   user: 'user',
   tty: 'pts/5',
@@ -75,9 +49,8 @@ export const SAMPLE = {
   clock: '00:40:03',
 };
 
-// A prompt of a machine that is logged in as root, has a command that ended in
-// error, and has nothing running in the background: the second prompt the page
-// previews, and the reason the two of them cannot share their numbers.
+// The second prompt the page previews: root, a command that ended in error, no jobs -
+// hence the two samples cannot share their numbers.
 export const SAMPLE_ROOT = {
   user: 'ROOT',
   root: true,
@@ -91,26 +64,21 @@ export const SAMPLE_ROOT = {
 
 const segment = (text, colorKey) => ({ text, colorKey });
 const dashRun = (count) => '─'.repeat(count);
-// The width a line of a theme without the fill falls short of, put in behind its
-// last element as nothing to see. It belongs to the preview alone and to the prompt
-// not at all: a terminal draws its line into the corner it stands in, while the
-// preview centres a box around the longest line it holds.
+// The width a line without the fill falls short of, padded in as nothing to see. The
+// preview centres a box around its longest line; a terminal does not.
 const spaceRun = (count) => ({ text: ' '.repeat(count), colorKey: null });
 
-// What an element of the line takes when it shows: its own glyphs and the two
-// dashes of the separator that stands before it, except for the first element of
-// a half, which hangs from the corner or from the fill instead.
+// What an element takes when it shows: its glyphs plus the two dashes of the separator
+// before it, except the first of a half, which hangs from the corner or the fill.
 const widthOf = {
   // The brackets of (user@host:tty), its @ and its : over the names themselves.
   identity: ({ user, host, tty }) => 4 + user.length + host.length + tty.length,
   avatar: () => 12,
-  // Two dashes of its separator, a bracket each, the space and the arrow, and the
-  // digits of the count - what prompt/bb.sh calls PROC_NATURAL. A machine with no
-  // background jobs has no counter, and takes nothing: it is absent, not hidden.
+  // Separator, brackets, space, arrow and digits - prompt/bb.sh's PROC_NATURAL. No jobs
+  // means no counter at all: absent, not hidden.
   jobs: (jobs) => (jobs > 0 ? String(jobs).length + 6 : 0),
-  // The code, its arrow and a bracket each - or the five dashes that stand for a
-  // command that ended well, which is the width of that segment when it shows.
-  // It is the first element of its half, so it stands behind no separator.
+  // The code, its arrow and a bracket each, or the five dashes of a command that ended
+  // well. First of its half, so behind no separator.
   exit: (code) => (code ? String(code).length + 4 : 5),
   duration: (duration) => String(duration).length + 5,
   date: () => 14,
@@ -119,38 +87,32 @@ const widthOf = {
   tail: () => 4,
 };
 
-// Everything the line would take were all of it shown - the measure prompt/bb.sh
-// calls ROOM is worked out of this, and never of what the theme hides, so a frame
-// with three elements and a frame with seven break at the same width.
+// What the whole line would take: ROOM is worked out of this and never of what the theme
+// hides, so a frame with three elements and one with seven break at the same width.
 const naturalWidths = ({ user, host, tty, jobs, code, duration }) => {
   const left = 2 + widthOf.identity({ user, host, tty }) + widthOf.avatar() + widthOf.jobs(jobs);
   const right = widthOf.exit(code) + widthOf.duration(duration) + widthOf.date() + widthOf.clock() + widthOf.tail();
   return { left, right };
 };
 
-// The top line of the prompt, as segments of { text, colorKey }, for a theme of
-// the page: the flags of the elements, the colours, the host name of the preview,
-// and the sample of what the prompt says. `avatar` is the eight glyph segments of
-// the host, which the page draws itself and only hands over as coloured pieces.
+/**
+ * The top line as segments of { text, colorKey } for a theme of the page. `avatar` is
+ * the eight glyph segments the page draws and hands over as coloured pieces.
+ */
 export function topLine({ flags, host, avatar = [], sample = SAMPLE, columns = columnsFor(PREVIEW_WIDTH) }) {
   const { user, root = false, tty, jobs, code, duration, date, clock } = { ...SAMPLE, ...sample };
   const on = (key) => flags[key] !== false;
   const natural = naturalWidths({ user, host, tty, jobs, code, duration });
-  // ROOM, of prompt/bb.sh: what the terminal leaves for the fill were the whole
-  // row shown. It is measured over every element and never over the ones the
-  // theme hides, so a frame with three elements and a frame with seven break at
-  // the same width.
+  // ROOM, of prompt/bb.sh: what the terminal leaves for the fill were the whole row
+  // shown.
   const room = columns - 4 - natural.left - natural.right;
-  // The border fill, and with it the two states of the line: stretched to the edge
-  // of the terminal, or holding nothing but what shows. A line without the fill has
-  // no fill to drop when the terminal runs out, so it is never too narrow for one.
+  // The two states of the line: stretched to the edge of the terminal, or holding only
+  // what shows. A line without the fill is never too narrow for one.
   const fills = on('PROMPT_FILL');
   const narrow = fills && room <= 0;
 
-  // (user@host:tty), measured and drawn as one element with parts of its own. The
-  // @ belongs to a name and a machine together and stands between them when both
-  // do; the : belongs to the terminal, and is dropped when the terminal comes
-  // first in the brackets, which would else open with it.
+  // (user@host:tty), one element with parts of its own: @ stands between a name and a
+  // machine when both show, : belongs to the terminal and is dropped when it comes first.
   const identity = [];
   let identityWidth = 0;
   const add = (text, colorKey) => {
@@ -164,18 +126,15 @@ export function topLine({ flags, host, avatar = [], sample = SAMPLE, columns = c
   }
   if (on('PROMPT_TTY')) {
     if (identity.length) add(':', 'SEPARATOR_COLOR');
-    // The terminal of the line in the colour of the host, as prompt/bb.sh draws it:
-    // both say which machine this is, and one of them is not a note about the other.
+    // The tty in the colour of the host, as prompt/bb.sh draws it.
     add(tty, 'PRIMARY_COLOR');
   }
   const identityNatural = widthOf.identity({ user, host, tty });
   const identityShown = identity.length ? identityWidth + 2 : 0;
 
-  // What the elements that hide give up: to the fill, where there is a fill; to
-  // their own place, as dashes of the frame, where the terminal is too narrow for
-  // the whole row. The parts of (user@host:tty) are the exception - a bracket full
-  // of dashes where a name stood reads as a name of dashes - so a half shown
-  // identity is absorbed by the fill, or given up below the break.
+  // What the hidden elements give up: to the fill where there is one, to their own place
+  // as frame dashes where the terminal is too narrow. (user@host:tty) is the exception -
+  // a bracket of dashes where a name stood reads as a name of dashes.
   const given =
     identityNatural - identityShown +
     (on('AVATAR') ? 0 : widthOf.avatar()) +
@@ -185,8 +144,8 @@ export function topLine({ flags, host, avatar = [], sample = SAMPLE, columns = c
     (on('PROMPT_DATE') ? 0 : widthOf.date()) +
     (on('PROMPT_CLOCK') ? 0 : widthOf.clock());
 
-  // An element that does not show: nothing where the fill is there to take its
-  // width back, and dashes of the frame of that same width where it is not.
+  // An element that does not show: nothing while the fill takes its width back, frame
+  // dashes of that width otherwise.
   const hiding = (key, naturalWidth) =>
     on(key) ? [] : narrow ? [segment(dashRun(naturalWidth), 'BORDCOL')] : [];
 
@@ -202,8 +161,7 @@ export function topLine({ flags, host, avatar = [], sample = SAMPLE, columns = c
     out.push(...hiding('AVATAR', widthOf.avatar()));
   }
 
-  // The counter of background commands, which a machine without any does not
-  // have: it is absent rather than hidden, and hands nothing back.
+  // The job counter, absent rather than hidden when there are no jobs.
   if (jobs > 0) {
     if (on('PROMPT_JOBS')) {
       out.push(
@@ -217,23 +175,18 @@ export function topLine({ flags, host, avatar = [], sample = SAMPLE, columns = c
     }
   }
 
-  // The fill: whatever width the terminal leaves over, and whatever the elements
-  // that hide gave up. When the terminal is too narrow for the row, the fill is
-  // dropped rather than keeping the dash it would otherwise carry, because that
-  // dash would push the frame onto the next line. When the theme asks for no fill
-  // there is none at all, and the line ends where its last element ends.
+  // The fill: what the terminal leaves over, plus what the hidden elements gave up. It
+  // is dropped rather than pushing the frame onto the next line, and absent altogether
+  // when the theme asks for no fill.
   const fill = !fills || narrow ? 0 : room + given;
   if (fill > 0) out.push(segment(dashRun(fill), 'BORDCOL'));
 
-  // The right half, hanging from the right edge of the line: the code the last
-  // command left, how long it ran, the day, and the time of it. The code stands
-  // behind no separator - it is the first of its half, and the fill is behind it -
-  // and the five dashes of a command that ended well are that segment rather than
-  // something next to it.
+  // The right half, hanging from the right edge: exit code, duration, date, clock. The
+  // code stands behind no separator, being first of its half.
   if (on('PROMPT_EXIT')) {
     out.push(
-      // Without the fill behind it, the two dashes every other element of the line
-      // carries are what joins the code to what stands before it.
+      // Without the fill, the two dashes the other elements carry join it to what
+      // stands before.
       ...(fills ? [] : [segment('──', 'BORDCOL')]),
       code
         ? [segment('(', 'SEPARATOR_COLOR'), segment(`${code} ↵`, 'ERR_COLOR'), segment(')', 'SEPARATOR_COLOR')]
@@ -252,8 +205,8 @@ export function topLine({ flags, host, avatar = [], sample = SAMPLE, columns = c
 
   out.push(...(on('PROMPT_DURATION') ? behind(`${duration}s`, 'PRIMARY_COLOR') : hiding('PROMPT_DURATION', widthOf.duration(duration))));
   out.push(...(on('PROMPT_DATE') ? behind(date, 'TIME_COLOR') : hiding('PROMPT_DATE', widthOf.date())));
-  // The clock is drawn in the colour of an error when the command that drew the
-  // prompt left one, whether or not the code of it shows too.
+  // The clock takes the colour of an error when the last command left one, whether or
+  // not the code shows.
   out.push(
     ...(on('PROMPT_CLOCK')
       ? behind(clock, code ? 'ERR_COLOR' : 'PRIMARY_COLOR')
@@ -262,13 +215,9 @@ export function topLine({ flags, host, avatar = [], sample = SAMPLE, columns = c
 
   out.push(segment('───┈', 'BORDCOL'));
 
-  // The line of a theme without the fill ends behind its last element, and the
-  // box it is previewed in is drawn around the longest line it holds: untick a box
-  // and everything on the line slides to the right, as though the theme had moved
-  // it rather than shortened it. So the width the fill would have stretched to the
-  // edge is padded in at the end, spaces and no colour, and the preview is one
-  // width whatever the boxes say - with the elements of the line where they have
-  // always stood, against the left edge of it.
+  // A line without the fill ends behind its last element, and the box is drawn around
+  // the longest line it holds: untick a box and everything slides right. So the width
+  // the fill would have stretched is padded in at the end, spaces and no colour.
   if (!fills) {
     const drawn = out.flat().reduce((glyphs, piece) => glyphs + [...piece.text].length, 0);
     const pad = columns - 12 - drawn;
@@ -280,8 +229,7 @@ export function topLine({ flags, host, avatar = [], sample = SAMPLE, columns = c
 
 export const lineText = (segments) => segments.map((s) => s.text).join('');
 
-// The flags of a theme as the checkboxes hold them: a thing of booleans out of
-// the bit string of the theme code, and back into it.
+// The flags of the checkboxes, out of the bit string of the code and back into it.
 export const flagsOf = (bits) =>
   Object.fromEntries(ELEMENT_KEYS.map((key, i) => [key, String(bits)[i] === '1']));
 

@@ -27,8 +27,7 @@
   font-weight: normal;
 }
 
-a,
-.green {
+a {
   text-decoration: none;
   color: var(--primary-color);
   transition: 0.4s;
@@ -48,8 +47,6 @@ a,
   }
 
   #app {
-    /*display: grid;
-    grid-template-columns: 1fr 1fr;*/
     padding: 0 2rem;
   }
 }

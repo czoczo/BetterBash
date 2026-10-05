@@ -1,30 +1,16 @@
-// A host name for the machine the preview of the page stands for.
+// A host name for the machine the preview stands for. The page cannot read
+// `/etc/hostname`, so the name - and the avatar hashed out of it, see avatar.js - is
+// drawn instead of being one constant every visitor shared.
 //
-// The preview is a prompt of a machine this page has never seen: it cannot read
-// `/etc/hostname`, so the name - and the avatar hashed out of it, see avatar.js -
-// has to come from somewhere else. It used to come from one constant: every
-// visitor previewed the same machine, refreshed the page, and previewed it again.
-// Here it comes from a draw, so a fresh load of the page is a fresh machine, and
-// the avatar below it is that machine's rather than one shared by everyone who
-// ever opened the page.
+// The words are those of `hostnamegen`: an adjective and a noun joined with a dash, from
+// the two lists below kept as that script holds them - including its two duplicated
+// words (`water`, `sun`), which is why they come up a little more often. The number the
+// script appends is left out: it told one machine from another of the same name, and the
+// preview is a single machine.
 //
-// The words of the name are the words of `hostnamegen`: an adjective and a noun,
-// drawn out of the two lists below and joined with a dash. The lists are that
-// script's own, kept as it keeps them - including the two words it holds twice
-// (`water`, `sun`), which is why those two come up a little more often than the
-// rest. What is left out is the number the script puts behind them: it numbered one
-// machine among many with the same words, and the preview is a single machine that
-// nobody has to tell apart from another. A name made here is what a name from that
-// script is before its number.
-//
-// What a name is good for is the field of the page it is typed into: nothing here
-// enters a theme code, and no install command carries it. The field keeps being
-// typeable - a name drawn is not a name the visitor is stuck with, and the avatar
-// follows whichever of the two is standing.
-//
-// tests/test-avatar.mjs holds this to two things: that the page draws its default
-// name here rather than spelling one out, and that no name this can make is too
-// long for the field the page puts it in.
+// Nothing here enters a theme code or an install command, and the field stays typeable -
+// the avatar follows whichever name stands in it. tests/test-avatar.mjs holds that the
+// page draws its default name here and that no name is too long for its field.
 
 // The adjectives and the nouns, in the order the script lists them.
 export const ADJECTIVES = [
@@ -50,32 +36,21 @@ export const NOUNS = [
   'cherry', 'tree', 'fog', 'frost', 'voice', 'paper', 'frog', 'smoke', 'star',
 ];
 
-// The longest name this file can make: its longest adjective and its longest noun,
-// with the dash between them. It is stated here because it is a property of the
-// lists above and of nothing else, and the field of the page that a name is typed
-// into has a maxlength of its own to keep.
+// The longest name these lists can make: longest adjective + dash + longest noun. The
+// field of the page keeps a maxlength of its own to it.
 export const MAX_HOSTNAME_LENGTH =
   Math.max(...ADJECTIVES.map((word) => word.length)) +
   1 +
   Math.max(...NOUNS.map((word) => word.length));
 
-// The dice of the browser, if it has them. `crypto.getRandomValues` is what a page
-// reaches for when it wants a number nobody outside the page can predict, which is
-// more than a preview asks for but is also the dice that costs nothing to use.
+// The dice of the browser, if it has them - more than a preview asks for, but free to
+// use.
 const dice = typeof globalThis.crypto?.getRandomValues === 'function' ? globalThis.crypto : null;
 
 /**
- * A whole number from 0 up to but not including `limit`, every one of them as
- * likely as any other.
- *
- * Taking the remainder of a 32 bit draw is not even unless the limit divides
- * 2^32, so the values past the last whole multiple of the limit are thrown away and
- * the draw is taken again - the same trick the page could play with `od` and `%` of
- * the shell script it borrows this shape from, without the shell.
- *
- * Where a browser has no crypto (and in a test run by node, which has it), the
- * older dice of the page are rolled instead: `Math.random`, the same one the theme
- * of the page is drawn with.
+ * A whole number from 0 up to (not including) `limit`, all equally likely. The remainder
+ * of a 32 bit draw is not even unless the limit divides 2^32, so values past the last
+ * whole multiple are thrown away and redrawn. Without crypto, `Math.random` is used.
  */
 export function randomBelow(limit) {
   if (!Number.isInteger(limit) || limit < 1) {
@@ -93,11 +68,8 @@ export function randomBelow(limit) {
 }
 
 /**
- * A host name: an adjective and a noun, as `hostnamegen` spells them.
- *
- * `below` is the dice - the draw of one number under a limit - and is handed over
- * only so that a test can roll a name it knows in advance; a page lets it be the
- * browser's own.
+ * A host name: an adjective and a noun, as `hostnamegen` spells them. `below` is the
+ * dice, handed over only so a test can roll a name it knows in advance.
  */
 export function randomHostname({ below = randomBelow } = {}) {
   return `${ADJECTIVES[below(ADJECTIVES.length)]}-${NOUNS[below(NOUNS.length)]}`;

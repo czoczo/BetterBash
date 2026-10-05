@@ -7,10 +7,8 @@ import { hostAvatar } from './avatar';
 import { randomHostname } from './hostname';
 import { APP_ENV, installCommands } from './config';
 import { copyText } from './clipboard';
-// The theme code and the top line of the prompt, shared with the tests so that
-// what this page writes, shows and calls a theme is one thing read three ways: by
-// the page, by the tests, and by the shell the code is handed to. theme-code.js
-// holds the layout of the code, preview.js builds the line the boxes change.
+// theme-code.js holds the layout of a theme code and preview.js builds the top line the
+// boxes change; the tests read the same files, so page, tests and shell agree.
 import {
   ALL_ELEMENTS_ON,
   COLOR_KEYS as ENCODING_ORDERED_COLOR_KEYS,
@@ -21,8 +19,7 @@ import {
 import { ELEMENTS as PROMPT_ELEMENTS, SAMPLE, SAMPLE_ROOT, bitsOfFlags, flagsOf, topLine } from './preview';
 // default theme vN-y_5uA
 
-// Surfaced in the page so a development build cannot be mistaken for the
-// published one (the install commands differ).
+// Surfaced so a development build cannot be mistaken for the published one.
 const appEnv = APP_ENV;
 
 // Color labels for UI
@@ -37,23 +34,15 @@ const colorLabels = {
   PATH_COLOR: 'Path Color',
 };
 
-// Which element of the top line each box of the page speaks for, and the two
-// halves those boxes stand in, are in preview.js - the file that builds the line
-// the boxes change. The last of the boxes speaks for the border fill, which is not
-// an element of the line but the dashes between them. The order of the colours in a
-// theme code is in theme-code.js, which the shell library and the tests read it out
-// of as well.
+// The boxes of the page, one per element of the top line plus the border fill.
 const promptElements = PROMPT_ELEMENTS;
 
-// Which elements of the top line the theme shows, and whether its border fills the
-// line out to the width of the terminal. Each of them shows unless its box is
-// unticked, and a theme that says nothing about them - a code of eight characters,
-// from before the boxes existed - shows them all and fills the line as it always did.
+// Which elements show and whether the border fills the line. An eight character code
+// says nothing about them and shows them all.
 const elementFlags = ref(flagsOf(ALL_ELEMENTS_ON));
 
-// The avatar is one of these elements, and its box stood by itself for longer than
-// the rest of them did: it keeps being called that, here and in the tour that
-// points at it.
+// The avatar box stood by itself for longer than the rest; it keeps its old name here
+// and in the tour that points at it.
 const showAvatar = computed({
   get: () => elementFlags.value.AVATAR !== false,
   set: (on) => {
@@ -61,30 +50,17 @@ const showAvatar = computed({
   },
 });
 
-// The prompt draws its avatar from the machine's own name (hashColor over
-// `cat /etc/hostname` in prompt/bb.sh), and this page cannot read that file, so
-// the name is asked for. It is the same string the preview line prints as the
-// host, so what the preview hashes and what it shows are one name.
-//
-// The name the page starts with is drawn rather than written down, out of the word
-// lists of `hostnamegen` (src/hostname.js): a page that has never seen a machine
-// has no name of a machine to keep either, so every load of it - and every reload -
-// stands for another one, wearing the avatar its name hashes into. What is drawn
-// stays in a field that can be typed over, since the point of the name of a machine
-// is that it is not random to whoever has it.
+// The prompt draws its avatar from the machine's own name and this page cannot read
+// /etc/hostname, so the name is asked for - the same string the preview prints as the
+// host. The starting name is drawn from the word lists of src/hostname.js, so every load
+// stands for another machine; the field stays typeable.
 const previewHostname = ref(randomHostname());
 const avatarSegments = computed(() => hostAvatar(previewHostname.value, 4));
 
-// The two top lines of the preview, as prompt/bb.sh would draw them: the same
-// elements, the same separators, the same fill - over the elements the boxes of the
-// page show. One line stands for a command that ended well, the other for a machine
-// logged in as root whose last command failed and nothing runs behind it.
-// prompt/bb.sh sizes the fill from what the two halves show, so a longer host
-// shortens it and the line keeps its length; tests/test-frame.mjs draws the frame
-// with bash and compares it with these lines, glyph for glyph, at a few widths and a
-// few settings of the boxes. A line longer than the preview box is padded to would
-// break under the font size it scales to, so the hostname field stops at 32
-// characters.
+// The two preview lines as prompt/bb.sh would draw them: one for a command that ended
+// well, one for root whose last command failed. tests/test-frame.mjs compares them with
+// bash glyph for glyph. A line longer than the box would break under the font size it
+// scales to, hence the 32 character hostname field.
 const previewLineOf = (sample) =>
   topLine({
     flags: elementFlags.value,
@@ -94,14 +70,12 @@ const previewLineOf = (sample) =>
   });
 const previewTopLines = computed(() => [previewLineOf(SAMPLE), previewLineOf(SAMPLE_ROOT)]);
 const uninstallFlag = ref(false);
-// Random mode: the install command asks for a theme drawn on the machine that
-// runs it - a new one every time the command is run again - by putting the word
-// "rand" in front of the theme code instead of the code alone. The code is kept
-// behind the word, because a draw is a draw of colours only: which elements of
-// the top line stand stays what the boxes of the page say.
+// Random mode: the word "rand" in front of the code asks the machine running the command
+// to draw its own colours. The code travels behind it because a draw is a draw of colours
+// only - the boxes still say the top line.
 const randomFlag = ref(false);
-// Automatic mode: the command drops the question it asks before running the
-// installer. It is meant for scripts and containers, where nobody can answer.
+// Automatic mode: the command drops the question it asks before installing, for scripts
+// and containers where nobody can answer.
 const autoFlag = ref(false);
 
 const activeTab = ref('curl');
@@ -281,41 +255,29 @@ const getColorClassFromBash = (bashCode) => {
   return 'text-white font-bold-style';
 };
 
-const updatePromptDetails = () => {
-  // This function is called on change
-};
+// Referenced by the @change handlers of every picker and box in the template; the page
+// reacts to its state through the computeds below, so there is nothing to do here.
+const updatePromptDetails = () => {};
 
 // --- The theme code -----------------------------------------------------
-//
-// A theme leaves this page as a code and comes back as one: the eight characters
-// the shell library has always read, or the thirteen of a theme that says which
-// elements of its top line it shows. theme-code.js holds that layout, and holds it
-// once - the page, tests/test-theme-code.mjs and prompt/bb-theme.sh read a theme
-// code by the same rules, and disagreeing about one of them is a failing test.
-//
-// Nothing here writes a code of eight characters any more, and everything still
-// reads one: they are out in the wild, and a code of that shape means every element
-// of the top line showing, apart from the avatar, whose bit it always carried.
+// A theme leaves the page as a code and comes back as one. Nothing here writes the eight
+// character shape any more and everything still reads it: those codes are out in the
+// wild. theme-code.js holds the layout once, for the page, the tests and the shell.
 function themeCodeFor(attrs, flags) {
   return writeThemeCode({ colors: attrs, elements: bitsOfFlags(flags) });
 }
 
-// The same read the other way, as the page holds a theme: the colours as the
-// pickers hold them, and the elements of the top line as the boxes of its tile hold
-// them. Null for anything that is not a code of either shape, which is also what
-// the page should make of a fragment it cannot read.
+/** The same read the other way, into what the pickers and the boxes hold. Null for a
+ *  fragment that is not a code of either shape. */
 function parseShareCode(code) {
   const read = readThemeCode(code);
   if (!read) return null;
   return { selectedAttrs: read.colors, elements: read.elements };
 }
 
-// Theme code of the install commands - or, in random mode, the request for a
-// draw: the word "rand", the separator, and the code of the page. The machine
-// running the command draws its own colors every time it runs, so the colors
-// selected in the UI are irrelevant for that command; the code travels with the
-// word because it says which elements of the top line stand, and those are never
-// drawn - not by the page's dice, and not by /dev/urandom either.
+// The code of the install commands, or in random mode the request "rand:<code>". The
+// colours of that code are irrelevant to the machine running it; what it travels for is
+// the top line, which is never drawn.
 const installThemeCode = computed(() => {
   const code = themeCodeFor(selectedColorAttributes.value, elementFlags.value);
   return randomFlag.value ? randomRequest(code) : code;
@@ -324,12 +286,11 @@ const installThemeCode = computed(() => {
 // What the fetched tree is asked to do, and with which theme code.
 const installKind = computed(() => (uninstallFlag.value ? 'uninstall' : 'install'));
 
-// The sentences of the two bubbles the template hangs over the Random and Auto
-// checkboxes. A toggle changes the command line below it in ways that are not to be
-// seen in it - the word "rand:" in front of a theme code, one clause less where the
-// question of the command was - so the consequence is spelled out here, and spelled
-// out for the command that is actually being shown: removing takes no theme, so while
-// Uninstall is checked Random has nothing to do with the command at all.
+/**
+ * The bubbles over the Random and Auto checkboxes: each toggle changes the command line
+ * in ways not visible in it, so the consequence is spelled out - for the command actually
+ * shown, since a removal takes no theme and Random has nothing to do with it.
+ */
 const randomToggleHint = computed(() =>
   uninstallFlag.value
     ? 'Random theme mode: nothing to do with a removal - turn Uninstall off and the command asks for a draw.'
@@ -342,11 +303,9 @@ const autoToggleHint = computed(() =>
     : 'Automatic mode: the command asks nothing before it installs - the variant for scripts and containers.',
 );
 
-// Every install command fetches from the origin serving this page into ~/.bb and
-// ends by sourcing the prompt of that tree, which installs it (see src/config.js).
-// Removing needs no fetch at all, so the four methods show one and the same
-// uninstall command; the uninstaller gets no theme code, colors are not its
-// business.
+// Every install command fetches from the origin serving this page into ~/.bb and sources
+// the prompt of that tree (see src/config.js). A removal needs no fetch, so all four tabs
+// show one uninstall command, without a theme code.
 const currentInstallCommands = computed(() =>
   installCommands({
     kind: installKind.value,
@@ -366,22 +325,14 @@ const shareableUrl = computed(() => {
 });
 
 // --- Copying out of the page ---------------------------------------------
-//
-// Both boxes below copy through ./clipboard.js rather than reaching for
-// navigator.clipboard themselves: that API lives only in a secure context, so on a
-// page served over plain http - `./dev.sh` reached by its host name - reading
-// navigator.clipboard threw before anything was attempted, and every button
-// answered with an alert telling the user to copy by hand. The helper falls back to
-// a copied selection, which an insecure page still gets; when even that fails, the
-// field of the button that was pressed is selected here and the reason is shown
-// under the box, so Ctrl+C stays a way out that says why it is needed.
+// Both boxes copy through ./clipboard.js, which falls back to a copied selection where
+// navigator.clipboard does not exist. When even that fails, the field of the pressed
+// button is selected and the reason shown, so Ctrl+C stays a way out.
 
 /**
- * Copy `text`, and on failure select the field the button belongs to and leave the
- * reason in `showError`. Says whether the clipboard took the text.
- *
- * The field is looked up before anything is awaited: the button is still there when
- * the copy turns out to have failed, but the event that led to it is not.
+ * Copy `text`; on failure select the field of the button and leave the reason in
+ * `showError`. Says whether the clipboard took it. The field is looked up before
+ * anything is awaited, because the event is gone by the time the copy fails.
  */
 async function copyOut(text, button, showError) {
   showError('');
@@ -397,8 +348,7 @@ async function copyOut(text, button, showError) {
   }
 }
 
-/** The message of a failure fades with the "Copied!" of the next try, so each of
- *  the two boxes keeps its own pair of feedback. */
+/** Each box keeps its own pair of feedback; a failure fades with the next "Copied!". */
 function flashCopied(shown) {
   shown.value = true;
   setTimeout(() => {
@@ -419,9 +369,8 @@ async function copyUrlToClipboard(event) {
 const copyCmdSuccess = ref(false);
 const copyCmdError = ref('');
 
-// One button per tab, and only the panel of the active tab is ever shown, so the
-// command to copy is always the one of activeTab - the same string the textarea of
-// that panel shows.
+// Only the panel of the active tab is shown, so the command to copy is always the one of
+// activeTab.
 async function copyInstallCmd(event) {
   const command = currentInstallCommands.value[activeTab.value] ?? '';
   if (!command) return; // nothing shown, so nothing to copy
@@ -431,10 +380,8 @@ async function copyInstallCmd(event) {
   if (copied) flashCopied(copyCmdSuccess);
 }
 
-// Clicking a box selects its own text, so a click and Ctrl+C copy what is in front
-// of the user whichever box they clicked. The command boxes and the URL box all
-// share this handler; taking the field from the event is what keeps them from
-// selecting one another.
+// A box selects its own text on click; the field comes from the event so the boxes never
+// select one another.
 function selectField(event) {
   event?.target?.select?.();
 }
@@ -454,9 +401,9 @@ function loadThemeFromUrl() {
   }
 
   try {
-    // A shared link keeps the theme code in its fragment, and a bare code is
-    // accepted as it is. Install URLs of the retired backend ("/CODE/getbb.sh")
-    // are still understood, because people keep them in bookmarks and notes.
+    // A shared link keeps the theme code in its fragment, and a bare code is accepted
+    // as it is. Install URLs of the backend this page replaced ("/CODE/getbb.sh") are
+    // still understood, because people keep them in bookmarks and notes.
     let code = '';
     const url = loadUrlInput.value.trim();
 
@@ -465,8 +412,8 @@ function loadThemeFromUrl() {
     } else {
       // A theme code of either shape, and the longer one first: eight characters
       // taken from the front of a thirteen character code would match nothing.
-      const legacy = url.match(/\/([A-Za-z0-9_-]{8}|1[A-Za-z0-9_-]{12})\/(?:getbb|removebb)\.sh/);
-      code = legacy ? legacy[1] : url;
+      const kept = url.match(/\/([A-Za-z0-9_-]{8}|1[A-Za-z0-9_-]{12})\/(?:getbb|removebb)\.sh/);
+      code = kept ? kept[1] : url;
     }
 
     if (!code) {
@@ -532,20 +479,17 @@ function buildRandomAttrs() {
 
 function generateRandomTheme({ silent = false } = {}) {
   try {
-    // Random colours, and only colours: which elements of the top line the theme
-    // shows is asked for in the boxes next to the preview, and a dice that answers
-    // that question too would untick a box the page was opened with.
+    // Random colours, and only colours: the boxes next to the preview answer the top
+    // line, and dice that answered it too would untick a box the page opened with.
     const randomAttrs = buildRandomAttrs();
 
     const shareCode = themeCodeFor(randomAttrs, elementFlags.value);
 
-    // Parse and apply the generated theme using existing logic
     const parsed = parseShareCode(shareCode);
     if (parsed) {
       applyTheme(parsed);
 
       if (!silent) {
-        // Optional: Show success feedback
         loadSuccess.value = true;
         setTimeout(() => {
           loadSuccess.value = false;
@@ -560,9 +504,8 @@ function generateRandomTheme({ silent = false } = {}) {
   }
 }
 
-// Every fresh page load behaves as if "🎲 Random Theme" had been clicked.
-// An explicit theme code in the URL hash (shared theme) still wins, so links
-// stay reproducible.
+// A fresh load behaves as if "🎲 Random Theme" had been clicked; a theme code in the hash
+// wins, so shared links stay reproducible.
 function initTheme() {
   const hash = window.location.hash;
   if (hash && hash.length > 1) {
@@ -578,18 +521,15 @@ function initTheme() {
 initTheme();
 
 // --- Accent (page chrome) colors, driven by the theme's BORDER COLOR ---
-// The frame is what a BetterBash prompt shows most of, and what the preview of
-// this page shows of a theme, so the border colour - not PRIMARY_COLOR - is what
-// skins the page. The slot of the theme is named here once.
+// The frame is what a prompt and this preview show most of, so BORDCOL skins the page.
 const ACCENT_COLOR_KEY = 'BORDCOL';
 
 const accentPalette = computed(() =>
   buildAccentPalette(getPreviewColorFromBash(generatedColors.value[ACCENT_COLOR_KEY]))
 );
 
-// The theme is chosen before this watcher is registered, so the CSS variables
-// are correct before the first paint and the page never flashes in the
-// hardcoded fallback green.
+// Registered after the theme is chosen, so the CSS variables are right before the first
+// paint and the page never flashes in a fallback colour.
 watchEffect(() => {
   applyAccentPalette(accentPalette.value);
 });

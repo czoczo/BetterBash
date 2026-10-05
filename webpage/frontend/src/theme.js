@@ -1,11 +1,8 @@
 // UI (chrome) theming helpers.
 //
-// The page chrome (headings, links, buttons, active tabs, ...) used to be
-// hardcoded to a green (#4e9a06) with a few derived shades. The accent is
-// derived from the theme's BORDER COLOR (BORDCOL) - the colour a prompt draws
-// its frame in, and the colour of a frame the page shows most of - so that a
-// random theme re-skins the whole page. PRIMARY_COLOR colours the inside of a
-// prompt and is not the accent.
+// The accent of the page (headings, links, buttons, active tabs) is derived from the
+// theme's BORDCOL - the colour the prompt draws its frame in - so a random theme re-skins
+// the whole page. PRIMARY_COLOR colours the inside of a prompt and is not the accent.
 
 export const PAGE_BACKGROUND = '#1e1e1e';
 
@@ -90,9 +87,8 @@ export function contrastRatio(colorA, colorB) {
 }
 
 /**
- * Nudge a colour's lightness (hue/saturation are kept) until it is readable
- * against `bgHex`. Without this a random border colour such as "Black" or
- * "Bright Black" would make headings, links and buttons unreadable.
+ * Nudge a colour's lightness (hue and saturation kept) until it is readable against
+ * `bgHex`; a random border colour such as "Black" would make the chrome unreadable.
  */
 export function ensureContrast(hex, bgHex, minRatio) {
   if (contrastRatio(hex, bgHex) >= minRatio) return hex;
@@ -119,8 +115,8 @@ const REFERENCE_PRIMARY = '#4e9a06';
 const referenceHsl = rgbToHsl(hexToRgb(REFERENCE_PRIMARY));
 
 /**
- * The header banner is a raster image drawn in the classic primary green, so it
- * is rotated towards the accent hue instead of being recoloured pixel by pixel.
+ * The banner is a raster image drawn in green, so it is rotated towards the accent hue
+ * rather than recoloured pixel by pixel.
  */
 export function bannerFilterFor(accentHex) {
   const { h, s } = rgbToHsl(hexToRgb(accentHex));
@@ -135,8 +131,8 @@ export function bannerFilterFor(accentHex) {
 }
 
 /**
- * Build the full accent ramp from the raw BORDER COLOR (BORDCOL) hex value.
- * `base` is untouched, `accent` is guaranteed readable on the page background.
+ * The full accent ramp from the raw BORDCOL hex value. `base` is untouched, `accent` is
+ * readable on the page background.
  */
 export function buildAccentPalette(baseHex) {
   const accent = ensureContrast(baseHex, PAGE_BACKGROUND, 4.5);

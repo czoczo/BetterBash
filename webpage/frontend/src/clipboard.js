@@ -1,24 +1,14 @@
 // Copying text out of the page, for the "Copy command" and "Copy URL" buttons.
 //
-// The clipboard API is not available everywhere a page runs. Browsers expose
-// navigator.clipboard only to a secure context, so a page loaded over plain http
-// - `./dev.sh` on a host name, a preview reached by a LAN address, the Pages
-// deployment reached over http before it redirects - has no clipboard to write at
-// all, and `navigator.clipboard.writeText(...)` throws a TypeError before anything
-// is attempted. That is the difference between the button working on
-// https://betterbash.cz0.cz and refusing on http://devcode.dom.cz0.cz:5173.
-//
-// So there are two ways to copy, and the second is not merely a fallback for old
-// browsers but the only way an insecure page has:
+// navigator.clipboard exists only in a secure context, so a page over plain http has no
+// clipboard at all and writeText throws before anything is attempted. Two ways to copy:
 //
 //   1. navigator.clipboard.writeText, when the browser exposes it,
-//   2. a throwaway textarea whose selection is copied by document.execCommand,
-//      which insecure contexts still answer.
+//   2. a throwaway textarea whose selection document.execCommand copies - the only way
+//      an insecure page has.
 //
-// Both can still refuse - the API denies a write whose document lost focus or
-// whose permission is off, execCommand answers false - and when neither worked the
-// page is handed the reason, selects the field the button belongs to and leaves
-// Ctrl+C as the last way out.
+// Both can still refuse (permission off, focus lost, execCommand false); the page then
+// gets the reason, selects its field and leaves Ctrl+C as the last way out.
 
 /** Why a copy did not happen, in the words the page shows under its boxes. */
 export class CopyFailed extends Error {
@@ -51,29 +41,26 @@ const REASONS = {
 };
 
 /**
- * The clipboard API of the browser, or null when there is none.
- *
- * A secure context is what decides whether the property exists, so testing the
- * property rather than `window.isSecureContext` covers both the browsers that hide
- * it and the ones that expose it only to take it away again later.
+ * The clipboard API of the browser, or null. Testing the property rather than
+ * `window.isSecureContext` covers browsers that hide it and those that expose it only
+ * to take it away again.
  */
-export function clipboardApi() {
+function clipboardApi() {
   const api = typeof navigator === 'undefined' ? null : navigator.clipboard;
   return typeof api?.writeText === 'function' ? api : null;
 }
 
 /**
- * Copy through a selection of the document: the old way, and the only one an
- * insecure context has. The field is placed over the page rather than off it, so a
- * copy of a long command cannot scroll the window, and it is removed again whatever
- * execCommand answered.
+ * Copy through a selection of the document - the only way an insecure context has. The
+ * field is placed over the page rather than off it, so a long command cannot scroll the
+ * window, and removed whatever execCommand answered.
  */
 function copySelection(text) {
   if (typeof document === 'undefined' || typeof document.execCommand !== 'function') return false;
   const area = document.createElement('textarea');
   area.value = text;
-  // A readonly field is selectable but cannot be typed into, and aria-hidden keeps
-  // a screen reader out of a box that exists for one keystroke.
+  // Readonly: selectable but not typeable. aria-hidden keeps a screen reader out of a
+  // box that exists for one keystroke.
   area.setAttribute('readonly', '');
   area.setAttribute('aria-hidden', 'true');
   area.style.cssText =
@@ -90,18 +77,17 @@ function copySelection(text) {
     copied = false;
   } finally {
     area.remove();
-    // The selection above took the focus away from whatever had it - the button
-    // usually - and a keyboard user should not have to find it again.
+    // The selection took the focus away; a keyboard user should not have to find the
+    // button again.
     if (previous && typeof previous.focus === 'function') previous.focus();
   }
   return copied;
 }
 
 /**
- * Write `text` to the clipboard however it can, and say which way worked:
- * 'clipboard' for the API, 'selection' for the copied selection. Throws
- * CopyFailed with the reason when neither did, which is what lets the page show
- * one message that explains the situation instead of "copy it manually".
+ * Write `text` to the clipboard however it can and say which way worked: 'clipboard' or
+ * 'selection'. Throws CopyFailed with the reason when neither did, so the page can
+ * explain the situation instead of saying "copy it manually".
  */
 export async function copyText(text) {
   const api = clipboardApi();
@@ -116,8 +102,8 @@ export async function copyText(text) {
   }
   if (copySelection(text)) return 'selection';
   if (api) throw new CopyFailed(REASONS.denied, refused);
-  // No clipboard API and no selection either: nowhere near a browser (a test
-  // running the module under node), or a context that offers neither way.
+  // Neither way available: not a browser (node running this module), or a context that
+  // offers neither.
   const reason = typeof document === 'undefined' ? REASONS.unsupported : REASONS.insecure;
   throw new CopyFailed(reason, refused);
 }

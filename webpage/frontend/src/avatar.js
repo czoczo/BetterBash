@@ -1,13 +1,6 @@
-// The host avatar of prompt/bb.sh, drawn in JavaScript.
-//
-// The prompt draws it itself: hashColor hashes the hostname with md5sum and
-// getChar turns the number it got into a run of block glyphs - `getChar` is
-// called twice per glyph and the arrays of prompt/bb.sh say which glyph and
-// which colour comes up. This file draws the same run from the same hostname,
-// so the preview on the page is the prompt on the machine.
-//
-// It is a port, and a faithful one, which means it carries the quirks of the
-// original across rather than smoothing them out:
+// The host avatar of prompt/bb.sh, drawn in JavaScript: hashColor hashes the hostname
+// with md5sum and getChar turns the number into a run of block glyphs. A faithful port,
+// which keeps the quirks of the original rather than smoothing them out:
 //
 //   * `md5sum <<< "$host"` hashes the hostname *plus the newline* a here-string
 //     appends, so an empty hostname still hashes to something;
@@ -25,9 +18,8 @@
 //   * the second half of the run is the first half mirrored (only ◀/▶, ◢/◣ and
 //     ◤/◥ swap), so an avatar is four decisions wearing eight glyphs.
 //
-// tests/test-avatar.mjs checks this file against the shell functions themselves,
-// over tests/golden/avatars.txt and over a generated sweep, so the two cannot
-// drift apart.
+// tests/test-avatar.mjs checks this file against the shell functions themselves, over
+// tests/golden/avatars.txt and a generated sweep.
 
 // The glyphs and the colours of getChar, in the order its arrays hold them.
 const ARRCHAR = [
@@ -54,10 +46,8 @@ function at(arr, index) {
 }
 
 // --- md5 ------------------------------------------------------------------
-// Web Crypto has no md5 and none is expected, so it lives here: the digest is
-// the identity of a machine, not a security decision. It hashes the UTF-8 bytes
-// of its argument, which is what md5sum does with the locale-independent bytes
-// of a hostname.
+// Web Crypto has no md5, so it lives here: the digest is the identity of a machine, not
+// a security decision. UTF-8 bytes in, as md5sum takes them for a hostname.
 
 const MD5_SHIFT = [
   7, 12, 17, 22, 7, 12, 17, 22, 7, 12, 17, 22, 7, 12, 17, 22,
@@ -66,8 +56,8 @@ const MD5_SHIFT = [
   6, 10, 15, 21, 6, 10, 15, 21, 6, 10, 15, 21, 6, 10, 15, 21,
 ];
 
-// floor(abs(sin(i + 1)) * 2^32) for i = 0..63, written down rather than
-// computed, because Math.sin is not required to agree between engines.
+// floor(abs(sin(i + 1)) * 2^32) for i = 0..63, written down rather than computed:
+// Math.sin need not agree between engines.
 const MD5_SINE = new Uint32Array([
   0xd76aa478, 0xe8c7b756, 0x242070db, 0xc1bdceee, 0xf57c0faf, 0x4787c62a, 0xa8304613, 0xfd469501,
   0x698098d8, 0x8b44f7af, 0xffff5bb1, 0x895cd7be, 0x6b901122, 0xfd987193, 0xa679438e, 0x49b40821,
@@ -138,8 +128,7 @@ export function md5Hex(text) {
     d0 = (d0 + d) >>> 0;
   }
 
-  // md5sum prints the four words little endian, which is the byte order of the
-  // digest below.
+  // md5sum prints the four words little endian, which is the byte order below.
   return [a0, b0, c0, d0]
     .map((word) =>
       [0, 8, 16, 24].map((shift) => ((word >>> shift) & 0xff).toString(16).padStart(2, '0')).join('')
@@ -150,11 +139,9 @@ export function md5Hex(text) {
 // --- the avatar -----------------------------------------------------------
 
 /**
- * The avatar prompt/bb.sh draws for a hostname: its segments in the order the
- * prompt prints them, i.e. `count` forward glyphs and the same `count` mirrored.
- * Each segment carries the glyph, the ANSI foreground code of bash it is printed
- * with (`code`, so the preview colours it exactly like the rest of its colours)
- * and whether it belongs to the mirrored half.
+ * The avatar prompt/bb.sh draws for a hostname: `count` forward glyphs and the same
+ * count mirrored. Each segment carries the glyph, the bash ANSI foreground code and
+ * whether it belongs to the mirrored half.
  */
 export function hostAvatar(host, count = 4) {
   // n=$(md5sum <<< "$1") - the here-string appends the newline.
@@ -173,8 +160,8 @@ export function hostAvatar(host, count = 4) {
 
   const segments = [];
   const push = (char, colour, mirrored) => {
-    // The mirror of getChar swaps the char number before the lookup, and only
-    // for the glyphs it names: a negative char (the -2^63 case) matches none.
+    // getChar swaps the char number before the lookup, and only for the glyphs it
+    // names; a negative char matches none.
     const swap = mirrored ? MIRROR[Number(char)] : undefined;
     const fg = Number(at(ARRFG, colour));
     segments.push({
@@ -186,8 +173,7 @@ export function hostAvatar(host, count = 4) {
   };
 
   for (const { char, colour } of forward) push(char, colour, false);
-  // charstep of the shell holds the number each getChar started from, so the
-  // mirrored half repeats the decisions of the forward one, backwards.
+  // The mirrored half repeats the decisions of the forward one, backwards.
   for (let i = forward.length - 1; i >= 0; i--) push(forward[i].char, forward[i].colour, true);
 
   return segments;

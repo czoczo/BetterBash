@@ -1,31 +1,21 @@
 #!/bin/sh
 # BetterBash theme codes, POSIX shell.
 #
-# A theme code is a string of url safe Base64 characters carrying a whole theme:
-# the eight colours of the prompt and, since the v1 format, which elements of the
-# top line of that prompt it shows. The WebUI encodes the code, this library turns
-# it back into the assignments prompt/bb.sh works with.
+# A theme code is a string of url safe Base64 characters carrying a whole theme: the
+# eight colours of the prompt and, since v1, which elements of its top line show. The
+# WebUI encodes it; this library turns it back into the assignments prompt/bb.sh uses.
 #
-# Two formats, told apart by their length and never by their bits:
+# Two formats, told apart by length and never by bits, and both read for as long as
+# BetterBash lives - codes are in bookmarks, notes and the README:
 #
-#   8 characters   what the retired Go backend produced, unchanged bit for bit:
-#                  eight five bit colour components (base colour 30-37, bright
-#                  bit, bold bit) and one bit for the host avatar. Its output is
-#                  byte for byte what that backend injected into prompt/bb.sh, and
-#                  tests/golden/ pins it (tests/test-theme.sh). It says nothing
-#                  about the other elements of the top line, which therefore show.
-#   13 characters  the v1 format: the digit "1" and twelve characters of payload,
-#                  72 bits, laid out under BB_THEME_COLOR_BITS.
+#   8 characters   v0, what the retired Go backend produced, bit for bit, pinned by
+#                  tests/golden/: eight five bit colour components (base 30-37, bright,
+#                  bold) and the avatar bit. Everything it does not say shows.
+#   13 characters  v1: the digit "1" and twelve characters of payload, 72 bits, laid
+#                  out under BB_THEME_COLOR_BITS.
 #
-# A code of one format is never rewritten into the other: both are read for as
-# long as BetterBash is, because codes are in the wild - in bookmarks, in notes,
-# in the README. What a format does not say is left unsaid rather than defaulted:
-# decoding a v0 code prints the eight colours and AVATAR, as it always did, and
-# prompt/bb.sh holds the defaults for everything a code leaves open.
-#
-# Everything is plain POSIX shell: no bashisms, no external tools for decoding,
-# /dev/urandom plus tr and head for random codes only. It is sourced by getbb.sh
-# and by prompt/bb.sh, and can be run directly for experiments:
+# Plain POSIX shell: no bashisms, no external tools for decoding, /dev/urandom plus tr
+# and head for random codes only. Sourced by prompt/bb.sh, runnable directly:
 #
 #   sh prompt/bb-theme.sh decode vN-y_5uA
 #   sh prompt/bb-theme.sh flags 1AAAAAAAAAAAA
@@ -39,36 +29,27 @@
 # The colour components in the order their bits appear in a code.
 BB_THEME_KEYS='PRIMARY_COLOR SECONDARY_COLOR ROOT_COLOR TIME_COLOR ERR_COLOR SEPARATOR_COLOR BORDCOL PATH_COLOR'
 
-# The elements of the top line of the prompt, in the order they stand on it: the
-# five of its left half, then the four of its right half. They are the names of
-# the variables prompt/bb.sh reads, and AVATAR is the one of them that predates
-# the rest (see prompt/bb.sh).
+# The elements of the top line, in the order they stand on it: the five of the left
+# half then the four of the right. These are the variable names prompt/bb.sh reads;
+# AVATAR predates the rest.
 BB_ELEMENTS='PROMPT_USER PROMPT_HOST PROMPT_TTY AVATAR PROMPT_JOBS PROMPT_EXIT PROMPT_DURATION PROMPT_DATE PROMPT_CLOCK'
-BB_ELEMENTS_LEFT='PROMPT_USER PROMPT_HOST PROMPT_TTY AVATAR PROMPT_JOBS'
-BB_ELEMENTS_RIGHT='PROMPT_EXIT PROMPT_DURATION PROMPT_DATE PROMPT_CLOCK'
 BB_ELEMENT_COUNT=9
 
-# The border fill: the dashes between the elements of the top line, and the run of
-# them that reaches the line to the width of the terminal. It is a flag like the
-# elements and gets a checkbox like them, but it is not one of them: it stands
-# between the two halves of the line, so it is ranked nowhere and takes the bit
-# right behind the nine of the line.
+# The border fill: the dashes between the elements and the run that reaches the line
+# to the width of the terminal. A flag with a checkbox like the elements, but not one:
+# it stands between the halves, so it is ranked nowhere and takes the next bit.
 BB_FILL='PROMPT_FILL'
 
-# All ten flags, in the order they are read, written and printed: the elements of
-# the line, then the fill. One bit each, one meaning "show this", and a theme that
-# names none shows all. BB_THEME_FLAG_COUNT is the field of flags a code holds,
-# which is the nine of BB_ELEMENTS; the fill follows it in a bit of its own.
+# All ten flags, in the order they are read, written and printed: the elements, then
+# the fill. One bit each means "show this", and a theme naming none shows all.
 BB_FLAGS="$BB_ELEMENTS $BB_FILL"
 BB_FLAG_COUNT=10
 BB_FLAGS_ALL='1111111111'
-# The field of flags a code holds is the elements of the line and no more, so the
-# count that names it is the count of the elements.
+# The field of flags a code holds is the elements of the line and no more.
 BB_THEME_FLAG_COUNT=$BB_ELEMENT_COUNT
 
-# The word the WebUI puts in an install command instead of a code, meaning
-# "draw a theme here". Every run of it draws a new one, so the word is also how
-# a reroll is asked for.
+# The word the WebUI puts in an install command instead of a code: draw a theme here.
+# Every run draws a new one, so it is also how a reroll is asked for.
 BB_THEME_RANDOM='rand'
 
 # The word that means "the theme this machine already has", which is what an
@@ -79,16 +60,14 @@ BB_THEME_KEEP='keep'
 # word from the code: `rand:1ABCDEFGHIJKLMNOP`. See "asking for a draw" below.
 BB_THEME_RANDOM_SEP=':'
 
-# Characters a theme code may consist of, in the order of their values: the url
-# safe alphabet of Base64, where '-' is the 62nd character and '_' the 63rd. The
-# order matters as much as the characters do, because _bbt_bits_to_code walks this
-# string to turn a value into a character; the order _bbt_char_value spells out
-# and the order written here are the same thing, and were not the first time this
-# line was written.
+# The characters a code may consist of, in the order of their values: the url safe
+# alphabet of Base64, where '-' is 62 and '_' is 63. The order matters as much as the
+# characters: _bbt_bits_to_code walks this string, and it must agree with the table
+# _bbt_char_value spells out.
 BB_THEME_ALPHABET='ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_'
 
-# v0: eight characters, 48 bits. The name BB_THEME_CODE_LENGTH is the one the
-# older releases used for the only length they knew, and it stays.
+# v0: eight characters, 48 bits. BB_THEME_CODE_LENGTH is the name older releases used
+# for the only length they knew.
 BB_THEME_CODE_LENGTH=8
 
 # v1: this version digit, then this many characters of payload.
@@ -96,42 +75,33 @@ BB_THEME_VERSION='1'
 BB_THEME_V1_LENGTH=13
 BB_THEME_V1_PAYLOAD=12
 
-# The 72 bits of a v1 payload, counted from their most significant bit:
+# The 72 bits of a v1 payload, from the most significant bit:
 #
-#   0  - 39   the eight colour components, in exactly the places they hold in a
-#             v0 code, so that the same forty bits mean the same colours in
-#             either format;
+#   0  - 39   the eight colour components, in exactly the places they hold in a v0
+#             code, so the same forty bits mean the same colours in either format;
 #   40 - 48   the nine element flags, in the order of BB_ELEMENTS;
-#   49 - 55   the order of the five elements of the left half, as the rank of a
-#             permutation in the factorial number system (5! = 120 needs 7 bits);
-#   56 - 60   the order of the four elements of the right half, the same way
-#             (4! = 24 needs 5 bits);
-#   61        the border fill, BB_FILL, and held against its name: zero for the
-#             fill, and one for a line holding nothing but the elements that show,
-#             two dashes between its neighbours;
-#   62 - 71   reserved, and zero in every code this release writes.
+#   49 - 55   order of the five left half elements: the rank of a permutation in the
+#             factorial number system (5! = 120 needs 7 bits);
+#   56 - 60   order of the four right half elements, the same way (4! = 24, 5 bits);
+#   61        the border fill, held against its name: zero fills to the edge of the
+#             terminal, one keeps only the elements that show;
+#   62 - 71   reserved, zero in every code this release writes.
 #
-# The fill is held inverted, zero meaning that it fills, because the bit it takes
-# was reserved: every code written before this flag - every code of eight
-# characters, and every code of thirteen - holds zero in it, and zero is the line
-# stretched to the edge of the terminal, as it has always been. Only a code built
-# now asks for the shorter one.
+# The fill is inverted because its bit was once reserved: every older code holds zero
+# there, and zero is the line stretched to the edge, as it always was.
 #
-# The halves are ranked separately because the frame anchors them separately: the
-# left half grows from the corner, the right half ends at the far end of the line
-# and grows backwards, and the fill between them is what a hidden element hands
-# its width to. An order that put the clock left of the user would not be a frame,
-# so no order field is spent on it - and 12 bits are enough for that, where a
-# permutation of all nine elements would need 19.
+# The halves are ranked separately because the frame anchors them separately: the left
+# grows from the corner, the right grows back from the far end, and the fill between
+# them takes what a hidden element hands back. An order putting the clock left of the
+# user would not be a frame, so it is not offered - 12 bits for the two halves where a
+# permutation of all nine would need 19.
 #
-# The order fields are read and range checked and nothing else, because the
-# prompt of this release draws one order: rank zero of each half, which is the
-# order of BB_ELEMENTS_LEFT and BB_ELEMENTS_RIGHT. They are laid out here
-# now so that the day the prompt learns to draw another, no new format is needed:
-# a code with a non zero rank is already a legal v1 code.
+# The order fields are only read and range checked: this prompt draws rank zero of
+# each half, the order of BB_ELEMENTS. They are laid out now so that a prompt learning
+# another order needs no new format.
 #
-# The reserved bits are held at zero rather than left free, so that a code this
-# release calls valid is one no later release can mean something else by.
+# Reserved bits are held at zero rather than left free, so a code this release calls
+# valid is one no later release can mean something else by.
 BB_THEME_COLOR_BITS=40
 BB_THEME_FLAG_BIT=40
 BB_THEME_ORDER_LEFT_BIT=49
@@ -148,15 +118,13 @@ BB_THEME_RESERVED_BITS=10
 
 # --- the bits of a code --------------------------------------------------
 #
-# A code is read into a string of '0' and '1' characters, most significant bit
-# first, and the fields are cut out of that string. Bit arithmetic on a 72 bit
-# value would need more than the 32 bit arithmetic some shells have; a bit string
-# needs none, ${s#??????} is POSIX, and no number here grows past 64.
+# A code is read into a string of '0' and '1', most significant bit first, and the
+# fields are cut out of it: bit arithmetic on a 72 bit value would need more than the
+# 32 bit arithmetic some shells have, a bit string needs none.
 #
-# Each helper leaves its answer in a variable of its own - _bbt_val_out,
-# _bbt_bits_out, _bbt_cut_out, _bbt_num_out, _bbt_code_out - rather than in
-# command substitution, because a decode that forked per character would be slow
-# where it is only ever long.
+# Each helper leaves its answer in its own variable (_bbt_val_out, _bbt_bits_out,
+# _bbt_cut_out, _bbt_num_out, _bbt_code_out) instead of command substitution, which
+# would fork per character.
 
 # _bbt_char_value CHAR
 # _bbt_val_out: the index of CHAR in the theme code alphabet. A table rather than
@@ -321,12 +289,10 @@ _bbt_factorial() {
 # --- validation -----------------------------------------------------------
 
 # bb_theme_validate CODE
-# Succeeds when CODE is a theme code of either format. Anything else is refused,
-# because a code is the only part of the command line this library ever looks at.
-# A v1 code is refused when it was not written as one: an ordering rank beyond the
-# permutations it names, or a reserved bit that is not zero, says some other
-# format is being held out as this one, and installing it would install a theme
-# nobody meant.
+# Succeeds when CODE is a theme code of either format; anything else is refused, since
+# a code is the only part of the command line this library looks at. A v1 code is
+# refused when it was not written as one - a rank beyond the permutations it names, or
+# a reserved bit that is not zero.
 bb_theme_validate() {
   _bbtv_code=$1
 
@@ -341,7 +307,7 @@ bb_theme_validate() {
       ;;
   esac
 
-  # POSIX pattern negation: any character outside the alphabet fails the match.
+  # POSIX pattern negation: anything outside the alphabet fails the match.
   case $_bbtv_code in
     *[!A-Za-z0-9_-]*)
       printf 'bb-theme: theme code %s contains characters outside the theme code alphabet\n' "$_bbtv_code" >&2
@@ -351,8 +317,7 @@ bb_theme_validate() {
 
   [ "$_bbtv_format" = v1 ] || return 0
 
-  # The version digit leads the code, so that a reader and a decoder both know
-  # what they are holding before they start counting bits.
+  # The version digit leads the code, so what is held is known before counting bits.
   if [ "${_bbtv_code%"${_bbtv_code#?}"}" != "$BB_THEME_VERSION" ]; then
     printf 'bb-theme: theme code %s is not of version %s\n' "$_bbtv_code" "$BB_THEME_VERSION" >&2
     return 1
@@ -398,10 +363,8 @@ bb_theme_validate() {
 # --- flags ----------------------------------------------------------------
 
 # bb_theme_flags CODE
-# Prints the flags of CODE in the order of BB_ELEMENTS and then BB_FILL, and
-# leaves them in _bbt_flags_out. A v0 code carries one of them - the avatar, at
-# bit 40 - and says nothing about the rest: those show, which is what they did
-# before there were flags at all, the fill among them.
+# Prints the flags of CODE in the order of BB_ELEMENTS then BB_FILL, and leaves them
+# in _bbt_flags_out. A v0 code carries only the avatar, at bit 40; the rest show.
 bb_theme_flags() {
   _bbtf_code=$1
 
@@ -409,9 +372,8 @@ bb_theme_flags() {
     "$BB_THEME_CODE_LENGTH")
       _bbt_bits_of "$_bbtf_code" || return 1
       _bbt_cut "$_bbt_bits_out" 40 1 || return 1
-      # The avatar bit of a v0 code goes to the place the avatar holds in
-      # BB_ELEMENTS, which is the fourth; everything else shows, the fill among it,
-      # since a code of eight characters never heard of it.
+      # The avatar bit goes to the avatar's place in BB_ELEMENTS, the fourth;
+      # everything else shows.
       _bbtf_avatar=$_bbt_cut_out
       _bbt_cut "$BB_FLAGS_ALL" 0 3 || return 1
       _bbtf_head=$_bbt_cut_out
@@ -423,8 +385,7 @@ bb_theme_flags() {
       _bbt_bits_of "${_bbtf_code#?}" || return 1
       _bbt_cut "$_bbt_bits_out" "$BB_THEME_FLAG_BIT" "$BB_THEME_FLAG_COUNT" || return 1
       _bbtf_line=$_bbt_cut_out
-      # The fill, held against its name: only a one in its bit says that it does
-      # not fill, so a code that never spoke of it fills its line as it always did.
+      # Held against its name: only a one says it does not fill.
       _bbt_cut "$_bbt_bits_out" "$BB_THEME_FILL_BIT" 1 || return 1
       if [ "$_bbt_cut_out" = 1 ]; then _bbtf_fill=0; else _bbtf_fill=1; fi
       _bbt_flags_out="${_bbtf_line}${_bbtf_fill}"
@@ -440,11 +401,8 @@ bb_theme_flags() {
 # --- decoding -------------------------------------------------------------
 
 # bb_theme_decode CODE
-# Prints the assignments of the theme as
-#   KEY='\033[...]'
-# lines, ready to be sourced: the eight colours of both formats, and the element
-# flags the format carries - AVATAR alone for a v0 code, exactly as it has always
-# been printed, and all ten of BB_FLAGS for a v1 one.
+# Prints the theme as sourceable KEY='\033[...]' lines: the eight colours of both
+# formats, plus the flags the format carries - AVATAR alone for v0, all ten for v1.
 bb_theme_decode() {
   _bbtd_code=$1
 
@@ -469,10 +427,8 @@ bb_theme_decode_v0() {
   fi
 }
 
-# bb_theme_decode_v1 CODE - the 72 bits behind the version digit. The colours are
-# the first 40 bits of the payload, in the places they hold in a v0 code, so the
-# two 24 bit halves of the colour fields are read the same way and mean the same:
-# the payload characters one to four and five to eight.
+# bb_theme_decode_v1 CODE - the 72 bits behind the version digit. The colours are the
+# first 40 bits of the payload, read as the two 24 bit halves of a v0 code.
 bb_theme_decode_v1() {
   _bbt_halves "${1#?}" 8 || return 1
   bb_theme_colors "$_bbt_hi" "$_bbt_lo"
@@ -490,9 +446,8 @@ bb_theme_decode_v1() {
   done
 }
 
-# _bbt_halves CODE CHARS - _bbt_hi and _bbt_lo: the 24 most significant and the
-# 24 bits after them of CHARS characters, so that no shell arithmetic ever needs
-# more than 24 bits, which keeps this working on shells whose arithmetic is 32 bit.
+# _bbt_halves CODE CHARS - _bbt_hi and _bbt_lo: the first 24 bits and the 24 after
+# them. No shell arithmetic here needs more than 24 bits, so 32 bit shells cope.
 _bbt_halves() {
   _bbt_hv_rest=$1
   _bbt_hi=0 _bbt_lo=0 _bbt_hv_pos=0 _bbt_hv_max=$(( $2 * 6 ))
@@ -509,8 +464,8 @@ _bbt_halves() {
     fi
     _bbt_hv_pos=$((_bbt_hv_pos + 6))
 
-    # Only the first 48 bits of a v1 payload matter here: the flags and the
-    # order fields are read out of the bit string, not out of these halves.
+    # Only the first 48 bits matter here; flags and order fields come from the bit
+    # string, not from these halves.
     if [ "$_bbt_hv_pos" -ge "$_bbt_hv_max" ]; then
       break
     fi
@@ -520,10 +475,8 @@ _bbt_halves() {
 }
 
 # bb_theme_colors HI LO
-# Prints the eight colour assignments held in the two 24 bit halves of the 48
-# most significant bits of a code, in which the colour fields sit at bits 0 to
-# 39 - the same places in both formats. Field i of eight occupies bits (5*i) to
-# (5*i + 4) counted from the most significant bit, so field four is the one that
+# The eight colour assignments of the two 24 bit halves of a code. Field i of eight
+# occupies bits (5*i) to (5*i + 4) from the most significant bit, so field four
 # straddles the halves.
 bb_theme_colors() {
   _bbtc_hi=$1
@@ -550,29 +503,15 @@ bb_theme_colors() {
   done
 }
 
-# bb_theme_is_black LINE
-# Reports whether one decoded assignment is plain black, which would be
-# invisible on a dark terminal. Random codes are redrawn until none is black.
-bb_theme_is_black() {
-  case $1 in
-    *';30m'*) return 0 ;;
-    *) return 1 ;;
-  esac
-}
-
 # --- drawing --------------------------------------------------------------
 
 # bb_random_color_bits
-# _bbt_color_bits_out: 40 random bits for the colour components, with no plain
-# black among them, and nothing else. Which elements a prompt shows is never
-# drawn: losing colours is what "rand" means.
+# _bbt_color_bits_out: 40 random colour bits with no plain black among them. Which
+# elements a prompt shows is never drawn - losing colours is what "rand" means.
 #
-# Codes are drawn straight from /dev/urandom filtered to the theme code alphabet,
-# so every one of the 64 characters - and with it every one of the 2^40 colour
-# combinations - is equally likely. $BB_THEME_RANDOM_FALLBACK (bash only) is used
-# where /dev/urandom is unreadable.
-# The RANDOM of the fallback below is not a POSIX variable; it is only ever read
-# after having been tested for, which is how bash (and only bash) gets here.
+# Drawn from /dev/urandom filtered to the alphabet, so all 64 characters and all 2^40
+# colour combinations are equally likely. Where urandom is unreadable, the bash-only
+# RANDOM is used - read only after having been tested for.
 # shellcheck disable=SC3028
 bb_random_color_bits() {
   _bb_rcb_tries=0
@@ -584,9 +523,8 @@ bb_random_color_bits() {
       return 1
     fi
 
-    # Seven characters, 42 bits, of which the first 40 become the colours: throwing
-    # the last two away leaves the forty that are left as uniform as the stream
-    # they came from.
+    # Seven characters, 42 bits, the first 40 becoming the colours: dropping the last
+    # two leaves them as uniform as the stream they came from.
     if [ -r /dev/urandom ]; then
       _bb_rcb_drawn=$(LC_ALL=C tr -dc 'A-Za-z0-9_-' < /dev/urandom | head -c 7)
     elif [ -n "${RANDOM:-}" ]; then
@@ -604,9 +542,8 @@ bb_random_color_bits() {
     _bbt_cut "$_bbt_bits_out" 0 "$BB_THEME_COLOR_BITS" || continue
     _bb_rcb_colors=$_bbt_cut_out
 
-    # Redraw while any component of the colours drawn is plain black. The colours
-    # are looked at as the v0 code they would be on their own, eight zero bits
-    # behind them standing for the fields this does not ask about.
+    # Redraw while any component is plain black: the colours are looked at as the v0
+    # code they would be alone, eight zero bits behind them.
     _bbt_zeros 8
     _bbt_bits_to_code "$_bb_rcb_colors$_bbt_bits_out" || continue
     if bb_theme_decode_v0 "$_bbt_code_out" 2>/dev/null | grep -q ';30m'; then
@@ -619,11 +556,9 @@ bb_random_color_bits() {
 }
 
 # bb_random_theme_code [CODE]
-# Prints a freshly drawn theme code of the current version. Its colours come up
-# from /dev/urandom; its elements are taken from CODE when CODE is a theme code -
-# which in practice is the theme this machine already wears, or the code a
-# `rand:CODE` asked to wear - and are all shown when CODE is not there or says
-# nothing.
+# A freshly drawn code of the current version: colours from /dev/urandom, elements
+# from CODE when CODE is a theme code (the theme worn here, or the one a `rand:CODE`
+# asked to wear), all shown when CODE is missing or says nothing.
 bb_random_theme_code() {
   _bb_rt_flags=''
   if [ -n "${1:-}" ]; then
@@ -633,9 +568,8 @@ bb_random_theme_code() {
 
   bb_random_color_bits || return 1
 
-  # Both order fields at rank zero, which is the order of BB_ELEMENTS_LEFT and
-  # BB_ELEMENTS_RIGHT, the fill in its bit and against its name, and the reserved
-  # bits at zero.
+  # Both order fields at rank zero, the fill in its bit and against its name, the
+  # reserved bits at zero.
   _bbt_order_rank_bits 0 "$BB_THEME_ORDER_LEFT_COUNT" || return 1
   _bb_rt_left=$_bbt_bits_out
   _bbt_order_rank_bits 0 "$BB_THEME_ORDER_RIGHT_COUNT" || return 1
@@ -650,10 +584,9 @@ bb_random_theme_code() {
   printf '%s%s\n' "$BB_THEME_VERSION" "$_bbt_code_out"
 }
 
-# _bbt_order_rank_bits RANK COUNT - _bbt_bits_out: the field that holds the order
-# of COUNT elements, 7 bits for five and 5 bits for four, which is what the
-# factorial of the count needs. A rank beyond the permutations of COUNT things is
-# refused, because it names no order.
+# _bbt_order_rank_bits RANK COUNT - _bbt_bits_out: the order field of COUNT elements,
+# 7 bits for five and 5 for four. A rank beyond the permutations of COUNT is refused;
+# it names no order.
 _bbt_order_rank_bits() {
   _bbt_or_width=$BB_THEME_ORDER_LEFT_WIDTH
   [ "$2" -le 4 ] && _bbt_or_width=$BB_THEME_ORDER_RIGHT_WIDTH
@@ -669,22 +602,14 @@ _bbt_order_rank_bits() {
 
 # --- asking for a draw ----------------------------------------------------
 #
-# The word "rand" asks for a theme drawn on this machine, and it may carry a
-# theme code with it: `rand:1ABCDEFGHIJKLMNOP`. What that code says about the
-# colours is not used - the colours are what this machine draws - and what it
-# says about the top line of the prompt is: its ten boxes, and the order of its
-# two halves. So a draw stays a draw of colours and nothing else, and still
-# wears the elements somebody chose, whoever chose them and wherever they were
-# chosen. This is what the WebUI writes when its Random box is ticked: the
-# boxes of the page reach the machine that runs the command even though its
-# colours come from /dev/urandom there.
-#
-# A word standing alone says nothing about the line, and then the line of the
-# theme already worn here is kept, which is what it always did.
+# "rand" asks for a theme drawn on this machine and may carry a code with it:
+# `rand:1ABCDEFGHIJKLMNOP`. What that code says about colours is ignored - they come
+# from urandom - and what it says about the top line is used, so the boxes of the page
+# reach the machine that runs the command. The word standing alone keeps the line of
+# the theme already worn here.
 
-# bb_theme_is_random ARG
-# Reports whether ARG asks for a theme drawn here: the bare word, or the word
-# and a theme code behind it.
+# bb_theme_is_random ARG - whether ARG asks for a theme drawn here: the bare word, or
+# the word and a code behind it.
 bb_theme_is_random() {
   case ${1:-} in
     "$BB_THEME_RANDOM") return 0 ;;
@@ -694,11 +619,8 @@ bb_theme_is_random() {
 }
 
 # bb_theme_random_tail ARG
-# Prints the theme code ARG carries behind the word - and leaves it in
-# _bbt_random_tail_out - printing nothing when ARG is the word standing alone.
-# Anything else than a code behind the separator is refused rather than read as
-# if it were not there: a command line that means something else is a command
-# line worth stopping at.
+# The code ARG carries behind the word, also in _bbt_random_tail_out; nothing when ARG
+# is the word alone. Anything else behind the separator is refused rather than ignored.
 bb_theme_random_tail() {
   _bbtrt_arg=${1:-}
   _bbt_random_tail_out=''
@@ -730,10 +652,8 @@ bb_theme_random_tail() {
 # --- storing and resolving ------------------------------------------------
 
 # bb_theme_stored CODE_FILE
-# Prints the code CODE_FILE holds when it holds a usable one, and nothing when
-# it does not exist, is empty or holds something unusable. Saying nothing is the
-# answer of a machine that has no theme yet, so it is never a failure; only a
-# file with a broken code in it is worth a word on stderr.
+# The code CODE_FILE holds, or nothing when it is missing, empty or unusable. Saying
+# nothing is the answer of a machine with no theme yet, so it is never a failure.
 bb_theme_stored() {
   _bbts_file=$1
 
@@ -752,21 +672,16 @@ bb_theme_stored() {
 # bb_theme_resolve CODE CODE_FILE
 # Prints the code to install:
 #
-#   a code of either format      that code;
-#   BB_THEME_RANDOM ("rand")     a freshly drawn one, whose elements are the ones
-#                                the theme CODE_FILE holds already had, so "rand"
-#                                loses colours and not a machine's choices;
-#   BB_THEME_RANDOM, the word, the separator and a code
-#                                a freshly drawn one wearing the elements that
-#                                code spells out, whatever the machine wore before;
-#   BB_THEME_KEEP ("keep"), or no CODE
-#                                the code CODE_FILE holds, or a freshly drawn
-#                                one on a machine that has no theme yet.
+#   a code of either format   that code;
+#   "rand"                    a freshly drawn one wearing the elements of the theme
+#                             CODE_FILE holds - colours lost, choices kept;
+#   "rand:CODE"               a freshly drawn one wearing the elements CODE spells out,
+#                             whatever was worn before;
+#   "keep" or no CODE         the code CODE_FILE holds, or a fresh draw when it holds
+#                             nothing.
 #
-# The code printed here is what bb_theme_write stores in CODE_FILE, which is how
-# the next plain reinstall knows which theme to keep. BB_THEME_REROLL=1 with no
-# code means the same as "rand": it is how older releases asked for a new theme,
-# and it still does.
+# What is printed here is what bb_theme_write stores, so the next plain reinstall knows
+# which theme to keep. BB_THEME_REROLL=1 with no code means "rand".
 bb_theme_resolve() {
   _bbtr_code=$1
   _bbtr_file=$2
@@ -777,17 +692,15 @@ bb_theme_resolve() {
   _bbtr_stored=$(bb_theme_stored "$_bbtr_file")
 
   if bb_theme_is_random "$_bbtr_code"; then
-    # The elements the draw is asked to wear: those of the code behind the word
-    # when the word carries one, and those of the theme already worn here when
-    # it does not. Only the colours are drawn, either way.
+    # The elements to wear: those of the code behind the word, or those of the theme
+    # worn here when the word stands alone.
     bb_theme_random_tail "$_bbtr_code" > /dev/null || return 1
     _bbtr_wear=$_bbt_random_tail_out
     [ -n "$_bbtr_wear" ] || _bbtr_wear=$_bbtr_stored
 
     _bbtr_drawn=$(bb_random_theme_code "$_bbtr_wear") || return 1
-    # Redraw when the code that came up is the theme already worn here. One
-    # chance in 2^40 says this never happens; "rand" promises a different
-    # theme, so it is not left to chance.
+    # Redraw when the code drawn equals the one worn here: one chance in 2^40, but
+    # "rand" promises a different theme.
     _bbtr_again=0
     while [ "$_bbtr_drawn" = "$_bbtr_stored" ] && [ "$_bbtr_again" -lt 3 ]; do
       _bbtr_again=$(( _bbtr_again + 1 ))
@@ -813,9 +726,8 @@ bb_theme_resolve() {
 }
 
 # bb_theme_write CODE DIR
-# Writes the decoded theme to DIR/theme.sh and the code it came from to
-# DIR/theme-code, both atomically. This is the only place that writes theme
-# files; prompt/bb.sh only ever reads them.
+# Writes the decoded theme to DIR/theme.sh and its code to DIR/theme-code, both
+# atomically. The only place that writes theme files; prompt/bb.sh only reads them.
 bb_theme_write() {
   _bbtw_code=$1
   _bbtw_dir=$2
@@ -831,8 +743,8 @@ bb_theme_write() {
   {
     printf '%s\n' '# Generated by prompt/bb-theme.sh from the theme code below.'
     printf '%s %s\n' '# bb-theme-code:' "$_bbtw_code"
-    printf '%s\n' '# Sourced by prompt/bb.sh before its own defaults. Edit in the'
-    printf '%s\n' '# WebUI and reinstall, or run: getbb.sh <method> <code>'
+    printf '%s\n' '# Sourced by prompt/bb.sh before its own defaults. Choose the theme in'
+    printf '%s\n' '# the WebUI and reinstall, or: . ~/.bb/prompt/bb.sh <code>'
     bb_theme_decode "$_bbtw_code" || exit 1
   } >"$_bbtw_tmp" || { rm -f "$_bbtw_tmp"; return 1; }
   mv -f "$_bbtw_tmp" "$2/theme.sh" || { rm -f "$_bbtw_tmp"; return 1; }
