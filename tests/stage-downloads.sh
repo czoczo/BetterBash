@@ -4,7 +4,7 @@
 #
 #   ./tests/stage-downloads.sh DEST
 #
-# Two things are produced in DEST, and both from the same list of files:
+# What is produced in DEST is bb.tgz, and one list of files decides it:
 #
 #   bb.tgz          the tree the install commands of the WebUI fetch, holding that
 #                   tree at the root of the archive, so
@@ -14,8 +14,6 @@
 #                   package, which is what lets the package be unpacked anywhere.
 #                   The commands fetch exactly this, from the origin that served
 #                   the page, and bb.tgz.sha256 carries its checksum.
-#   loose files     getbb.sh and the prompt files of the legacy path, which still
-#                   downloads one file at a time from the origin root.
 #
 # Everything a user downloads is listed here and nowhere else: the Pages workflow
 # stages into the WebUI's dist directory with this script, and
@@ -54,8 +52,8 @@ DEST=$(CDPATH= cd -- "$(dirname -- "$1")" && pwd)/$(basename -- "$1")
 #
 # install-pending is the flag that tells a tree it has not been installed yet and q
 # is the question its install command asks, read out of the fetched tree. Both belong
-# to a tree alone - neither is published as a file of its own - and the git method
-# needs them too, so they live in the repository and not in the list of loose files.
+# to a tree alone: they are not published as files of their own, but the git method
+# needs them, so they live in the repository.
 BB_TREE_FILES='install-pending
 q
 installbb.sh
@@ -66,23 +64,14 @@ prompt/bb-theme.sh
 prompt/bb.sh
 prompt/git-prompt.sh'
 
-# The legacy path: files a released getbb.sh downloads from the origin root, one
-# request each. Kept while those install commands are still in the wild.
-BB_LOOSE_FILES='getbb.sh
-removebb.sh
-.inputrc
-prompt/bb-theme.sh
-prompt/bb.sh
-prompt/git-prompt.sh'
-
 if [ ! -d "$REPO_ROOT" ]; then
   printf 'stage-downloads: no repository at %s\n' "$REPO_ROOT" >&2
   exit 1
 fi
 
-# One check for both lists, so a missing file is reported before anything is
-# written, rather than as a package that fails verify_tree on a user machine.
-for file in $BB_TREE_FILES $BB_LOOSE_FILES; do
+# A missing file is reported before anything is written, rather than as a package that
+# fails verify_tree on a user machine.
+for file in $BB_TREE_FILES; do
   if [ ! -f "$REPO_ROOT/$file" ]; then
     printf 'stage-downloads: %s is missing from the repository\n' "$file" >&2
     exit 1
@@ -90,18 +79,6 @@ for file in $BB_TREE_FILES $BB_LOOSE_FILES; do
 done
 
 mkdir -p "$DEST" || exit 1
-
-stage_file() {
-  # Remove the previous copy first: cp onto a running file keeps the inode and
-  # confuses caches, and a leftover file would look like a successful staging.
-  rm -f "$DEST/$1"
-  mkdir -p "$DEST/$(dirname "$1")" || return 1
-  cp "$REPO_ROOT/$1" "$DEST/$1" || return 1
-}
-
-for file in $BB_LOOSE_FILES; do
-  stage_file "$file" || exit 1
-done
 
 # --- the package -------------------------------------------------------------
 
@@ -143,12 +120,6 @@ fi
 # The staged tree has to answer the requests the installers make, so check the
 # URLs here rather than in every consumer of the staging.
 missing=0
-for file in $BB_LOOSE_FILES; do
-  if [ ! -s "$DEST/$file" ]; then
-    printf 'stage-downloads: %s staged empty\n' "$file" >&2
-    missing=$(( missing + 1 ))
-  fi
-done
 if [ ! -s "$DEST/bb.tgz" ]; then
   printf 'stage-downloads: bb.tgz staged empty\n' >&2
   missing=$(( missing + 1 ))
@@ -179,7 +150,6 @@ if [ "$_inside" != "$_wanted" ]; then
 fi
 [ "$missing" = "0" ] || exit 1
 
-printf 'Staged %s loose files and bb.tgz (%s bytes, %s files inside) into %s\n' \
-  "$(printf '%s\n' "$BB_LOOSE_FILES" | grep -c .)" \
+printf 'Staged bb.tgz (%s bytes, %s files inside) into %s\n' \
   "$(wc -c <"$DEST/bb.tgz" | tr -d ' ')" \
   "$(tar -tzf "$DEST/bb.tgz" | grep -cv '/$')" "$DEST"

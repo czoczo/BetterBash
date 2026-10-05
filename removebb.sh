@@ -7,10 +7,10 @@
 # rather than in a directory under it) and the two blocks BetterBash added to
 # ~/.bashrc and ~/.inputrc. POSIX shell.
 #
-# It runs from ~/.bb of an installed machine, so removing needs no fetch; the fetch
-# commands of the WebUI run the copy that came with the package instead.
+# It runs from ~/.bb of an installed machine, so removing needs no fetch: the copy that
+# came with the package is the one that runs.
 #
-#   curl -sL https://betterbash.cz0.cz/removebb.sh | bash -s curl
+#   sh ~/.bb/removebb.sh
 #
 # Options:
 #
@@ -32,8 +32,8 @@ while [ $# -gt 0 ]; do
       awk 'NR <= 2 { next } /^#/ { sub(/^# ?/, ""); print; next } { exit }' "$0"
       exit 0
       ;;
-    # The download method of the install commands is accepted and ignored, so
-    # `bash -s curl` works here exactly as it does for getbb.sh.
+    # A download method is accepted and ignored, so a removal command copied out of an
+    # older release still runs.
     curl | wget | openssl) ;;
     *)
       printf 'removebb: unexpected argument: %s (see --help)\n' "$1" >&2

@@ -2,8 +2,8 @@
 //
 // Static file server for the BetterBash installation tests. It serves the
 // directory that ./stage-downloads.sh produced, so the curl, wget and openssl
-// methods of getbb.sh talk to the same layout GitHub Pages serves in
-// production, dotfiles included.
+// methods of the page talk to the same layout GitHub Pages serves in production,
+// dotfiles included.
 //
 //   node tests/static-server.mjs ROOT HTTP_PORT HTTPS_PORT CERT KEY
 //

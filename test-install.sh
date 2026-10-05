@@ -708,10 +708,10 @@ else
   log_error 'bb.tgz.sha256 was not published'
 fi
 
-# The openssl method of the legacy path stripped carriage returns out of the body,
-# which is harmless for a shell script and fatal for an archive: it ate four bytes
-# of exactly this package and left a corrupt gzip behind. So the bytes fetched by
-# the openssl command of the page are compared with what curl would hand over.
+# An openssl request stripped carriage returns out of the body once, which is harmless
+# for a shell script and fatal for an archive: it ate four bytes of exactly this package
+# and left a corrupt gzip behind. So the bytes fetched by the openssl command of the page
+# are compared with what curl hands over.
 case " $BB_TEST_METHODS " in
   *openssl*)
     if [ -n "$TLS_BASE" ]; then

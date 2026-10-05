@@ -15,26 +15,23 @@
 #   --no-frontend        serve the installer files only, without the WebUI
 #
 # There is nothing else to run: BetterBash is the WebUI plus a few shell scripts.
-# The files a user fetches - bb.tgz and, for the legacy path, the loose files - are
-# staged into public/ of the WebUI, so the dev server serves them and the curl and
-# wget commands of the page point at the dev server itself, exactly as they point
-# at the Pages deployment in production. Only the openssl method, which insists on
-# TLS, gets a second listener: a small HTTPS file server with a self signed
-# certificate in .dev/.
+# What a user fetches - bb.tgz - is staged into public/ of the WebUI, so the dev
+# server serves it and the curl and wget commands of the page point at the dev server
+# itself, exactly as they point at the Pages deployment in production. Only the openssl
+# method, which insists on TLS, gets a second listener: a small HTTPS file server with a
+# self signed certificate in .dev/.
 #
 # The git tab of the page clones a tagged release. Locally that would be a tag of
 # a release that has not happened, so it is pointed at the origin and the branch of
 # this checkout instead: the command of the tab then fetches the tree being worked
 # on. Production pins VERSION_APP.txt (webpage/frontend/vite.config.js).
 #
-# Changes to prompt/*.sh, .inputrc, installbb.sh or getbb.sh are picked up by
-# restaging: the staging happens once at start, so restart after editing them (or
-# run ./tests/stage-downloads.sh webpage/frontend/public).
+# Changes to prompt/*.sh, .inputrc or installbb.sh are picked up by restaging: the
+# staging happens once at start, so restart after editing them (or run
+# ./tests/stage-downloads.sh webpage/frontend/public).
 #
-# The installation commands can be tried against the working copy:
-#   ./test-install.sh
-# and the legacy path of getbb.sh against this running dev setup:
-#   ./tests/test-legacy-pipe.sh --live http://localhost:${SITE_PORT}
+# The installation commands can be tried against the working copy (./test-install.sh)
+# or against this running setup.
 
 set -euo pipefail
 
@@ -148,7 +145,6 @@ if [ "$FRONTEND" != "1" ]; then
   files        $SERVE_DIR (staged, generated)
 
   Try the installation commands against the working copy:  ./test-install.sh
-  The legacy path, one file at a time:                     ./tests/test-legacy-pipe.sh
 
 EOF
   echo "==> Press Ctrl-C to stop."
@@ -167,8 +163,6 @@ cat <<EOF
     ./test-install.sh
   or against this running setup:
     ./test-install.sh --live http://localhost:${SITE_PORT}
-  The legacy path, one file at a time:
-    ./tests/test-legacy-pipe.sh
 
 EOF
 

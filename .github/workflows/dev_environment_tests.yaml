@@ -52,10 +52,6 @@ jobs:
           ./test-install.sh --code rand
           ./test-install.sh --code 'rand:1xjGMYxj8AAAA'
 
-      - name: The legacy install path of getbb.sh
-        # Kept while the install commands of older releases are in the wild.
-        run: ./tests/test-legacy-pipe.sh --code vN-y_5uA
-
   webui:
     runs-on: ubuntu-latest
     steps:

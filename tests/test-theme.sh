@@ -76,7 +76,7 @@ syntax_sweep() {
     return
   fi
 
-  for script in "$LIB" "$REPO_ROOT/getbb.sh" "$REPO_ROOT/removebb.sh" "$0"; do
+  for script in "$LIB" "$REPO_ROOT/removebb.sh" "$0"; do
     for shell in sh dash bash; do
       command -v "$shell" >/dev/null 2>&1 || continue
       check "$(basename "$script") parses under $shell" "$shell" -n "$script"
@@ -114,7 +114,7 @@ golden_matches() {
 
   _records=$(grep -c '^### ' "$WORK/expected.txt")
   if diff -u "$WORK/expected.txt" "$WORK/actual.txt" >"$WORK/golden.diff"; then
-    ok "decoded $_records codes byte for byte like the Go backend"
+    ok "decoded $_records codes byte for byte like tests/golden"
   else
     fail "decoded output differs from tests/golden/theme-golden.txt"
     sed 's/^/       /' "$WORK/golden.diff" | head -20

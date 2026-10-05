@@ -97,7 +97,6 @@ Everything BetterBash needs is in this repository, and nothing runs a server:
 | `install-pending` | the flag inside a fetched tree: its first `prompt/bb.sh` sourcing installs it, and this file is what the install takes away |
 | `q` | the question an install command asks, read out of the fetched tree |
 | `removebb.sh` | uninstaller, installed with the prompt so removing needs no fetch (`sh`, POSIX) |
-| `getbb.sh` | installer of the legacy path, downloading one file at a time (`sh`, POSIX) |
 | `.inputrc` | readline bindings for history search on the arrow keys |
 | `webpage/frontend` | the configurator page (Vue, built statically) |
 
@@ -118,8 +117,8 @@ code that has ever been handed out, so decoding cannot drift.
 ./dev.sh                     # WebUI on :5173, HTTPS file server on :8443
 ./dev.sh --help              # ports, interfaces, alternative checkout, files only
 ```
-`./dev.sh` stages `bb.tgz` (and the loose files of the legacy path) into
-`webpage/frontend/public/`, so the fetch commands of the page point at the dev server;
+`./dev.sh` stages `bb.tgz` into `webpage/frontend/public/`, so the fetch commands of
+the page point at the dev server;
 only the openssl method, which insists on TLS, gets the second listener. Restart it
 after editing the shell scripts, or restage them with
 `./tests/stage-downloads.sh webpage/frontend/public`.
@@ -145,7 +144,7 @@ bash tests/test-compact.sh   # the one-line prompt Alt+c switches to, key presse
 node tests/test-accent.mjs   # the colour of the theme that skins the page (BORDCOL)
 node tests/test-copy.mjs     # the copy buttons: clipboard API, selection, and neither
 ./test-install.sh            # the fetch commands of the page, see above
-./tests/test-legacy-pipe.sh  # the legacy getbb.sh path, while it is served
+node tests/test-toggle-hints.mjs # what the Random and Auto checkboxes do to a command
 ./tests/test-shellcheck.sh   # shellcheck over every script, in its own dialect
 ```
 
@@ -157,18 +156,17 @@ origin that served this page*, which is what production does), `VITE_BB_TLS_BASE
 (the openssl request), `VITE_BB_REPO_URL` and `VITE_BB_RELEASE_REF` (pinned to the tag in
 `VERSION_APP.txt`). A non-production build marks itself with a badge next to the banner.
 
-`.github/workflows/pages_deploy.yaml` builds the page, stages `bb.tgz` and the loose
-files next to it, deploys to GitHub Pages, then waits for the new artifact and installs
+`.github/workflows/pages_deploy.yaml` builds the page, stages `bb.tgz` next to it,
+deploys to GitHub Pages, then waits for the new artifact and installs
 from it. `develop` is published the same way on Cloudflare Pages, at
 `https://dev.bb.cz0.cz`: the same artifact built the same way, so the domain is a
 rehearsal of a production deployment. `deploy/cloudflare-pages.mjs` provisions it
 (`check`, `ensure`, `deploy`) and needs the secrets `CLOUDFLARE_API_TOKEN` and
 `CLOUDFLARE_ACCOUNT_ID`.
 
-Two bridges are still standing and both are meant to go: `getbb.sh`, the old
-"download one file at a time, pipe it into a shell" installer, and the Azure container
-app that answered `bb.cz0.cz/<code>/getbb.sh`. Both still serve commands that live in
-other people's notes, `getbb.sh` is still tested (`./tests/test-legacy-pipe.sh`).
+The old "download one file at a time, pipe it into a shell" installer (`getbb.sh`) and
+the Azure container app that served `bb.cz0.cz/<code>/getbb.sh` are gone: every install
+command the page prints fetches one archive.
 
 ## :bar_chart: Star History
 

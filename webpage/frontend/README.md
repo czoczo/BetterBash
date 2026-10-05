@@ -37,13 +37,12 @@ The local endpoints belong to the dev server and the HTTPS file server started b
 
 ## The files the page offers
 
-`installbb.sh`, `removebb.sh`, `getbb.sh` (legacy), `.inputrc` and `prompt/` live in
-the repository root. `tests/stage-downloads.sh` stages them next to the built page
-and packs them into `bb.tgz` - the package the fetch commands download, holding the
-tree at the root of the archive, so `tar -C ~/.bb -xz` unpacks it into exactly the
-directory the command says. The Pages
-workflow stages into `dist`, `pnpm stage` into `public`, where the dev server serves
-them from.
+`installbb.sh`, `removebb.sh`, `.inputrc` and `prompt/` live in the repository root.
+`tests/stage-downloads.sh` packs them into `bb.tgz` - the package the fetch commands
+download, holding the tree at the root of the archive, so `tar -C ~/.bb -xz` unpacks it
+into exactly the directory the command says - and stages the archive next to the built
+page. The Pages workflow stages into `dist`, `pnpm stage` into `public`, where the dev
+server serves it from.
 
 The commands of the four tabs are built in `src/config.js`, and
 `tests/install-commands.mjs` renders them outside a browser. That is how
