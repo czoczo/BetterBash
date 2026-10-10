@@ -1,63 +1,200 @@
 name: Deploy Vue App to GitHub Pages
 
+# Publishing of the site that answers at https://betterbash.cz0.cz - the origin every
+# install command of the page fetches from. The artifact is the page and the staged
+# files it points at, so the package it serves belongs to the commit it was built
+# from, and the smoke job afterwards installs from the site as it answers.
+#
+# The deploy and the smoke of it belong to main: a workflow_dispatch from a branch
+# builds, stages and checks the artifact and publishes nothing, which is how a change
+# to this workflow can be tried without replacing what users install from. What
+# develop answers at is another origin and another workflow,
+# cloudflare_pages_dev.yaml.
+
 on:
   push:
-    branches: [ main ]
+    branches:
+      - main
   workflow_dispatch:
 
-permissions:
-  contents: read
-  pages: write
-  id-token: write
-
+# One publication at a time: two of them in flight would end with the older artifact
+# answering, whichever finished last.
 concurrency:
-  group: "pages"
+  group: pages
   cancel-in-progress: false
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # actions/upload-pages-artifact hands the artifact to Pages, which is a write of
+    # pages, so this job needs that write and nothing else.
+    permissions:
+      contents: read
+      pages: write
+    outputs:
+      # What the package this build staged is, so that the wait of the smoke job can
+      # tell this deployment from the one already answering at the address.
+      package_sha: ${{ steps.package.outputs.sha }}
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v2
+      - uses: pnpm/action-setup@v4
         with:
           version: latest
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
-          node-version: '18'
+          node-version: '22'
           cache: 'pnpm'
-          cache-dependency-path: 'webpage/frontend/pnpm-lock.yaml'
+          cache-dependency-path: webpage/frontend/pnpm-lock.yaml
 
-      - name: Install dependencies
-        run: pnpm install --no-frozen-lockfile
+      - name: Install WebUI dependencies
         working-directory: webpage/frontend
+        run: pnpm install --frozen-lockfile
 
-      - name: Build Vue app
-        run: pnpm run build
+      - name: Build WebUI
         working-directory: webpage/frontend
-        env:
-          NODE_ENV: production
+        # The base is the root: a custom domain serves its site from the root, so
+        # /BetterBash/ would ask betterbash.cz0.cz for a directory it has never
+        # had. The theme code of the link the page shows is generated at page load
+        # rather than at build time.
+        run: pnpm build --base=/
+
+      - name: Stage the files an install command fetches
+        # The payload is published as bb.tgz, which contains exactly the prompt files
+        # and the installer and uninstaller of them. That archive is all an install
+        # command fetches.
+        run: |
+          ./tests/stage-downloads.sh webpage/frontend/dist
+          tar -tzf webpage/frontend/dist/bb.tgz
+
+      - name: Check the payload of the deployment
+        # Everything an install command fetches has to be in the artifact, and
+        # everything inside bb.tgz has to be a staged file too (the checks live in
+        # tests/check-deployment-payload.sh, which the Cloudflare Pages workflow runs
+        # on the same staging).
+        run: ./tests/check-deployment-payload.sh webpage/frontend/dist
+
+      - name: Remember the checksum of the package
+        id: package
+        run: echo "sha=$(sha256sum webpage/frontend/dist/bb.tgz | awk '{print $1}')" >>"$GITHUB_OUTPUT"
 
       - name: Setup Pages
-        uses: actions/configure-pages@v4
+        uses: actions/configure-pages@v5
 
-      - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3
+      # actions/deploy-pages deploys the artifact of a known name from an earlier
+      # step of the run. Without this step it has nothing to deploy and says so over
+      # there, in the deploy job, where it looks like a broken Pages rather than a
+      # missing step.
+      - name: Upload the Pages artifact
+        uses: actions/upload-pages-artifact@v4
         with:
           path: webpage/frontend/dist
 
   deploy:
+    # main publishes; from any branch this workflow only shows that the artifact of it
+    # would build and pass its checks.
+    if: github.ref == 'refs/heads/main'
+    needs: build
+    timeout-minutes: 10
+    permissions:
+      pages: write
+      id-token: write
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
-    needs: build
     steps:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
+
+  smoke:
+    # The published site is what users install from, so after a deploy its package
+    # is fetched, unpacked and installed the way the page tells a user to do.
+    # The checksum of the package is known from the build and the deploy is what says
+    # the site may answer with it, so the smoke of it waits on both.
+    needs: [build, deploy]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Wait for Pages to serve this deployment
+        id: url
+        run: |
+          set -euo pipefail
+          PAGE_URL="https://betterbash.cz0.cz"
+          want='${{ needs.build.outputs.package_sha }}'
+          for _ in $(seq 1 20); do
+            # The checksum of the package changes with every build, so this is how
+            # the deployment is told from the one already answering at the address:
+            # a 200 of an older package would let everything below pass against code
+            # that is not what has just been built.
+            served=$(curl -fsSL "$PAGE_URL/bb.tgz.sha256" 2>/dev/null | awk '{print $1}' || true)
+            if [ "$served" = "$want" ]; then
+              echo "serving $served at $PAGE_URL"
+              echo "PAGE_URL=$PAGE_URL" >>"$GITHUB_OUTPUT"
+              exit 0
+            fi
+            echo "$PAGE_URL serving '${served:-nothing}', want $want"
+            sleep 15
+          done
+          echo "Pages did not serve this package at $PAGE_URL in 5 minutes" >&2
+          exit 1
+
+      - name: Check what the deployment serves
+        run: |
+          set -euo pipefail
+          PAGE_URL="${{ steps.url.outputs.PAGE_URL }}"
+          # The package and its checksum are the only two names a command of the page
+          # asks the origin for.
+          for path in bb.tgz bb.tgz.sha256; do
+            code=$(curl -fsSL -o /dev/null -w '%{http_code}' "$PAGE_URL/$path")
+            echo "$path -> $code"
+            [ "$code" = "200" ] || exit 1
+          done
+
+      - name: Install from the deployment as the page says
+        run: |
+          set -euo pipefail
+          export PAGE_URL="${{ steps.url.outputs.PAGE_URL }}"
+          home=$(mktemp -d)
+          touch "$home/.bashrc" "$home/.inputrc"
+          # The command of the page, in a home of its own: the package holds the
+          # tree at its own root, so it lands in ~/.bb itself, and the prompt of
+          # that tree is sourced, which installs it and colours this very shell.
+          fetch_and_source() {
+            HOME="$home" bash -c 'mkdir -p ~/.bb && curl -sL "$PAGE_URL/bb.tgz" | tar -C ~/.bb -xz && . ~/.bb/prompt/bb.sh vN-y_5uA'
+          }
+          fetch_and_source
+          test ! -f "$home/.bb/install-pending"
+          # The same command again: a tree that was installed installs nothing
+          # again, and an existing installation has to survive it.
+          fetch_and_source
+          test -f "$home/.bb/theme.sh"
+          test -f "$home/.bb/bb-theme.sh"
+          test -f "$home/.bb/removebb.sh"
+          grep -q BetterBash "$home/.bashrc"
+          grep -q history-search-backward "$home/.inputrc"
+          # The prompt has to wear the theme, and which colour that is belongs to
+          # the theme: read it from the installed theme.sh rather than naming one
+          # here, since a prompt only shows some of its colours (the colour of root,
+          # for instance, comes out when the prompt belongs to root).
+          HOME="$home" bash -c '
+            . "$HOME/.bb/bb.sh" >/dev/null 2>&1 || exit 1
+            __prompt_command
+            . "$HOME/.bb/theme.sh"
+            case "$PS1" in
+              *"$PRIMARY_COLOR"*) echo "the prompt carries the colour of theme vN-y_5uA" ;;
+              *) echo "PS1: $PS1" >&2; exit 1 ;;
+            esac
+          '
+          # The uninstaller travelled with the prompt, so removing needs no fetch.
+          HOME="$home" sh "$home/.bb/removebb.sh"
+          test ! -d "$home/.bb"
+
+      - name: Run the installation tests against the deployment
+        run: timeout 30s ./test-install.sh --live "${{ steps.url.outputs.PAGE_URL }}" --code vN-y_5uA
+

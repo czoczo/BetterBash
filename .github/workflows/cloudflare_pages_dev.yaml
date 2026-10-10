@@ -1,0 +1,178 @@
+name: Deploy develop to Cloudflare Pages
+
+# develop is published so that a change to the page, to the prompt or to an install
+# command can be tried from a real browser and a real shell before it is merged to
+# main. main keeps answering at betterbash.cz0.cz from GitHub Pages
+# (pages_deploy.yaml); what differs between the two is the host, not the artifact:
+# the same page and the same staged bb.tgz are built here as there.
+#
+# Every deployment answers at its own address of the Pages project
+# (https://<deployment>.betterbash-dev.pages.dev), and that is the address the smoke
+# job installs from - it is the address of this very deployment, so nothing is
+# installed from an older one. https://dev.bb.cz0.cz is the name the project should
+# also answer at; attaching it is done by deploy/cloudflare-pages.mjs, but the DNS
+# record of the zone is not, because the token of this workflow may not write the
+# zone - see the last step of the smoke job, which says which of the two answers.
+#
+# The Pages project and its custom domain are provisioned by
+# deploy/cloudflare-pages.mjs, so the only setup this workflow needs is its two
+# secrets: CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID.
+
+on:
+  push:
+    branches:
+      - develop
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cloudflare-pages-dev
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      package_sha: ${{ steps.package.outputs.sha }}
+      deployment_url: ${{ steps.upload.outputs['deployment-url'] }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: latest
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'pnpm'
+          cache-dependency-path: webpage/frontend/pnpm-lock.yaml
+
+      - name: Install WebUI dependencies
+        working-directory: webpage/frontend
+        run: pnpm install --frozen-lockfile
+
+      - name: Build WebUI
+        # Cloudflare Pages serves a site at the root of its own domain, so the base
+        # is the root. The commands of this page still fetch from the origin that
+        # served it - which here is dev.bb.cz0.cz itself, exactly as production
+        # installs from betterbash.cz0.cz - so the bundle is built in production
+        # mode and only says where it stands: VITE_BB_ENV gives the page the badge
+        # of a development deployment, and VITE_BB_RELEASE_REF pins the git command
+        # to develop instead of to the tag of a release that has not happened.
+        working-directory: webpage/frontend
+        env:
+          VITE_BB_ENV: development
+          VITE_BB_RELEASE_REF: develop
+        run: pnpm build --base=/
+
+      - name: Stage the files an install command fetches
+        # The payload is published as bb.tgz, which contains exactly the prompt files
+        # and the installer and uninstaller of them. That archive is all an install
+        # command fetches.
+        run: |
+          ./tests/stage-downloads.sh webpage/frontend/dist
+          tar -tzf webpage/frontend/dist/bb.tgz
+
+      - name: Check the payload of the deployment
+        run: ./tests/check-deployment-payload.sh webpage/frontend/dist
+
+      - name: Remember the checksum of this package
+        id: package
+        # The smoke job waits for the domain to serve this very checksum, so it
+        # cannot mistake an older deployment - or the edge cache - for this one.
+        run: echo "sha=$(awk '{print $1}' webpage/frontend/dist/bb.tgz.sha256)" >>"$GITHUB_OUTPUT"
+
+      - name: Check the Pages project and its custom domain
+        # Creates the Pages project, its production branch and its custom domain
+        # when they do not exist yet, and reports what already answers the host when
+        # something else does. Idempotent, so every push checks itself.
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: node deploy/cloudflare-pages.mjs ensure
+
+      - name: Upload the deployment
+        id: upload
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          # --commit-dirty: the steps above staged bb.tgz next to the built page, so
+          # the checkout is dirty, and wrangler answers that with a warning about
+          # deploying uncommitted files. Nothing of this deployment is uncommitted
+          # work of a person; the warning is silenced.
+          command: pages deploy webpage/frontend/dist --project-name=betterbash-dev --branch=develop --commit-dirty=true
+
+  smoke:
+    # What was built is not what answers until Cloudflare has propagated the
+    # deployment, so this job installs from the deployment rather than from the
+    # artifact, and runs both install paths of the page against it.
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      DEPLOY_URL: ${{ needs.build.outputs.deployment_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Wait for the deployment to serve this package
+        # The checksum of the package changes with every build, so waiting for it is
+        # how a deployment is told from the edge cache and from the one before it.
+        run: |
+          set -euo pipefail
+          want='${{ needs.build.outputs.package_sha }}'
+          for _ in $(seq 1 20); do
+            served=$(curl -fsSL -o - "$DEPLOY_URL/bb.tgz.sha256" 2>/dev/null | awk '{print $1}' || true)
+            if [ "$served" = "$want" ]; then
+              echo "$DEPLOY_URL serving $served"
+              exit 0
+            fi
+            echo "$DEPLOY_URL serving '${served:-nothing}', want $want"
+            sleep 15
+          done
+          echo "$DEPLOY_URL did not serve this package in 5 minutes" >&2
+          exit 1
+
+      - name: Check what the deployment serves
+        run: |
+          set -euo pipefail
+          # The package and its checksum are the only two names a command of the page
+          # asks the origin for.
+          for path in bb.tgz bb.tgz.sha256; do
+            code=$(curl -fsSL -o /dev/null -w '%{http_code}' "$DEPLOY_URL/$path")
+            echo "$path -> $code"
+            [ "$code" = "200" ] || exit 1
+          done
+
+      - name: Run the installation tests against the deployment
+        run: |
+          set -euo pipefail
+          timeout 30s ./test-install.sh --live "$DEPLOY_URL" --code vN-y_5uA
+
+      - name: Say where the deployment answers
+        # Not a check: the name of the project is attached to it, but its record in
+        # the zone of cz0.cz is not, and writing the zone needs a token this workflow
+        # does not have. So the workflow says what answers where, and a missing name
+        # is a line in the log and a warning rather than ten minutes of waiting for
+        # something no push can bring about. Add the record - a proxied CNAME of
+        # dev.bb.cz0.cz at betterbash-dev.pages.dev - and this step reports it ready.
+        run: |
+          set -euo pipefail
+          name=https://dev.bb.cz0.cz
+          code=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 10 "$name/bb.tgz.sha256" || true)
+          if [ "$code" = "200" ]; then
+            served=$(curl -fsSL "$name/bb.tgz.sha256" | awk '{print $1}')
+            want='${{ needs.build.outputs.package_sha }}'
+            if [ "$served" = "$want" ]; then
+              echo "$name answers with this deployment ($served)"
+            else
+              echo "::warning::$name answers another package: served $served, this one is $want"
+            fi
+          else
+            echo "::warning::$name answers nothing (HTTP ${code:-nothing}); the deployment is at $DEPLOY_URL until its DNS record is added"
+          fi
+

@@ -1,3 +1,9 @@
+/* Everything below is scoped (see <style scoped> in src/App.vue): the compiler turns
+   every selector into `.selector[data-v-<id>]`, and that attribute is put on the
+   elements of this component only. A rule for an ancestor of the component - #app,
+   html, body - therefore compiles to something matching nothing, and does silently
+   nothing. Rules of that kind belong in assets/main.css, which is global; the body
+   rule below is such a rule and is kept only as a note of what was meant. */
 body {
   font-family: 'Courier New', monospace;
   margin: 0;
@@ -16,15 +22,28 @@ li {
   float: left;
   margin-right: 5px;
   max-width: 75%;
+  /* The banner art is drawn in the old green primary; shift it to the accent hue. */
+  filter: hue-rotate(var(--banner-hue-rotate)) saturate(var(--banner-saturate));
 }
 .github-column {
   text-align: right;
 }
-.logo {
-  float: left;
-  width: 150px;
-  image-rendering: pixelated;
-  margin-right: 15px;
+.ghlink {
+  display: inline;
+}
+
+/* Rendered only in non production builds, whose install commands point at the
+   local backend instead of the published one. */
+.env-badge {
+  /* Floated in front of the star button, so the header stays one row tall. */
+  float: right;
+  padding: 1px 8px;
+  margin: 0 0 0 8px;
+  border: 1px solid var(--primary-color);
+  border-radius: 4px;
+  color: var(--primary-color);
+  font-size: 12px;
+  letter-spacing: 1px;
 }
 .container {
   max-width: 1000px;
@@ -32,25 +51,30 @@ li {
   margin: 0 auto;
   background-color: #1e1e1e;
   color: #f0f0f0;
+  margin-top: 10px;
 }
+/* Accent colours (--primary-*) are the ramp of the theme's border colour
+   (BORDCOL): defined with fallbacks in assets/main.css and redefined at runtime
+   from the theme shown. */
 h1 {
-  color: #4e9a06; /* A pleasant green */
+  color: var(--primary-color);
   font-family: "Tiny5", sans-serif;
   font-weight: 400;
   font-style: normal;
   font-size: 64px;
 }
 a {
-  color: #4e9a06;
-  border-bottom: 2px dotted #4e9a06;
+  color: var(--primary-color);
+  border-bottom: 2px dotted var(--primary-color);
 }
 a:hover {
-  color: #076519;  
+  color: var(--primary-hover);
 }
 .customizer {
   display: flex;
   flex-direction: column;
   gap: 14px;
+  margin: 10px 0px;
 }
 .color-controls {
   display: grid;
@@ -61,7 +85,7 @@ a:hover {
   display: flex;
   flex-direction: column;
   background-color: #2d2d2d;
-  padding: 12px;
+  padding: 10px;
   border-radius: 8px;
   font-family: Consolas, Monaco, 'Lucida Console', monospace;
   gap: 4px;
@@ -91,6 +115,7 @@ a:hover {
   /*display: flex;*/
   gap: 15px;
   /*margin-top: 5px;*/
+  margin-bottom: 8px;
 }
 .color-modifier-checkboxes label {
   /*display: flex;*/
@@ -100,6 +125,143 @@ a:hover {
 }
 .color-modifier-checkboxes input[type="checkbox"] {
   margin-right: 4px;
+}
+/* Checkbox/label pairs are plain siblings, so the container's gap does not apply:
+   add space in front of every pair but the first one (i.e. before "Random"). A
+   pair wrapped in .toggle-hint is one sibling of its own, so the space goes in
+   front of the wrapper instead of in front of the checkbox it holds. */
+.color-modifier-checkboxes label + input[type="checkbox"],
+.color-modifier-checkboxes label + .toggle-hint,
+.color-modifier-checkboxes .toggle-hint + .toggle-hint {
+  margin-left: 16px;
+}
+/* The tiles of the machine and of its top line --------------------------
+
+   Two tiles where the avatar checkbox once had one to itself. The tile of the
+   machine - the name the preview draws from, and the dice that draws new colours -
+   takes one column of the grid, like every colour tile beside it. The tile of the
+   elements spans two and lays its nine boxes in two of their own: wider than a
+   colour tile, and no taller than two of them. On a narrow window, where the grid
+   has only one column to give, both take that one. */
+.machine-tile {
+  gap: 10px;
+}
+.element-tile {
+  grid-column: span 3;
+  gap: 10px;
+}
+.element-checkboxes {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 6px 14px;
+}
+.element-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: normal;
+  cursor: pointer;
+}
+@media (max-width: 720px) {
+  .element-tile {
+    grid-column: auto;
+  }
+}
+/* The hint bubble of a toggle -------------------------------------------
+
+   What the two toggles of the install commands change is not to be seen in the
+   command line under them (one replaces the theme code of the command with the
+   word "rand", the other takes the question out of it), so it is said in a bubble
+   hung above the pair it belongs to. The bubble is painted in the accent colour of
+   the theme, which makes it part of the skin the page previews rather than part of
+   the grey it floats over, and it is readable because --primary-contrast is the
+   colour chosen against the accent (see src/theme.js).
+
+   It is an element of the pair and not a title attribute: a title cannot be
+   coloured, appears only after a delay the length of a hesitation, and is gone
+   while it is still being read. */
+.toggle-hint {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.toggle-hint-bubble {
+  position: absolute;
+  /* Hung above the pair, and kept inside the page on its left: the first toggle of
+     a row sits near the left edge of the box, and a bubble centred on it would
+     reach past the box. The tail below it, at the corner the bubble grew from,
+     still points at the checkbox. */
+  bottom: calc(100% + 8px);
+  left: 0;
+  width: max-content;
+  /* A sentence of src/App.vue, wrapped as wide as a sentence reads well and never
+     wider than the page it is wrapped in. */
+  max-width: min(46ch, 78vw);
+  padding: 8px 10px;
+  border-radius: 6px;
+  background-color: var(--primary-color);
+  color: var(--primary-contrast);
+  font-size: 12px;
+  font-weight: normal;
+  line-height: 1.45;
+  text-align: left;
+  /* Over the tab buttons and the command box the bubble is held above. */
+  z-index: 20;
+  /* visibility and not display: the bubble is laid out all the time, so it fades
+     into place instead of jumping as it appears. */
+  visibility: hidden;
+  opacity: 0;
+  transition: opacity 0.15s ease, visibility 0s linear 0.15s;
+  /* The bubble must never catch the pointer: it hangs over the very checkbox that
+     hides it, and a bubble you can hover blinks as the two take turns. */
+  pointer-events: none;
+}
+/* The tail: a corner of the same accent, turned by half its side, so the half that
+   sticks out below the bubble is the point that names the checkbox. */
+.toggle-hint-bubble::after {
+  content: '';
+  position: absolute;
+  top: calc(100% - 5px);
+  left: 12px;
+  width: 10px;
+  height: 10px;
+  background-color: var(--primary-color);
+  transform: rotate(45deg);
+}
+/* The pointer anywhere on the pair shows the hint, and only the pointer does. A
+   bubble is an answer to the question "what does this toggle do", which is asked
+   while the pointer is over the toggle: shown on :focus-within as well, it stayed up
+   after a click on the checkbox and outlived the pointer, so the page ended up
+   holding a sentence the reader had stopped asking about. A keyboard user is not left
+   without it - the same sentence is what aria-describedby hands to them at the
+   checkbox (see src/template.html), read out rather than painted. */
+.toggle-hint:hover .toggle-hint-bubble {
+  visibility: visible;
+  opacity: 1;
+  transition: opacity 0.15s ease;
+}
+/* The hostname the preview avatar is drawn from, under the avatar checkbox it
+   belongs to. Styled like the inputs of the other control groups - the grey fill
+   of a select - and in the terminal font, because what is typed here is what a
+   machine would answer. */
+.avatar-host-field {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.avatar-host-field label {
+  font-weight: normal;
+}
+.avatar-host-field input[type="text"] {
+  flex: 1;
+  min-width: 0;
+  padding: 3px 6px;
+  background-color: #3a3a3a;
+  color: #f0f0f0;
+  border: 1px solid #555;
+  border-radius: 4px;
+  font-family: Consolas, Monaco, 'Lucida Console', monospace;
 }
 .terminal-inline {
   background-color: #000;
@@ -111,23 +273,93 @@ a:hover {
   line-height: 0.9;
   font-size: 18px;
 }
+/* The three features met before the list of them (see src/template.html). A card is
+   one step lighter than the section it stands in, so the black of the sample inside
+   it stays the darkest thing in the picture, and the accent of the theme paints its
+   title as it paints the headings of the page. */
+.feature-highlights {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 12px;
+  margin-bottom: 22px;
+}
+.feature-card {
+  background-color: #252525;
+  border: 1px solid #3a3a3a;
+  border-radius: 8px;
+  padding: 12px 14px;
+}
+.feature-card h4 {
+  margin: 0 0 8px;
+  color: var(--primary-color);
+  font-size: 15px;
+}
+.feature-card p {
+  margin: 10px 0 0;
+  font-size: 13px;
+  line-height: 1.45;
+  color: #c8c8c8;
+}
+.feature-card code {
+  background-color: #3a3a3a;
+  padding: 1px 4px;
+  border-radius: 3px;
+  font-size: 12px;
+}
+/* A sample in a card is shown a little larger than one in the list below: it is the
+   thing the card is about, and the sentence under it explains it, not the other way
+   round. */
+.feature-card .terminal-inline {
+  font-size: 20px;
+}
 .terminal {
   background-color: #000;
-  padding: 20px;
+  /* No horizontal padding on purpose: the fill ratio of the preview is defined
+     against the black box itself (see .ps1-line), and padding would shrink the
+     text area under it, so the same font size would fill a visibly smaller part
+     of the black box. The side margin comes from the ratio instead and scales
+     with the box, which keeps the look identical at every window size. */
+  padding: 20px 0;
   border-radius: 8px;
   font-family: "Source Code Pro", Consolas, Monaco, 'Lucida Console', monospace;
   overflow-x: auto;
-  margin-top: 10px;
   white-space: pre-wrap;
   line-height: 0.9;
   container-type: inline-size;
-  letter-spacing: -0.05rem;
-  /*font-size: 18px;*/
+  /* One column, sized to the longest prompt line and centred in the box, so the
+     preview looks centred as a whole and every shorter line still starts in the
+     same place as the longest one. The column cannot be left to grow and shrink
+     with what the boxes of the page tick off - the whole preview would slide
+     sideways against its own left margin as a theme was edited - so every top line
+     of it measures PREVIEW_WIDTH glyphs, a theme without the border fill padded to
+     that width with spaces nothing shows (see src/preview.js). */
+  display: grid;
+  justify-content: center;
 }
 .ps1-line {
-  /*font-size: min(1cqw, 19px);*/
-  font-size: 1.4cqw;
+  /* Single font size for the whole preview (so terminal columns keep lining up),
+     scaled with the box. Every prompt line in the template is padded to at most
+     PREVIEW_WIDTH glyphs - 109 today, see src/preview.js - and a monospace glyph
+     is 0.6em wide, so the longest line measures 109 * 0.6 = 65.4em. Filling ~96%
+     of the box is then 0.96/65.4 = 1.47% of its width, i.e. 1.47cqw - one ratio
+     for every window size, and one that keeps the box as wide as the page is
+     whatever the line is padded to: a longer line of the preview is drawn in
+     smaller glyphs, not in a wider black box. Nothing else to tune:
+     letter-spacing is left alone, because tracking would only shift the constant
+     and hide this arithmetic. The real fill still wobbles a few percent (glyph
+     advances are rounded to whole pixels), and the remaining ~4% is what keeps
+     white-space: pre-wrap from ever breaking a prompt line in two. */
+  font-size: 1.44cqw;
   margin-bottom: 0px;
+}
+/* A line of the preview that is not a prompt but says what the next one is: said the
+   way a shell says it - after a hash - and in a grey dimmer than the prompts around
+   it, so it is read as a caption and not as another line of the frame. It is not
+   measured as a prompt line is (see .ps1-line): shorter than them, it neither decides
+   how wide the preview is nor needs to. */
+.ps1-comment {
+  color: #8a8a8a;
+  margin-top: 8px;
 }
 .color-preview {
   display: inline-block;
@@ -137,16 +369,23 @@ a:hover {
   border: 1px solid #555;
   vertical-align: middle;
 }
-.info-section, .share-section {
+.share-section {
   margin-top: 0px;
   background-color: #2d2d2d;
   padding: 14px 14px 20px 14px;
   border-radius: 8px;
 }
-.info-section h3, .share-section h3 {
+.share-section h3 {
   margin-top: 0;
-  color: #4e9a06;
+  color: var(--primary-color);
 }
+.install-note {
+  margin: 4px 0 14px;
+  font-size: 13px;
+  line-height: 1.4;
+  color: #a0a0a0;
+}
+
 .share-url-container {
   display: flex;
   gap: 10px;
@@ -171,22 +410,65 @@ a:hover {
   border-radius: 4px;
   font-family: Consolas, Monaco, 'Lucida Console', monospace;
   resize: vertical;
-  min-height: 80px;
+  min-height: 50px;
 }
 .share-url-container.multiline {
   align-items: flex-start;
 }
 .share-url-container button, .default-btn {
   padding: 8px 15px;
-  background-color: #4e9a06;
-  color: #fff;
+  background-color: var(--primary-color);
+  color: var(--primary-contrast);
   border: none;
   border-radius: 4px;
   cursor: pointer;
   font-weight: bold;
+  transition: background-color 0.2s ease;
 }
 .share-url-container button:hover, .default-btn:hover {
-  background-color: #076519;
+  background-color: var(--primary-hover);
+}
+
+/* Checkboxes are styled like the buttons next to them: the grey fill of the other
+   inputs while off, the accent fill (same hover shift) and light tick while on.
+   appearance:none drops the native widget, so the tick is drawn as the corner of a
+   box (right + bottom border, rotated) that scales in from nothing. */
+input[type="checkbox"] {
+  appearance: none;
+  -webkit-appearance: none;
+  display: inline-grid;
+  place-content: center;
+  width: 1.1em;
+  height: 1.1em;
+  border: 1px solid #555;
+  border-radius: 4px;
+  background-color: #3a3a3a;
+  vertical-align: middle;
+  cursor: pointer;
+  transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+input[type="checkbox"]:hover {
+  border-color: var(--primary-color);
+}
+input[type="checkbox"]:checked {
+  background-color: var(--primary-color);
+  border-color: var(--primary-color);
+}
+input[type="checkbox"]:checked:hover {
+  background-color: var(--primary-hover);
+  border-color: var(--primary-hover);
+}
+input[type="checkbox"]::after {
+  content: '';
+  width: 0.28em;
+  height: 0.55em;
+  border-right: 2px solid var(--primary-contrast);
+  border-bottom: 2px solid var(--primary-contrast);
+  transform: rotate(45deg) scale(0);
+  transition: transform 0.15s ease;
+}
+input[type="checkbox"]:checked::after {
+  transform: rotate(45deg) scale(1);
 }
 
 /* Tab styles */
@@ -210,8 +492,8 @@ a:hover {
   background-color: #3a3a3a;
 }
 .tab-button.active {
-  color: #4e9a06;
-  border-bottom-color: #4e9a06;
+  color: var(--primary-color);
+  border-bottom-color: var(--primary-color);
   font-weight: bold;
 }
 .tab-content {
@@ -223,21 +505,16 @@ a:hover {
 
 .copy-success-message {
   position: absolute;
-  color: #8ae234; /* Bright Green */
+  color: var(--primary-bright);
   font-size: 0.9em;
 }
-.decoding-explanation {
-    font-size: 0.9em;
-    /*line-height: 1.6;*/
-}
-.decoding-explanation ul {
-    padding-left: 20px;
-}
-.decoding-explanation code {
-    background-color: #3a3a3a;
-    padding: 2px 4px;
-    border-radius: 3px;
-    font-family: Consolas, Monaco, 'Lucida Console', monospace;
+/* Why a copy button did not copy - see src/clipboard.js. Unlike the "Copied!" above,
+   which is a word thrown over its box, this is a sentence: it takes its place in the
+   flow under the box and may run over lines. */
+.copy-error-message {
+  margin: 8px 0 0;
+  font-size: 0.9em;
+  color: #e07a7a;
 }
 
 .font-bold-style {
@@ -275,6 +552,4 @@ a:hover {
 .text-bold-bright-black { color: #7c7c7c; font-weight: bold; }
 .text-bold-bright-white { color: #ffffff; font-weight: bold; }
 
-.text-red-on-white { color: #ffffff; background-color: #c00; }
-.text-reset { color: #d3d7cf; }
 

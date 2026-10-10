@@ -1,0 +1,5 @@
+# State of ./dev.sh: the self signed certificate of the local HTTPS file server.
+.dev/
+
+# The cache wrangler leaves next to a deployment (deploy/cloudflare-pages.mjs).
+.wrangler/

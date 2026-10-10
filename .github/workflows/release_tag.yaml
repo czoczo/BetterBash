@@ -1,0 +1,56 @@
+name: Create a release tag
+
+# Releasing BetterBash is a version number in this repository: bumping
+# VERSION_APP.txt on main tags the commit, and the WebUI and the installer files
+# are published by the Pages workflow from the same commit. Nothing is built and
+# nothing is pushed to a registry.
+
+on:
+  push:
+    branches: [ main ]
+    paths: [ VERSION_APP.txt ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  tag:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Read the version
+        id: version
+        run: |
+          version=$(tr -dc '0-9.' < VERSION_APP.txt)
+          if [ -z "$version" ]; then
+            echo "::error::VERSION_APP.txt contains no version number"
+            exit 1
+          fi
+          echo "value=$version" >> "$GITHUB_OUTPUT"
+          echo "tagging $version"
+
+      - name: Create the tag
+        uses: actions/github-script@v7
+        env:
+          VERSION: ${{ steps.version.outputs.value }}
+        with:
+          script: |
+            const ref = `refs/tags/${process.env.VERSION}`
+            try {
+              await github.rest.git.createRef({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                ref,
+                sha: context.sha,
+              })
+              core.info(`created ${ref}`)
+            } catch (error) {
+              if (error.status === 422) {
+                core.warning(`${ref} already exists, nothing was created`)
+                return
+              }
+              throw error
+            }

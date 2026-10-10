@@ -1,0 +1,166 @@
+name: Test development environment
+
+on:
+  pull_request:
+    branches:
+      - main
+      - develop
+  push:
+    branches:
+      - main
+      - develop
+  workflow_dispatch:
+
+# No test here waits for anything but its own few seconds: the whole job of the shell
+# runs in under a minute, and every test is run under `timeout 30s`, so a test that
+# starts waiting for a pipe, a terminal or a network answers in half a minute instead
+# of holding a runner. `timeout-minutes` is the same promise for a job whose build or
+# install goes wrong.
+jobs:
+  shell:
+    # Everything that has to work without a browser: the lint of the scripts, the
+    # theme decoding that replaces the old backend, and the installation commands
+    # the WebUI prints.
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install shellcheck and dash
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends shellcheck dash
+
+      - name: Lint every script, POSIX ones for POSIX shells
+        run: timeout 30s ./tests/test-shellcheck.sh
+
+      - name: Theme decoding under dash and bash
+        run: |
+          timeout 30s dash tests/test-theme.sh
+          timeout 30s bash tests/test-theme.sh
+
+      # The code a theme is written as: the page encodes it, prompt/bb-theme.sh
+      # decodes it, and the corpus of codes the retired Go backend issued is what both
+      # are held to. Run here rather than in the webui job because the half of it that
+      # matters is the shell half.
+      - name: Theme code of the page and of the shell
+        run: timeout 30s node tests/test-theme-code.mjs
+
+      - name: The duration of the last command, in an interactive shell too
+        run: timeout 30s bash tests/test-timer.sh
+
+      - name: The one-line prompt of Alt+c, and the key itself
+        # Both shapes are drawn by bash and compared with each other - what is kept
+        # is the second line of the frame with its corner exchanged - and the key is
+        # pressed in a pseudo terminal, since whether a binding fires at all, and
+        # whether the new shape appears there and then, are readline's doing.
+        run: timeout 30s bash tests/test-compact.sh
+
+      - name: The installation commands of the page, run as printed
+        # git, curl, wget and openssl fetch a package from a local file server and
+        # from a local git repository, and installbb.sh installs what they fetched.
+        # Three theme words: a code written here, a theme drawn there, and a theme
+        # drawn there over the elements of a code - the shapes an install command of
+        # the page takes.
+        run: |
+          timeout 30s ./test-install.sh --code vN-y_5uA
+          timeout 30s ./test-install.sh --code rand
+          timeout 30s ./test-install.sh --code 'rand:1xjGMYxj8AAAA'
+
+  webui:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: latest
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'pnpm'
+          cache-dependency-path: webpage/frontend/pnpm-lock.yaml
+
+      - name: The host avatar of the page, drawn as prompt/bb.sh draws it
+        # The page draws the avatar prompt/bb.sh draws; this runs the shell
+        # functions and the JavaScript port over the same hostnames.
+        run: timeout 30s node tests/test-avatar.mjs
+
+      - name: The frame of the prompt and the frame the page previews
+        # The prompt is drawn by bash and the preview by the markup of the page;
+        # both are measured here, so neither drifts from the other.
+        run: timeout 30s node tests/test-frame.mjs
+
+      - name: The colour of the theme that skins the page
+        # The chrome of the page follows the border colour of the theme, and the
+        # fallback of its stylesheet is the ramp of that colour.
+        run: timeout 30s node tests/test-accent.mjs
+
+      - name: The bubbles that explain the toggles of the install commands
+        # The Random and Auto checkboxes say what they change in the command under
+        # them, in a bubble painted in the accent colour; this holds the words of the
+        # bubbles to what src/config.js really builds.
+        run: timeout 30s node tests/test-toggle-hints.mjs
+
+      - name: The copy buttons of the page, with and without a clipboard
+        # navigator.clipboard exists only in a secure context, so the fallback to a
+        # copied selection is what a page served over plain http has; both are run
+        # here, and the page is held to using the helper rather than the API itself.
+        run: timeout 30s node tests/test-copy.mjs
+
+      - name: Install dependencies
+        working-directory: webpage/frontend
+        run: pnpm install --frozen-lockfile
+
+      - name: Build for production
+        # Built the way both deploy workflows build it, so the bundle checked here
+        # is the bundle they publish.
+        working-directory: webpage/frontend
+        run: pnpm build --base=/
+
+      - name: Check the installed commands of the production bundle
+        # The commands fetch from the canonical origin, which is the fallback
+        # compiled into config.js when the page has no origin of its own. The rest
+        # of the words are those of the four fetch methods and of the uninstaller,
+        # so that a bundle which lost a method of installing is caught here rather
+        # than by a user following the page. Only fragments config.js writes as
+        # literals are named: the commands are assembled at run time, so no whole
+        # command is a string of the bundle. installbb.sh is deliberately not named
+        # either - no command says it, the fetched tree installs itself from its own
+        # prompt - and its place in the package is held by
+        # ./tests/check-deployment-payload.sh, which the deploy workflows run.
+        run: |
+          bundle=$(find webpage/frontend/dist/assets -name 'index-*.js' | head -1)
+          echo "$bundle"
+          # SC2088: the tilde of '~/.bb' is no home to expand here. It is the string
+          # the page prints in a command and the string the bundle holds of it.
+          # shellcheck disable=SC2088
+          for expected in betterbash.cz0.cz bb.tgz '~/.bb' 'curl -sL' 'wget -q -O -' \
+                          'git clone -q --depth 1 --branch' 'openssl s_client' removebb.sh; do
+            if grep -qF "$expected" "$bundle"; then
+              echo "  ok   $expected"
+            else
+              echo "  FAIL $expected missing from $bundle" >&2
+              exit 1
+            fi
+          done
+
+      - name: Build for development
+        working-directory: webpage/frontend
+        run: pnpm build --mode development
+
+      - name: Check the installed commands of the development bundle
+        # A development page fetches from its own dev origins. The canonical origin
+        # is compiled in as well - it is the fallback and the canonical install
+        # directory of the README - so it is not asserted to be absent.
+        run: |
+          bundle=$(find webpage/frontend/dist/assets -name 'index-*.js' | head -1)
+          echo "$bundle"
+          for expected in localhost:5173 localhost:8443; do
+            if grep -qF "$expected" "$bundle"; then
+              echo "  ok   $expected"
+            else
+              echo "  FAIL $expected missing from $bundle" >&2
+              exit 1
+            fi
+          done

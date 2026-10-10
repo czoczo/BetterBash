@@ -29,3 +29,9 @@ core
 *.sw?
 
 *.tsbuildinfo
+
+# The package ./dev.sh stages so that the dev server serves it
+# (tests/stage-downloads.sh). It is built from the repository root and is not edited
+# here; the Pages workflow stages it into dist instead.
+/public/bb.tgz
+/public/bb.tgz.sha256

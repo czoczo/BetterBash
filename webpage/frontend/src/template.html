@@ -5,6 +5,13 @@
     <img src="/banner.png" class="banner">
     </div>
     <div class="github-column">
+      <div
+        v-if="appEnv !== 'production'"
+        class="env-badge"
+        title="Development build: the commands below fetch from this server"
+      >
+        {{ appEnv }}
+      </div>
       <iframe src="https://ghbtns.com/github-btn.html?user=czoczo&repo=BetterBash&type=star&size=large&text=false" frameborder="0" scrolling="0" width="40" height="30" title="GitHub" class="ghlink"></iframe>
     </div>
   </div>
@@ -45,54 +52,64 @@
         </div>
       </div>
       
-      <!-- Avatar Toggle Control -->
-      <div class="color-select-group">
-        <div class="color-modifier-checkboxes">
-          <input id="avatar-toggle" type="checkbox" v-model="showAvatar" @change="updatePromptDetails" />
-          <label for="avatar-toggle">Show Avatar</label>
+      <!-- The machine the preview stands for. Nothing on this page has seen the
+             name of the machine it was opened on, so the host of the prompt - and
+             the avatar hashed out of it - is a name the page draws for itself and
+             lets be typed over: put what `cat /etc/hostname` prints here and the
+             preview is the prompt of your own machine. The dice under the name draw
+             new colours for that machine and nothing else - which elements of the
+             line it shows is the question the boxes next door answer, and a draw
+             never answers it. -->
+      <div class="color-select-group machine-tile">
+        <div class="avatar-host-field">
+          <label for="avatar-host">Hostname</label>
+          <input
+            id="avatar-host"
+            type="text"
+            v-model="previewHostname"
+            maxlength="32"
+            spellcheck="false"
+            autocomplete="off"
+            title="Put what cat /etc/hostname prints here, and the preview is the prompt"
+          />
         </div>
         <button @click="generateRandomTheme()" class="default-btn">
           🎲 Random Theme
         </button>
       </div>
+
+      <!-- Every element of the top line of the prompt, each one of them optional,
+             and the border fill after them: not an element but the dashes between
+             them and the run of them that reaches the line to the edge of the
+             terminal, and it gets a box of its own because it is asked for like one.
+             The avatar checkbox stood in a tile of its own for longer than the rest
+             of them asked to be hidden, so it keeps its place at the head of the
+             boxes: what they tick off is one thing - what the prompt of the machine
+             below says - and the preview above answers every one of them by drawing
+             the line without what it ticks off. -->
+      <div class="color-select-group element-tile">
+        <div class="element-checkboxes">
+          <label
+            v-for="element in promptElements"
+            :key="element.key"
+            :for="`element-${element.key}`"
+            class="element-checkbox"
+            :title="element.hint"
+          >
+            <input :id="`element-${element.key}`" type="checkbox" v-model="elementFlags[element.key]" @change="updatePromptDetails" />
+            {{ element.label }}
+          </label>
+        </div>
+      </div>
     </div>
 
     <div class="terminal">
       <div class="ps1-line">
-        <span :class="getColorClassFromBash(generatedColors.BORDCOL)">┌─</span
-        ><span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">(</span
-        ><span :class="getColorClassFromBash(generatedColors.SECONDARY_COLOR)">user</span
-        ><span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">@</span
-        ><span :class="getColorClassFromBash(generatedColors.PRIMARY_COLOR)">myhost:pts/5</span
-        ><span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">)</span
-        ><span :class="getColorClassFromBash(generatedColors.BORDCOL)">──</span
-        ><template v-if="showAvatar">
-          <span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">(</span
-          ><span class="text-yellow">▶</span
-          ><span class="text-bright-black">▬</span
-          ><span class="text-bright-white">▲</span
-          ><span class="text-cyan">◀▶</span
-          ><span class="text-bright-white">▲</span
-          ><span class="text-bright-black">▬</span
-          ><span class="text-yellow">◀</span
-          ><span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">)</span
-          ><span :class="getColorClassFromBash(generatedColors.BORDCOL)">──</span
-        ></template>
-        <span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">(</span
-        ><span :class="getColorClassFromBash(generatedColors.SECONDARY_COLOR)">1 ↻</span
-        ><span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">)</span>
-        <template v-if="!showAvatar">
-          <span :class="getColorClassFromBash(generatedColors.BORDCOL)">────────────</span
-        ></template>
-        <span :class="getColorClassFromBash(generatedColors.BORDCOL)">─────────────────────────────</span
-        ><span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">(</span
-        ><span :class="getColorClassFromBash(generatedColors.TIME_COLOR)">Wed May 14</span
-        ><span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">)</span
-        ><span :class="getColorClassFromBash(generatedColors.BORDCOL)">───</span
-        ><span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">(</span
-        ><span :class="getColorClassFromBash(generatedColors.PRIMARY_COLOR)">00:40:03</span
-        ><span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">)</span
-        ><span :class="getColorClassFromBash(generatedColors.BORDCOL)">────</span>
+        <span
+          v-for="(segment, index) in previewTopLines[0]"
+          :key="index"
+          :class="getColorClassFromBash(segment.code ?? generatedColors[segment.colorKey])"
+          >{{ segment.text }}</span>
       </div>
       <div class="ps1-line">
         <span :class="getColorClassFromBash(generatedColors.BORDCOL)">└─</span
@@ -113,43 +130,35 @@
       <div class="ps1-line">&nbsp;</div>
 
       <div class="ps1-line">
-        <span :class="getColorClassFromBash(generatedColors.BORDCOL)">┌─</span
-        ><span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">(</span
-        ><span :class="getColorClassFromBash(generatedColors.ROOT_COLOR)">ROOT</span
-        ><span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">@</span
-        ><span :class="getColorClassFromBash(generatedColors.PRIMARY_COLOR)">myhost:pts/5</span
-        ><span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">)</span
-        ><span :class="getColorClassFromBash(generatedColors.BORDCOL)">──</span
-        ><template v-if="showAvatar">
-          <span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">(</span
-          ><span class="text-yellow">▶</span
-          ><span class="text-bright-black">▬</span
-          ><span class="text-bright-white">▲</span
-          ><span class="text-cyan">◀▶</span
-          ><span class="text-bright-white">▲</span
-          ><span class="text-bright-black">▬</span
-          ><span class="text-yellow">◀</span
-          ><span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">)</span
-        ></template>
-        <template v-if="!showAvatar">
-          <span :class="getColorClassFromBash(generatedColors.BORDCOL)">──────────</span
-        ></template>
-        <span :class="getColorClassFromBash(generatedColors.BORDCOL)">───────────────────────────</span
-        ><span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">(</span
-        ><span :class="getColorClassFromBash(generatedColors.ERR_COLOR)">127 ↵</span
-        ><span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">)</span
-        ><span :class="getColorClassFromBash(generatedColors.BORDCOL)">──</span
-        ><span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">(</span
-        ><span :class="getColorClassFromBash(generatedColors.TIME_COLOR)">Wed May 14</span
-        ><span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">)</span
-        ><span :class="getColorClassFromBash(generatedColors.BORDCOL)">───</span
-        ><span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">(</span
-        ><span :class="getColorClassFromBash(generatedColors.ERR_COLOR)">00:40:12</span
-        ><span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">)</span
-        ><span :class="getColorClassFromBash(generatedColors.BORDCOL)">────</span>
+        <span
+          v-for="(segment, index) in previewTopLines[1]"
+          :key="index"
+          :class="getColorClassFromBash(segment.code ?? generatedColors[segment.colorKey])"
+          >{{ segment.text }}</span>
       </div>
       <div class="ps1-line">
         <span :class="getColorClassFromBash(generatedColors.BORDCOL)">└─</span
+        ><span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">(</span
+        ><span :class="getColorClassFromBash(generatedColors.PATH_COLOR)">~</span
+        ><span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">)</span
+        ><span :class="getColorClassFromBash(generatedColors.BORDCOL)">─</span
+        ><span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">(</span
+        ><span :class="getColorClassFromBash(generatedColors.PRIMARY_COLOR)">$</span
+        ><span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">)</span
+        ><span :class="getColorClassFromBash(generatedColors.BORDCOL)">-&gt;</span>
+      </div>
+
+      <!-- The same prompt as Alt+c draws it: the frame is gone, and with it the line
+           above, so the corner that opens this one is only the lower half of a dash.
+           prompt/bb.sh calls the shape compact, tests/test-frame.mjs holds this line to
+           being the line above it with that one glyph exchanged. -->
+      <div class="ps1-line">&nbsp;</div>
+      <!-- What the line below it is, and how to get there: a comment of the shell
+           rather than a caption of the page, because inside the black box everything
+           is a line of a terminal. -->
+      <div class="ps1-line ps1-comment"># Compact mode - Alt+c</div>
+      <div class="ps1-line">
+        <span :class="getColorClassFromBash(generatedColors.BORDCOL)">┈─</span
         ><span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">(</span
         ><span :class="getColorClassFromBash(generatedColors.PATH_COLOR)">~</span
         ><span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">)</span
@@ -163,15 +172,25 @@
 
     <div class="share-section">
       <h3>Quick install/uninstall</h3>
-      
+      <p class="install-note">
+        Safe installation. The one-liner downloads and extracts the archive containing the code from the repo and asks for confirmation of the installation, giving the user a chance to review the extracted files.
+      </p>
+
       <!-- Tab navigation -->
       <div class="tab-navigation">
-        <button 
-          class="tab-button" 
+        <button
+          class="tab-button"
           :class="{ active: activeTab === 'curl' }"
           @click="activeTab = 'curl'"
         >
           curl
+        </button>
+        <button
+          class="tab-button"
+          :class="{ active: activeTab === 'git' }"
+          @click="activeTab = 'git'"
+        >
+          git
         </button>
         <button 
           class="tab-button" 
@@ -191,59 +210,168 @@
 
       <!-- Tab content -->
       <div class="tab-content">
+        <div v-show="activeTab === 'git'" class="tab-panel">
+          <div class="color-modifier-checkboxes">
+            <input id="uninstall-toggle-git" type="checkbox" v-model="uninstallFlag" />
+            <label for="uninstall-toggle-git">Uninstall</label>
+            <!-- What a toggle changes is not visible in the command line under it, so
+                 the pair is wrapped in .toggle-hint and carries its hint as a bubble
+                 above itself (see src/style.css). The bubble is an element and not a
+                 title attribute, because it is painted in the accent colour of the
+                 theme and because the checkbox points at the very text it paints
+                 with aria-describedby - what is read out and what is shown is one
+                 sentence of src/App.vue. -->
+            <span class="toggle-hint">
+              <input id="random-toggle-git" type="checkbox" v-model="randomFlag" aria-describedby="random-hint-git" />
+              <label for="random-toggle-git">🎲 Random</label>
+              <span class="toggle-hint-bubble" id="random-hint-git" role="tooltip">{{ randomToggleHint }}</span>
+            </span>
+            <span class="toggle-hint">
+              <input id="auto-toggle-git" type="checkbox" v-model="autoFlag" aria-describedby="auto-hint-git" />
+              <label for="auto-toggle-git">🤖 Auto</label>
+              <span class="toggle-hint-bubble" id="auto-hint-git" role="tooltip">{{ autoToggleHint }}</span>
+            </span>
+          </div>
+          <div class="share-url-container multiline">
+            <textarea :value="gitInstallUrl" readonly id="installGitCmd" rows="2" @click="selectField"></textarea>
+            <button @click="copyInstallCmd">Copy command</button>
+          </div>
+        </div>
+
         <div v-show="activeTab === 'curl'" class="tab-panel">
-          <div class="share-url-container">
-            <input type="text" :value="curlInstallUrl" readonly id="installCurlCmd" @click="selectUrlText" />
-            <div class="color-modifier-checkboxes">
-              <input id="uninstall-toggle" type="checkbox" v-model="uninstallFlag" />
-              <label for="uninstall-toggle">Uninstall</label>
-            </div>
-            <button @click="copyCurlCmdToClipboard">Copy command</button>
+          <div class="color-modifier-checkboxes">
+            <input id="uninstall-toggle-curl" type="checkbox" v-model="uninstallFlag" />
+            <label for="uninstall-toggle-curl">Uninstall</label>
+            <span class="toggle-hint">
+              <input id="random-toggle-curl" type="checkbox" v-model="randomFlag" aria-describedby="random-hint-curl" />
+              <label for="random-toggle-curl">🎲 Random</label>
+              <span class="toggle-hint-bubble" id="random-hint-curl" role="tooltip">{{ randomToggleHint }}</span>
+            </span>
+            <span class="toggle-hint">
+              <input id="auto-toggle-curl" type="checkbox" v-model="autoFlag" aria-describedby="auto-hint-curl" />
+              <label for="auto-toggle-curl">🤖 Auto</label>
+              <span class="toggle-hint-bubble" id="auto-hint-curl" role="tooltip">{{ autoToggleHint }}</span>
+            </span>
+          </div>
+          <div class="share-url-container multiline">
+            <textarea :value="curlInstallUrl" readonly id="installCurlCmd" rows="2" @click="selectField"></textarea>
+            <button @click="copyInstallCmd">Copy command</button>
           </div>
         </div>
         
         <div v-show="activeTab === 'wget'" class="tab-panel">
-          <div class="share-url-container">
-            <input type="text" :value="wgetInstallUrl" readonly id="installWgetCmd" @click="selectUrlText" />
-            <div class="color-modifier-checkboxes">
-              <input id="uninstall-toggle" type="checkbox" v-model="uninstallFlag" />
-              <label for="uninstall-toggle">Uninstall</label>
-            </div>
-            <button @click="copyWgetCmdToClipboard">Copy command</button>
+          <div class="color-modifier-checkboxes">
+            <input id="uninstall-toggle-wget" type="checkbox" v-model="uninstallFlag" />
+            <label for="uninstall-toggle-wget">Uninstall</label>
+            <span class="toggle-hint">
+              <input id="random-toggle-wget" type="checkbox" v-model="randomFlag" aria-describedby="random-hint-wget" />
+              <label for="random-toggle-wget">🎲 Random</label>
+              <span class="toggle-hint-bubble" id="random-hint-wget" role="tooltip">{{ randomToggleHint }}</span>
+            </span>
+            <span class="toggle-hint">
+              <input id="auto-toggle-wget" type="checkbox" v-model="autoFlag" aria-describedby="auto-hint-wget" />
+              <label for="auto-toggle-wget">🤖 Auto</label>
+              <span class="toggle-hint-bubble" id="auto-hint-wget" role="tooltip">{{ autoToggleHint }}</span>
+            </span>
+          </div>
+          <div class="share-url-container multiline">
+            <textarea :value="wgetInstallUrl" readonly id="installWgetCmd" rows="2" @click="selectField"></textarea>
+            <button @click="copyInstallCmd">Copy command</button>
           </div>
         </div>
         
         <div v-show="activeTab === 'openssl'" class="tab-panel">
-          <div class="share-url-container multiline">
-            <textarea :value="opensslInstallUrl" readonly id="installOpensslCmd" @click="selectUrlText" rows="5"></textarea>
-            <button @click="copyOpensslCmdToClipboard">Copy command</button>
-          </div>
           <div class="color-modifier-checkboxes">
-            <input id="uninstall-toggle" type="checkbox" v-model="uninstallFlag" />
-            <label for="uninstall-toggle">Uninstall</label>
+            <input id="uninstall-toggle-openssl" type="checkbox" v-model="uninstallFlag" />
+            <label for="uninstall-toggle-openssl">Uninstall</label>
+            <span class="toggle-hint">
+              <input id="random-toggle-openssl" type="checkbox" v-model="randomFlag" aria-describedby="random-hint-openssl" />
+              <label for="random-toggle-openssl">🎲 Random</label>
+              <span class="toggle-hint-bubble" id="random-hint-openssl" role="tooltip">{{ randomToggleHint }}</span>
+            </span>
+            <span class="toggle-hint">
+              <input id="auto-toggle-openssl" type="checkbox" v-model="autoFlag" aria-describedby="auto-hint-openssl" />
+              <label for="auto-toggle-openssl">🤖 Auto</label>
+              <span class="toggle-hint-bubble" id="auto-hint-openssl" role="tooltip">{{ autoToggleHint }}</span>
+            </span>
+          </div>
+          <div class="share-url-container multiline">
+            <textarea :value="opensslInstallUrl" readonly id="installOpensslCmd" @click="selectField" rows="5"></textarea>
+            <button @click="copyInstallCmd">Copy command</button>
           </div>
         </div>
       </div>
       
 
       <p v-if="copyCmdSuccess" class="copy-success-message">Copied to clipboard!</p>
+      <p v-if="copyCmdError" class="copy-error-message">{{ copyCmdError }}</p>
     </div>
 
     <div class="share-section">
       <h3>Share your theme</h3>
       <div class="share-url-container">
-          <input type="text" :value="shareableUrl" readonly id="shareUrlInput" @click="selectUrlText" />
+          <input type="text" :value="shareableUrl" readonly id="shareUrlInput" @click="selectField" />
           <button @click="copyUrlToClipboard">Copy URL</button>
       </div>
       <p v-if="copySuccess" class="copy-success-message">Copied to clipboard!</p>
+      <p v-if="copyUrlError" class="copy-error-message">{{ copyUrlError }}</p>
     </div>
 
     <div class="share-section">
       <div>
       <h3>What am I looking at?</h3>
-      <p>Mostly Bash configuration focused on usability. Pick your favorite colors and do a quick install to take advantage of the features below, or read about the <a href="https://github.com/czoczo/BetterBash/blob/main/MOTIVATION.md">motivation behind the project</a>. Share your theme with others with the generated URL.</p>
-      <h3>Features:</h3>
+      <p>Pick your colors, install, and read the <a href="https://github.com/czoczo/BetterBash/blob/main/MOTIVATION.md">motivation</a> if you want the why.</p>
       </div>
+
+      <!-- Three features out of the list below and above it. They are the ones no
+           other prompt has - an avatar that tells the machines apart, a search of the
+           history from the arrows, a prompt that gives up a line when asked - so they
+           are met before the list of everything the prompt shows rather than eleventh
+           down it. The list keeps what it listed before, minus these three. -->
+      <h3>What sets it apart</h3>
+      <div class="feature-highlights">
+        <div class="feature-card">
+          <h4>Unique host avatar</h4>
+          <div>
+            <span class="terminal-inline">
+              <span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">(</span>
+              <span
+                v-for="(segment, index) in avatarSegments"
+                :key="index"
+                :class="getColorClassFromBash(segment.code)"
+                >{{ segment.glyph }}</span>
+              <span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">)</span>
+            </span>
+          </div>
+          <p>Hashed from the hostname, so no two machines wear the same one.</p>
+        </div>
+        <div class="feature-card">
+          <h4>Rapid history search</h4>
+          <div>
+            <span class="terminal-inline"><span>&lt;cmd_prefix&gt; + ⇅</span></span>
+          </div>
+          <p>The arrows search the history by what you have typed already.</p>
+        </div>
+        <div class="feature-card">
+          <h4>Compact mode</h4>
+          <div>
+            <span class="terminal-inline">
+              <span :class="getColorClassFromBash(generatedColors.BORDCOL)">┈─</span>
+              <span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">(</span>
+              <span :class="getColorClassFromBash(generatedColors.PATH_COLOR)">~/repo</span>
+              <span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">)</span>
+              <span :class="getColorClassFromBash(generatedColors.BORDCOL)">─</span>
+              <span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">(</span>
+              <span :class="getColorClassFromBash(generatedColors.PRIMARY_COLOR)">$</span>
+              <span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">)</span>
+              <span :class="getColorClassFromBash(generatedColors.BORDCOL)">-&gt;</span>
+            </span>
+          </div>
+          <p>Alt+c keeps only the line you type on; Alt+c brings the frame back.</p>
+        </div>
+      </div>
+
+      <h3>Other features:</h3>
       <div>
       <ul>
         <li>
@@ -251,24 +379,10 @@
             <span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">(</span>
             <span :class="getColorClassFromBash(generatedColors.SECONDARY_COLOR)">user</span>
             <span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">@</span>
-            <span :class="getColorClassFromBash(generatedColors.PRIMARY_COLOR)">myhost:pts/5</span>
+            <span :class="getColorClassFromBash(generatedColors.PRIMARY_COLOR)">{{ previewHostname }}:pts/5</span>
             <span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">)</span>
           </span>
           - Username (highlighted if root) and hostname.
-        </li>
-        <li>
-          <span class="terminal-inline">
-            <span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">(</span>
-            <span class="text-yellow">▶</span>
-            <span class="text-bright-black">▬</span>
-            <span class="text-bright-white">▲</span>
-            <span class="text-cyan">◀▶</span>
-            <span class="text-bright-white">▲</span>
-            <span class="text-bright-black">▬</span>
-            <span class="text-yellow">◀</span>
-            <span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">)</span>
-          </span>
-          - Unique host avatar based on hostname. Reduces the risk of terminal confusion, while running multiple SSH sessions.
         </li>
         <li>
           <span class="terminal-inline">
@@ -282,7 +396,7 @@
           <span class="terminal-inline">
             <span :class="getColorClassFromBash(generatedColors.BORDCOL)">──────</span>
           </span>
-          - Line separating commands output.
+	  - A line the width of a terminal window that separates command results.
         </li>
         <li>
           <span class="terminal-inline">
@@ -297,12 +411,20 @@
             <span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">(</span>
             <span :class="getColorClassFromBash(generatedColors.TIME_COLOR)">Wed May 14</span>
             <span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">)</span>
-            <span :class="getColorClassFromBash(generatedColors.BORDCOL)">───</span>
+            <span :class="getColorClassFromBash(generatedColors.BORDCOL)">──</span>
             <span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">(</span>
             <span :class="getColorClassFromBash(generatedColors.PRIMARY_COLOR)">00:40:12</span>
             <span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">)</span>
           </span>
-          - Date and time. Time changes color if exit code other than zero.
+          - Date, and a clock in the error color after a failed command.
+        </li>
+        <li>
+          <span class="terminal-inline">
+            <span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">(</span>
+            <span :class="getColorClassFromBash(generatedColors.PRIMARY_COLOR)">42s</span>
+            <span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">)</span>
+          </span>
+          - Duration of the previous command.
         </li>
         <li>
           <span class="terminal-inline">
@@ -321,13 +443,7 @@
             <span :class="getColorClassFromBash(generatedColors.RST)">=</span>
             <span :class="getColorClassFromBash(generatedColors.SEPARATOR_COLOR)">)</span>
           </span>
-          - Git status (if current directory inside git repository).
-        </li>
-        <li>
-          <span class="terminal-inline">
-          <span>&lt;cmd_prefix&gt; + ⇅</span>
-          </span>
-          - Rapid search history with up/down keyboard arrows
+          - Git status, inside a repository.
         </li>
       </ul>
       </div>

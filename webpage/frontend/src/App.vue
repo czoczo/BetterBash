@@ -1,8 +1,26 @@
 <template src="./template.html"></template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, watchEffect, onMounted, onBeforeUnmount } from 'vue';
+import { buildAccentPalette, applyAccentPalette } from './theme';
+import { hostAvatar } from './avatar';
+import { randomHostname } from './hostname';
+import { APP_ENV, installCommands } from './config';
+import { copyText } from './clipboard';
+// theme-code.js holds the layout of a theme code and preview.js builds the top line the
+// boxes change; the tests read the same files, so page, tests and shell agree.
+import {
+  ALL_ELEMENTS_ON,
+  COLOR_KEYS as ENCODING_ORDERED_COLOR_KEYS,
+  decode as readThemeCode,
+  encode as writeThemeCode,
+  randomRequest,
+} from './theme-code';
+import { ELEMENTS as PROMPT_ELEMENTS, SAMPLE, SAMPLE_ROOT, bitsOfFlags, flagsOf, topLine } from './preview';
 // default theme vN-y_5uA
+
+// Surfaced so a development build cannot be mistaken for the published one.
+const appEnv = APP_ENV;
 
 // Color labels for UI
 const colorLabels = {
@@ -16,15 +34,49 @@ const colorLabels = {
   PATH_COLOR: 'Path Color',
 };
 
-// --- Hardcoded order for URL encoding/decoding stability ---
-const ENCODING_ORDERED_COLOR_KEYS = [
-  'PRIMARY_COLOR', 'SECONDARY_COLOR', 'ROOT_COLOR', 'TIME_COLOR',
-  'ERR_COLOR', 'SEPARATOR_COLOR', 'BORDCOL', 'PATH_COLOR'
-];
+// The boxes of the page, one per element of the top line plus the border fill.
+const promptElements = PROMPT_ELEMENTS;
 
-// Avatar state
-const showAvatar = ref(true);
+// Which elements show and whether the border fills the line. An eight character code
+// says nothing about them and shows them all.
+const elementFlags = ref(flagsOf(ALL_ELEMENTS_ON));
+
+// The avatar box stood by itself for longer than the rest; it keeps its old name here
+// and in the tour that points at it.
+const showAvatar = computed({
+  get: () => elementFlags.value.AVATAR !== false,
+  set: (on) => {
+    elementFlags.value.AVATAR = !!on;
+  },
+});
+
+// The prompt draws its avatar from the machine's own name and this page cannot read
+// /etc/hostname, so the name is asked for - the same string the preview prints as the
+// host. The starting name is drawn from the word lists of src/hostname.js, so every load
+// stands for another machine; the field stays typeable.
+const previewHostname = ref(randomHostname());
+const avatarSegments = computed(() => hostAvatar(previewHostname.value, 4));
+
+// The two preview lines as prompt/bb.sh would draw them: one for a command that ended
+// well, one for root whose last command failed. tests/test-frame.mjs compares them with
+// bash glyph for glyph. A line longer than the box would break under the font size it
+// scales to, hence the 32 character hostname field.
+const previewLineOf = (sample) =>
+  topLine({
+    flags: elementFlags.value,
+    host: previewHostname.value,
+    avatar: avatarSegments.value.map((s) => ({ text: s.glyph, code: s.code })),
+    sample,
+  });
+const previewTopLines = computed(() => [previewLineOf(SAMPLE), previewLineOf(SAMPLE_ROOT)]);
 const uninstallFlag = ref(false);
+// Random mode: the word "rand" in front of the code asks the machine running the command
+// to draw its own colours. The code travels behind it because a draw is a draw of colours
+// only - the boxes still say the top line.
+const randomFlag = ref(false);
+// Automatic mode: the command drops the question it asks before installing, for scripts
+// and containers where nobody can answer.
+const autoFlag = ref(false);
 
 const activeTab = ref('curl');
 
@@ -203,181 +255,135 @@ const getColorClassFromBash = (bashCode) => {
   return 'text-white font-bold-style';
 };
 
-const updatePromptDetails = () => {
-  // This function is called on change
-};
+// Referenced by the @change handlers of every picker and box in the template; the page
+// reacts to its state through the computeds below, so there is nothing to do here.
+const updatePromptDetails = () => {};
 
-// --- URL Sharing Logic ---
-function bytesToUrlSafeBase64(bytes) {
-  const base64 = btoa(String.fromCharCode(...bytes));
-  return base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+// --- The theme code -----------------------------------------------------
+// A theme leaves the page as a code and comes back as one. Nothing here writes the eight
+// character shape any more and everything still reads it: those codes are out in the
+// wild. theme-code.js holds the layout once, for the page, the tests and the shell.
+function themeCodeFor(attrs, flags) {
+  return writeThemeCode({ colors: attrs, elements: bitsOfFlags(flags) });
 }
 
-function urlSafeBase64ToBytes(base64Str) {
-  let base64 = base64Str.replace(/-/g, '+').replace(/_/g, '/');
-  const padding = base64.length % 4 === 0 ? '' : '='.repeat(4 - (base64.length % 4));
-  const raw = atob(base64 + padding);
-  const bytes = new Uint8Array(raw.length);
-  for (let i = 0; i < raw.length; i++) {
-    bytes[i] = raw.charCodeAt(i);
-  }
-  return bytes;
-}
-
-function generateShareCode(selectedAttrs, avatarEnabled) {
-  const numParts = ENCODING_ORDERED_COLOR_KEYS.length;
-  const bytes = new Uint8Array(6); // 48 bits
-  
-  const fiveBitValues = [];
-  for (const key of ENCODING_ORDERED_COLOR_KEYS) {
-    const attr = selectedAttrs[key];
-    if (!attr) {
-        fiveBitValues.push(0);
-        continue;
-    }
-    const shortBaseCode = attr.baseCode - 30; // 0-7
-    const lightBit = attr.isLight ? 1 : 0;
-    const boldBit = attr.isBold ? 1 : 0;
-    const value = (shortBaseCode << 2) | (lightBit << 1) | boldBit; // 0-31
-    fiveBitValues.push(value);
-  }
-
-  // Pack 8 * 5-bit values (40 bits) into 6 bytes, with avatar bit at the end
-  bytes[0] = (fiveBitValues[0] << 3) | (fiveBitValues[1] >> 2);
-  bytes[1] = ((fiveBitValues[1] & 0x03) << 6) | (fiveBitValues[2] << 1) | (fiveBitValues[3] >> 4);
-  bytes[2] = ((fiveBitValues[3] & 0x0F) << 4) | (fiveBitValues[4] >> 1);
-  bytes[3] = ((fiveBitValues[4] & 0x01) << 7) | (fiveBitValues[5] << 2) | (fiveBitValues[6] >> 3);
-  bytes[4] = ((fiveBitValues[6] & 0x07) << 5) | (fiveBitValues[7]);
-  bytes[5] = avatarEnabled ? 0x80 : 0x00; // Use first bit for avatar state
-
-  return bytesToUrlSafeBase64(bytes);
-}
-
+/** The same read the other way, into what the pickers and the boxes hold. Null for a
+ *  fragment that is not a code of either shape. */
 function parseShareCode(code) {
-  try {
-    const bytes = urlSafeBase64ToBytes(code);
-    if (bytes.length !== 6) return null;
-
-    // Extract avatar state from first bit of last byte
-    const avatarEnabled = (bytes[5] & 0x80) !== 0;
-
-    // Extract 8 * 5-bit values
-    const fiveBitValues = [];
-    fiveBitValues.push(bytes[0] >> 3);
-    fiveBitValues.push(((bytes[0] & 0x07) << 2) | (bytes[1] >> 6));
-    fiveBitValues.push((bytes[1] >> 1) & 0x1F);
-    fiveBitValues.push(((bytes[1] & 0x01) << 4) | (bytes[2] >> 4));
-    fiveBitValues.push(((bytes[2] & 0x0F) << 1) | (bytes[3] >> 7));
-    fiveBitValues.push((bytes[3] >> 2) & 0x1F);
-    fiveBitValues.push(((bytes[3] & 0x03) << 3) | (bytes[4] >> 5));
-    fiveBitValues.push(bytes[4] & 0x1F);
-
-    const selectedAttrs = {};
-    for (let i = 0; i < ENCODING_ORDERED_COLOR_KEYS.length; i++) {
-      const key = ENCODING_ORDERED_COLOR_KEYS[i];
-      const value = fiveBitValues[i];
-      const shortBaseCode = value >> 2; // 0-7
-      const lightBit = (value >> 1) & 1;
-      const boldBit = value & 1;
-      
-      selectedAttrs[key] = {
-        baseCode: shortBaseCode + 30, // 30-37
-        isLight: lightBit === 1,
-        isBold: boldBit === 1
-      };
-    }
-
-    return { selectedAttrs, avatarEnabled };
-  } catch (error) {
-    console.error('Error parsing share code:', error);
-    return null;
-  }
+  const read = readThemeCode(code);
+  if (!read) return null;
+  return { selectedAttrs: read.colors, elements: read.elements };
 }
 
-const curlInstallUrl = computed(() => {
-  const code = generateShareCode(selectedColorAttributes.value, showAvatar.value);
-  const scriptName = uninstallFlag.value ? 'removebb.sh' : 'getbb.sh';
-  return `curl -sL https://bb.cz0.cz/${code}/${scriptName} | bash -s curl && . ~/.bashrc`;
+// The code of the install commands, or in random mode the request "rand:<code>". The
+// colours of that code are irrelevant to the machine running it; what it travels for is
+// the top line, which is never drawn.
+const installThemeCode = computed(() => {
+  const code = themeCodeFor(selectedColorAttributes.value, elementFlags.value);
+  return randomFlag.value ? randomRequest(code) : code;
 });
 
-const wgetInstallUrl = computed(() => {
-  const code = generateShareCode(selectedColorAttributes.value, showAvatar.value);
-  const scriptName = uninstallFlag.value ? 'removebb.sh' : 'getbb.sh';
-  return `wget -q -O - https://bb.cz0.cz/${code}/${scriptName} | bash -s wget && . ~/.bashrc`;
-});
+// What the fetched tree is asked to do, and with which theme code.
+const installKind = computed(() => (uninstallFlag.value ? 'uninstall' : 'install'));
 
-const opensslInstallUrl = computed(() => {
-  const code = generateShareCode(selectedColorAttributes.value, showAvatar.value);
-  const scriptName = uninstallFlag.value ? 'removebb.sh' : 'getbb.sh';
-  const backend = 'bbb-f4hxb4escnacbpe6.westeurope-01.azurewebsites.net'
-  return `echo -e "GET /${code}/${scriptName} HTTP/1.1\\r\\nHost: ${backend}\\r\\nConnection: close\\r\\n\\r\\n" \\\r\n| openssl s_client -quiet -connect ${backend}:443 2>/dev/null \\\r\n| sed '1,/^\\r$/d' | bash -s openssl && . ~/.bashrc`;
-});
+/**
+ * The bubbles over the Random and Auto checkboxes: each toggle changes the command line
+ * in ways not visible in it, so the consequence is spelled out - for the command actually
+ * shown, since a removal takes no theme and Random has nothing to do with it.
+ */
+const randomToggleHint = computed(() =>
+  uninstallFlag.value
+    ? 'Random theme mode: nothing to do with a removal - turn Uninstall off and the command asks for a draw.'
+    : 'Random theme mode: the command carries "rand:" in front of the theme code, so the machine draws its own colors on every run - of a line wearing the boxes ticked above.',
+);
+
+const autoToggleHint = computed(() =>
+  uninstallFlag.value
+    ? 'Automatic mode: the command asks nothing before it removes BetterBash - the variant for scripts and containers.'
+    : 'Automatic mode: the command asks nothing before it installs - the variant for scripts and containers.',
+);
+
+// Every install command fetches from the origin serving this page into ~/.bb and sources
+// the prompt of that tree (see src/config.js). A removal needs no fetch, so all four tabs
+// show one uninstall command, without a theme code.
+const currentInstallCommands = computed(() =>
+  installCommands({
+    kind: installKind.value,
+    code: uninstallFlag.value ? null : installThemeCode.value,
+    auto: autoFlag.value,
+  })
+);
+
+const gitInstallUrl = computed(() => currentInstallCommands.value.git);
+const curlInstallUrl = computed(() => currentInstallCommands.value.curl);
+const wgetInstallUrl = computed(() => currentInstallCommands.value.wget);
+const opensslInstallUrl = computed(() => currentInstallCommands.value.openssl);
 
 const shareableUrl = computed(() => {
-  const code = generateShareCode(selectedColorAttributes.value, showAvatar.value);
+  const code = themeCodeFor(selectedColorAttributes.value, elementFlags.value);
   return `${window.location.origin}${window.location.pathname}#${code}`;
 });
 
-const copySuccess = ref(false);
-async function copyUrlToClipboard() {
+// --- Copying out of the page ---------------------------------------------
+// Both boxes copy through ./clipboard.js, which falls back to a copied selection where
+// navigator.clipboard does not exist. When even that fails, the field of the pressed
+// button is selected and the reason shown, so Ctrl+C stays a way out.
+
+/**
+ * Copy `text`; on failure select the field of the button and leave the reason in
+ * `showError`. Says whether the clipboard took it. The field is looked up before
+ * anything is awaited, because the event is gone by the time the copy fails.
+ */
+async function copyOut(text, button, showError) {
+  showError('');
+  const field = button?.closest?.('.share-url-container')?.querySelector('textarea, input');
   try {
-    await navigator.clipboard.writeText(shareableUrl.value);
-    copySuccess.value = true;
-    setTimeout(() => {
-      copySuccess.value = false;
-    }, 2000);
-  } catch (err) {
-    console.error('Failed to copy URL: ', err);
-    alert('Failed to copy URL. Please copy it manually.');
+    await copyText(text);
+    return true;
+  } catch (error) {
+    console.error('Failed to copy: ', error);
+    field?.select();
+    showError(error.message);
+    return false;
   }
+}
+
+/** Each box keeps its own pair of feedback; a failure fades with the next "Copied!". */
+function flashCopied(shown) {
+  shown.value = true;
+  setTimeout(() => {
+    shown.value = false;
+  }, 2000);
+}
+
+const copySuccess = ref(false);
+const copyUrlError = ref('');
+
+async function copyUrlToClipboard(event) {
+  const copied = await copyOut(shareableUrl.value, event?.currentTarget, (why) => {
+    copyUrlError.value = why;
+  });
+  if (copied) flashCopied(copySuccess);
 }
 
 const copyCmdSuccess = ref(false);
+const copyCmdError = ref('');
 
-async function copyCurlCmdToClipboard() {
-  try {
-    await navigator.clipboard.writeText(installCurlCmd.value);
-    copyCmdSuccess.value = true;
-    setTimeout(() => {
-      copyCmdSuccess.value = false;
-    }, 2000);
-  } catch (err) {
-    console.error('Failed to copy install command: ', err);
-        alert('Failed to copy install command. Please copy it manually.');
-  }
+// Only the panel of the active tab is shown, so the command to copy is always the one of
+// activeTab.
+async function copyInstallCmd(event) {
+  const command = currentInstallCommands.value[activeTab.value] ?? '';
+  if (!command) return; // nothing shown, so nothing to copy
+  const copied = await copyOut(command, event?.currentTarget, (why) => {
+    copyCmdError.value = why;
+  });
+  if (copied) flashCopied(copyCmdSuccess);
 }
 
-async function copyWgetCmdToClipboard() {
-  try {
-    await navigator.clipboard.writeText(installWgetCmd.value);
-    copyCmdSuccess.value = true;
-    setTimeout(() => {
-      copyCmdSuccess.value = false;
-    }, 2000);
-  } catch (err) {
-    console.error('Failed to copy install command: ', err);
-        alert('Failed to copy install command. Please copy it manually.');
-  }
-}
-
-async function copyOpensslCmdToClipboard() {
-  try {
-    await navigator.clipboard.writeText(installOpensslCmd.value);
-    copyCmdSuccess.value = true;
-    setTimeout(() => {
-      copyCmdSuccess.value = false;
-    }, 2000);
-  } catch (err) {
-    console.error('Failed to copy install command: ', err);
-        alert('Failed to copy install command. Please copy it manually.');
-  }
-}
-
-function selectUrlText() {
-    const inputElement = document.getElementById('shareUrlInput');
-    if (inputElement) {
-        inputElement.select();
-    }
+// A box selects its own text on click; the field comes from the event so the boxes never
+// select one another.
+function selectField(event) {
+  event?.target?.select?.();
 }
 
 // Load theme functionality
@@ -395,20 +401,19 @@ function loadThemeFromUrl() {
   }
 
   try {
-    // Extract code from URL - handle both hash and path formats
+    // A shared link keeps the theme code in its fragment, and a bare code is accepted
+    // as it is. Install URLs of the backend this page replaced ("/CODE/getbb.sh") are
+    // still understood, because people keep them in bookmarks and notes.
     let code = '';
     const url = loadUrlInput.value.trim();
-    
+
     if (url.includes('#')) {
       code = url.split('#')[1];
-    } else if (url.includes('betterbash.cz0.cz/')) {
-      const parts = url.split('betterbash.cz0.cz/');
-      if (parts.length > 1) {
-        code = parts[1].split(/[?&#]/)[0];
-      }
     } else {
-      // Assume the entire input is the code
-      code = url;
+      // A theme code of either shape, and the longer one first: eight characters
+      // taken from the front of a thirteen character code would match nothing.
+      const kept = url.match(/\/([A-Za-z0-9_-]{8}|1[A-Za-z0-9_-]{12})\/(?:getbb|removebb)\.sh/);
+      code = kept ? kept[1] : url;
     }
 
     if (!code) {
@@ -422,9 +427,8 @@ function loadThemeFromUrl() {
       return;
     }
 
-    // Apply the loaded theme
-    selectedColorAttributes.value = parsed.selectedAttrs;
-    showAvatar.value = parsed.avatarEnabled;
+    // Apply the loaded theme, colours and the elements of its top line alike
+    applyTheme(parsed);
     
     loadSuccess.value = true;
     loadUrlInput.value = '';
@@ -439,66 +443,110 @@ function loadThemeFromUrl() {
   }
 }
 
-function generateRandomTheme() {
+// Apply a parsed theme ({ selectedAttrs, elements }) to the UI. A theme that came
+// from a code of eight characters says nothing about the elements of its top line
+// beyond the avatar, and readThemeCode has already filled the rest in as showing.
+function applyTheme(theme) {
+  if (!theme) return;
+  selectedColorAttributes.value = theme.selectedAttrs;
+  elementFlags.value = flagsOf(theme.elements);
+}
+
+// Random attributes for every color slot, in the same shape as a parsed share code.
+function buildRandomAttrs() {
+  const randomAttrs = {};
+
+  for (const key of ENCODING_ORDERED_COLOR_KEYS) {
+    let baseCode, isLight, isBold;
+
+    do {
+      baseCode = Math.floor(Math.random() * 8) + 30; // Random base code 30-37
+      isLight = Math.random() < 0.5; // Random boolean for light
+      isBold = Math.random() < 0.5;  // Random boolean for bold
+
+      // Continue loop if we have black (30) with light unchecked (false)
+    } while (baseCode === 30 && !isLight);
+
+    randomAttrs[key] = {
+      baseCode,
+      isLight,
+      isBold
+    };
+  }
+
+  return randomAttrs;
+}
+
+function generateRandomTheme({ silent = false } = {}) {
   try {
-    // Generate random attributes for each color key
-    const randomAttrs = {};
-    
-    for (const key of ENCODING_ORDERED_COLOR_KEYS) {
-      let baseCode, isLight, isBold;
-      
-      do {
-        baseCode = Math.floor(Math.random() * 8) + 30; // Random base code 30-37
-        isLight = Math.random() < 0.5; // Random boolean for light
-        isBold = Math.random() < 0.5;  // Random boolean for bold
-        
-        // Continue loop if we have black (30) with light unchecked (false)
-      } while (baseCode === 30 && !isLight);
-      
-      randomAttrs[key] = {
-        baseCode,
-        isLight,
-        isBold
-      };
-    }
-    
-    // Generate random avatar setting
-    const randomAvatar = Math.random() < 0.5;
-    
-    // Generate share code from random attributes
-    const shareCode = generateShareCode(randomAttrs, randomAvatar);
-    
-    // Parse and apply the generated theme using existing logic
+    // Random colours, and only colours: the boxes next to the preview answer the top
+    // line, and dice that answered it too would untick a box the page opened with.
+    const randomAttrs = buildRandomAttrs();
+
+    const shareCode = themeCodeFor(randomAttrs, elementFlags.value);
+
     const parsed = parseShareCode(shareCode);
     if (parsed) {
-      selectedColorAttributes.value = parsed.selectedAttrs;
-      showAvatar.value = parsed.avatarEnabled;
-      
-      // Optional: Show success feedback
-      loadSuccess.value = true;
-      setTimeout(() => {
-        loadSuccess.value = false;
-      }, 2000);
+      applyTheme(parsed);
+
+      if (!silent) {
+        loadSuccess.value = true;
+        setTimeout(() => {
+          loadSuccess.value = false;
+        }, 2000);
+      }
     } else {
       console.error('Failed to parse generated random theme');
     }
-    
+
   } catch (error) {
     console.error('Error generating random theme:', error);
   }
 }
 
-// Load theme from URL hash on mount
-onMounted(() => {
+// A fresh load behaves as if "🎲 Random Theme" had been clicked; a theme code in the hash
+// wins, so shared links stay reproducible.
+function initTheme() {
   const hash = window.location.hash;
   if (hash && hash.length > 1) {
-    const code = hash.substring(1);
-    const parsed = parseShareCode(code);
+    const parsed = parseShareCode(hash.substring(1));
     if (parsed) {
-      selectedColorAttributes.value = parsed.selectedAttrs;
-      showAvatar.value = parsed.avatarEnabled;
+      applyTheme(parsed);
+      return;
     }
   }
+  generateRandomTheme({ silent: true });
+}
+
+initTheme();
+
+// --- Accent (page chrome) colors, driven by the theme's BORDER COLOR ---
+// The frame is what a prompt and this preview show most of, so BORDCOL skins the page.
+const ACCENT_COLOR_KEY = 'BORDCOL';
+
+const accentPalette = computed(() =>
+  buildAccentPalette(getPreviewColorFromBash(generatedColors.value[ACCENT_COLOR_KEY]))
+);
+
+// Registered after the theme is chosen, so the CSS variables are right before the first
+// paint and the page never flashes in a fallback colour.
+watchEffect(() => {
+  applyAccentPalette(accentPalette.value);
+});
+
+function onHashChange() {
+  const hash = window.location.hash;
+  if (!hash || hash.length <= 1) return;
+  const parsed = parseShareCode(hash.substring(1));
+  if (parsed) applyTheme(parsed);
+}
+
+onMounted(() => {
+  window.addEventListener('hashchange', onHashChange);
+});
+
+onBeforeUnmount(() => {
+  window.removeEventListener('hashchange', onHashChange);
 });
 
 </script>
