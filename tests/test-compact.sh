@@ -290,7 +290,14 @@ RC
     printf 'exit\n'
   } >"$WORK/typed"
 
-  script -qec "bash --rcfile $WORK/rc" /dev/null <"$WORK/typed" >"$WORK/pty" 2>&1
+  # A terminal type is given to the shell rather than inherited: a key of this shape
+  # lives by readline redrawing the line it stands on, and readline redraws nothing it
+  # has no terminal for - with no TERM, which is what a script, CI or cron has, it
+  # paints every prompt anew and the shape of the one before it is not seen changing.
+  # What is asked here is what a person sees in a terminal, so the pseudo terminal is
+  # told it is of the usual kind. (A shell with no terminal of its own is no shell with
+  # Alt+c on it: no readline, no binding - see the first check of this file.)
+  script -qec "env TERM=xterm-256color bash --rcfile $WORK/rc" /dev/null <"$WORK/typed" >"$WORK/pty" 2>&1
 
   # cleaned - the output of the terminal, with the escapes it moved its cursor with
   # and the carriage returns and shift codes of the frame taken out.

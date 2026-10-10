@@ -314,6 +314,28 @@ function __bb_dashes {
   fi
 }
 
+# The width of the terminal the top line is sized to, in $__bb_cols_out.
+#
+# $COLUMNS first: bash keeps it current for an interactive shell (shopt checkwinsize,
+# which is on), so the width is asked of the shell that draws the prompt and asking
+# costs no process. tput is the fallback for the first prompt of a shell, before bash
+# has measured anything, and it is asked quietly - with no TERM, which is what a shell
+# with no terminal of its own has (a script, CI, cron), tput says so on stderr and
+# prints nothing. And a width of nothing is subtracted as a zero, which leaves the
+# frame no room for its fill and hands its elements widths the fill no longer gives
+# back, so the line grows with every digit that passes through it.
+BB_COLS_DEFAULT=80
+function __bb_cols {
+  __bb_cols_out=${COLUMNS:-}
+  # Neither a width that is not a number, nor one that is zero, says anything about a
+  # terminal.
+  case $__bb_cols_out in '' | 0 | *[!0-9]*) __bb_cols_out='' ;; esac
+  if [ -z "$__bb_cols_out" ]; then
+    __bb_cols_out=$(tput cols 2>/dev/null)
+    case $__bb_cols_out in '' | 0 | *[!0-9]*) __bb_cols_out=$BB_COLS_DEFAULT ;; esac
+  fi
+}
+
 # What an element that does not show leaves in its place: nothing while the fill can
 # take its width back, frame dashes of exactly that width once the fill is gone. Needs
 # ROOM, so it is called after the width of the line has been worked out.
@@ -481,7 +503,8 @@ function __prompt_command() {
   # reads as a name of dashes, so there the line is simply shorter.
   LEFT_NATURAL=$(( 2 + ID_NATURAL + AVATAR_NATURAL + PROC_NATURAL ))
   RIGHT_NATURAL=$(( EXIT_NATURAL + TIMER_NATURAL + DATE_NATURAL + CLOCK_NATURAL + FRAME_TAIL_WIDTH ))
-  ROOM=$(( $(tput cols) - 4 - LEFT_NATURAL - RIGHT_NATURAL ))
+  __bb_cols
+  ROOM=$(( $__bb_cols_out - 4 - LEFT_NATURAL - RIGHT_NATURAL ))
   BB_TOP_NARROW=0
   if ! __bb_shown PROMPT_FILL; then
     # No fill asked for: the line is only what it holds, and the width it does not

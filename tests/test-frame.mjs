@@ -34,7 +34,8 @@
 // Exit code is the number of failures.
 
 import { execFileSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -55,6 +56,17 @@ import {
 
 const here = dirname(fileURLToPath(import.meta.url));
 const repoRoot = dirname(here);
+
+// Where the shells that draw the prompt are started: a directory of their own, out of
+// any git repository. prompt/bb.sh asks git for a segment of its own, and that
+// segment is not on the page and is not part of a frame - it is the only thing of a
+// repository a line of the frame shows - and it is not even the same from one checkout
+// to another: a checkout of a pull request stands on a detached HEAD, and git-prompt
+// spells that as "(abc1234...)" where a branch is spelled without brackets. So the
+// prompt here is drawn where there is no repository, and what is compared is the
+// frame, in every checkout the same.
+const drawRoot = mkdtempSync(join(tmpdir(), 'bb-frame-'));
+process.on('exit', () => rmSync(drawRoot, { recursive: true, force: true }));
 const templateFile = join(repoRoot, 'webpage', 'frontend', 'src', 'template.html');
 
 let failures = 0;
@@ -117,7 +129,8 @@ const lineOf = {
 
 const driverFor = (wanted) => `
 . "$BB_DIR/bb.sh" 2>/dev/null
-# tput cols, which is what sizes the frame, reads the environment of the shell.
+# COLUMNS is what sizes the frame: prompt/bb.sh asks the shell it runs in for the
+# width, so the width a spec asks for is the width that gets drawn.
 export COLUMNS
 i=0
 for spec in "$@"; do
@@ -144,19 +157,32 @@ done
 // drawShell(avatar, specs, { compact, line }) - the lines of the prompt an
 // interactive shell with the avatar of this machine on or off drew for each spec.
 // compact is the shape Alt+c switches to, and line which of its lines to look at.
-function drawShell(avatar, specs, { compact = false, line = 'top' } = {}) {
+function drawShell(avatar, specs, { compact = false, line = 'top', env: over = {} } = {}) {
   if (!(line in lineOf)) throw new Error(`no line of a prompt named ${line}`);
+  const env = environment({ avatar, compact, ...over });
+  const out = execFileSync('bash', ['-c', driverFor(line), 'test-frame', ...specs], {
+    env,
+    cwd: drawRoot,
+  }).toString('utf8');
+  return out.split('\x1e');
+}
+
+// environment - the environment of a shell that draws a prompt: the repository it
+// draws from, the avatar the page and the prompt are told to wear, and anything a
+// check wants taken away or set besides (TERM of it, to draw as a shell with no
+// terminal of its own does). A value of undefined takes the variable away.
+function environment({ avatar = true, compact = false, ...over } = {}) {
   const env = {
     ...process.env,
     BB_DIR: join(repoRoot, 'prompt'),
-    AVATAR: String(avatar),
+    ...(avatar === null ? {} : { AVATAR: String(avatar) }),
     ...(compact ? { BB_COMPACT: '1' } : {}),
   };
-  const out = execFileSync('bash', ['-c', driverFor(line), 'test-frame', ...specs], {
-    env,
-    cwd: repoRoot,
-  }).toString('utf8');
-  return out.split('\x1e');
+  for (const [name, value] of Object.entries(over)) {
+    if (value === undefined) delete env[name];
+    else env[name] = value;
+  }
+  return env;
 }
 
 // paintedLines - how many lines of the terminal the prompt paints, bash counting
@@ -171,14 +197,14 @@ true
 __prompt_command
 printf '%s' "\${PS1@P}" | awk 'END { print NR - 1 }'
 `;
-  const env = {
-    ...process.env,
-    BB_DIR: join(repoRoot, 'prompt'),
-    ...(compact ? { BB_COMPACT: '1' } : {}),
-  };
-  return Number(execFileSync('bash', ['-c', script, 'test-frame'], { env, cwd: repoRoot })
-    .toString('utf8')
-    .trim());
+  return Number(
+    execFileSync('bash', ['-c', script, 'test-frame'], {
+      env: environment({ avatar: null, compact }),
+      cwd: drawRoot,
+    })
+      .toString('utf8')
+      .trim()
+  );
 }
 
 const DATE = /\((\w{3} \w{3} \d{2})\)/;
@@ -284,6 +310,39 @@ const succeeding = drawShell(true, ['120:0:42'])[0];
         .map(([c, w]) => `${c}->${w}`)
         .join(' ')}`
     );
+}
+
+// --- the terminal the frame is measured in -------------------------------
+
+// The width of the fill is asked of the shell, not of a terminal: a shell with no
+// TERM - what a script, a CI runner or a cron job has, and what every one of these
+// draws of a prompt is drawn in - knows the width of the line just as well, and draws
+// the same frame rather than one that gave up its fill and grew by the digits of every
+// duration that passed through it. Asked the other way too: a TERM of a terminal that
+// is not there is no different from no TERM at all.
+{
+  // The clock and the day are drawn into the line, and two draws a second apart
+  // disagree about nothing else, so both are named away before the two are compared.
+  // What a shell with no terminal of its own can get wrong is the measuring of the
+  // line, not the hour it was measured at.
+  const of_the_moment = (line) => line.replace(CLOCK, '(clock)').replace(DATE, '(day)');
+  const specs = ['100:0:42', '100:1:1234', '120:0:9'];
+  const drawn = drawShell(true, specs);
+  const wrong = [];
+  for (const [term, seen] of [
+    ['no TERM', { TERM: undefined }],
+    ['TERM=xterm-256color', { TERM: 'xterm-256color' }],
+  ]) {
+    const again = drawShell(true, specs, { env: seen });
+    specs.forEach((spec, i) => {
+      if (of_the_moment(again[i]) !== of_the_moment(drawn[i]))
+        wrong.push(
+          `${spec} with ${term} is not the line drawn with the TERM of the run (\n         of the run ${drawn[i]}\n         with ${term} ${again[i]}`
+        );
+    });
+  }
+  if (wrong.length) wrong.slice(0, 4).forEach((what) => fail(what));
+  else ok('the frame is measured of the shell, so a shell with no TERM draws the same line');
 }
 
 // --- the compact prompt, Alt+c -------------------------------------------
@@ -401,10 +460,14 @@ function drawPrompt({ columns, bits, code = 0, duration = 42, jobs = 0 }) {
   // subshell, because $? of the shell drawing the prompt is what the code of it is
   // read from, and `exit` there would end the drawing before it began.
   const lastCommand = code === 0 ? 'true' : `( exit ${code} )`;
+  // The command run beside the shell is only there to be counted. Its descriptors go
+  // to /dev/null and it is let go of as soon as the line is drawn: a background
+  // command holds the very pipe the parent is reading the line from, so a draw would
+  // cost the seconds of its sleep rather than the moment of drawing it.
   const script = `
 . "$BB_DIR/bb.sh" 2>/dev/null
 export COLUMNS
-${jobs > 0 ? 'sleep 30 &' : ':'}
+${jobs > 0 ? 'sleep 30 </dev/null >/dev/null 2>&1 &' : ':'}
 BB_TIMER=$(( SECONDS - ${duration} ))
 ${lastCommand}
 __prompt_command
@@ -421,8 +484,9 @@ line=$(printf '%s' "$line" | sed -e "$strip")
 # their \[ \] wrappers - so it is expanded the way a prompt is, and then stripped.
 avatar=$(printf '%s' "\${CH@P}" | sed -e "$strip")
 printf '%s\\x1f%s\\x1f%s\\x1f%s\\x1f%s\\x1f%s\\x1f%s' "$line" "$USER" "$HOSTNAM" "$cur_tty" "$avatar" "$PROCCNT" "$BB_TIMER_SHOW"
+kill $(jobs -p) 2>/dev/null || true
 `;
-  const record = execFileSync('bash', ['-c', script, 'test-frame'], { env, cwd: repoRoot }).toString(
+  const record = execFileSync('bash', ['-c', script, 'test-frame'], { env, cwd: drawRoot }).toString(
     'utf8'
   );
   const [line, user, host, tty, avatar, proccnt, timer] = record.split('\u001f');
@@ -546,7 +610,7 @@ printf '%s\\x1f%s\\x1f%s\\x1f%s\\x1f%s' "\${PS1@P}" "$HOSTNAM" "$cur_tty" "\${PR
   const [top, host, tty, primary, separator] = execFileSync(
     'bash',
     ['-c', script, 'test-frame'],
-    { env, cwd: repoRoot }
+    { env, cwd: drawRoot }
   )
     .toString('utf8')
     .split('\u001f')

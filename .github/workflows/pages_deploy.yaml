@@ -1,14 +1,41 @@
 name: Deploy Vue App to GitHub Pages
 
+# Publishing of the site that answers at https://betterbash.cz0.cz - the origin every
+# install command of the page fetches from. The artifact is the page and the staged
+# files it points at, so the package it serves belongs to the commit it was built
+# from, and the smoke job afterwards installs from the site as it answers.
+#
+# The deploy and the smoke of it belong to main: a workflow_dispatch from a branch
+# builds, stages and checks the artifact and publishes nothing, which is how a change
+# to this workflow can be tried without replacing what users install from. What
+# develop answers at is another origin and another workflow,
+# cloudflare_pages_dev.yaml.
+
 on:
   push:
     branches:
       - main
   workflow_dispatch:
 
+# One publication at a time: two of them in flight would end with the older artifact
+# answering, whichever finished last.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # actions/upload-pages-artifact hands the artifact to Pages, which is a write of
+    # pages, so this job needs that write and nothing else.
+    permissions:
+      contents: read
+      pages: write
+    outputs:
+      # What the package this build staged is, so that the wait of the smoke job can
+      # tell this deployment from the one already answering at the address.
+      package_sha: ${{ steps.package.outputs.sha }}
     steps:
       - uses: actions/checkout@v4
 
@@ -49,8 +76,28 @@ jobs:
         # on the same staging).
         run: ./tests/check-deployment-payload.sh webpage/frontend/dist
 
+      - name: Remember the checksum of the package
+        id: package
+        run: echo "sha=$(sha256sum webpage/frontend/dist/bb.tgz | awk '{print $1}')" >>"$GITHUB_OUTPUT"
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      # actions/deploy-pages deploys the artifact of a known name from an earlier
+      # step of the run. Without this step it has nothing to deploy and says so over
+      # there, in the deploy job, where it looks like a broken Pages rather than a
+      # missing step.
+      - name: Upload the Pages artifact
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: webpage/frontend/dist
+
   deploy:
+    # main publishes; from any branch this workflow only shows that the artifact of it
+    # would build and pass its checks.
+    if: github.ref == 'refs/heads/main'
     needs: build
+    timeout-minutes: 10
     permissions:
       pages: write
       id-token: write
@@ -66,8 +113,11 @@ jobs:
   smoke:
     # The published site is what users install from, so after a deploy its package
     # is fetched, unpacked and installed the way the page tells a user to do.
-    needs: deploy
+    # The checksum of the package is known from the build and the deploy is what says
+    # the site may answer with it, so the smoke of it waits on both.
+    needs: [build, deploy]
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
 
@@ -76,17 +126,22 @@ jobs:
         run: |
           set -euo pipefail
           PAGE_URL="https://betterbash.cz0.cz"
-          for _ in $(seq 1 40); do
-            # The checksum of the package changes with every build, so its presence
-            # means this deployment is being served and not a cached older one.
-            if [ "$(curl -fsSL -o /dev/null -w '%{http_code}' "$PAGE_URL/bb.tgz.sha256")" = "200" ]; then
-              echo "serving $PAGE_URL"
+          want='${{ needs.build.outputs.package_sha }}'
+          for _ in $(seq 1 20); do
+            # The checksum of the package changes with every build, so this is how
+            # the deployment is told from the one already answering at the address:
+            # a 200 of an older package would let everything below pass against code
+            # that is not what has just been built.
+            served=$(curl -fsSL "$PAGE_URL/bb.tgz.sha256" 2>/dev/null | awk '{print $1}' || true)
+            if [ "$served" = "$want" ]; then
+              echo "serving $served at $PAGE_URL"
               echo "PAGE_URL=$PAGE_URL" >>"$GITHUB_OUTPUT"
               exit 0
             fi
+            echo "$PAGE_URL serving '${served:-nothing}', want $want"
             sleep 15
           done
-          echo "Pages did not serve $PAGE_URL/bb.tgz.sha256 in 10 minutes" >&2
+          echo "Pages did not serve this package at $PAGE_URL in 5 minutes" >&2
           exit 1
 
       - name: Check what the deployment serves
@@ -141,5 +196,5 @@ jobs:
           test ! -d "$home/.bb"
 
       - name: Run the installation tests against the deployment
-        run: ./test-install.sh --live "${{ steps.url.outputs.PAGE_URL }}" --code vN-y_5uA
+        run: timeout 30s ./test-install.sh --live "${{ steps.url.outputs.PAGE_URL }}" --code vN-y_5uA
 

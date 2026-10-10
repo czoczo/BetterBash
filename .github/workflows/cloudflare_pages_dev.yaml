@@ -1,10 +1,18 @@
 name: Deploy develop to Cloudflare Pages
 
-# develop answers at https://dev.bb.cz0.cz, so that a change to the page, to the
-# prompt or to an install command can be tried from a real browser and a real shell
-# before it is merged to main. main keeps answering at betterbash.cz0.cz from GitHub
-# Pages (pages_deploy.yaml); what differs between the two is the host, not the
-# artifact: the same page and the same staged bb.tgz are built here as there.
+# develop is published so that a change to the page, to the prompt or to an install
+# command can be tried from a real browser and a real shell before it is merged to
+# main. main keeps answering at betterbash.cz0.cz from GitHub Pages
+# (pages_deploy.yaml); what differs between the two is the host, not the artifact:
+# the same page and the same staged bb.tgz are built here as there.
+#
+# Every deployment answers at its own address of the Pages project
+# (https://<deployment>.betterbash-dev.pages.dev), and that is the address the smoke
+# job installs from - it is the address of this very deployment, so nothing is
+# installed from an older one. https://dev.bb.cz0.cz is the name the project should
+# also answer at; attaching it is done by deploy/cloudflare-pages.mjs, but the DNS
+# record of the zone is not, because the token of this workflow may not write the
+# zone - see the last step of the smoke job, which says which of the two answers.
 #
 # The Pages project and its custom domain are provisioned by
 # deploy/cloudflare-pages.mjs, so the only setup this workflow needs is its two
@@ -26,8 +34,10 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     outputs:
       package_sha: ${{ steps.package.outputs.sha }}
+      deployment_url: ${{ steps.upload.outputs['deployment-url'] }}
     steps:
       - uses: actions/checkout@v4
 
@@ -86,35 +96,45 @@ jobs:
         run: node deploy/cloudflare-pages.mjs ensure
 
       - name: Upload the deployment
+        id: upload
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: pages deploy webpage/frontend/dist --project-name=betterbash-dev --branch=develop
+          # --commit-dirty: the steps above staged bb.tgz next to the built page, so
+          # the checkout is dirty, and wrangler answers that with a warning about
+          # deploying uncommitted files. Nothing of this deployment is uncommitted
+          # work of a person; the warning is silenced.
+          command: pages deploy webpage/frontend/dist --project-name=betterbash-dev --branch=develop --commit-dirty=true
 
   smoke:
     # What was built is not what answers until Cloudflare has propagated the
-    # deployment, so this job installs from the domain rather than from the
+    # deployment, so this job installs from the deployment rather than from the
     # artifact, and runs both install paths of the page against it.
     needs: build
     runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      DEPLOY_URL: ${{ needs.build.outputs.deployment_url }}
     steps:
       - uses: actions/checkout@v4
 
-      - name: Wait for the domain to serve this deployment
+      - name: Wait for the deployment to serve this package
+        # The checksum of the package changes with every build, so waiting for it is
+        # how a deployment is told from the edge cache and from the one before it.
         run: |
           set -euo pipefail
           want='${{ needs.build.outputs.package_sha }}'
-          for _ in $(seq 1 40); do
-            served=$(curl -fsSL -o - https://dev.bb.cz0.cz/bb.tgz.sha256 2>/dev/null | awk '{print $1}' || true)
+          for _ in $(seq 1 20); do
+            served=$(curl -fsSL -o - "$DEPLOY_URL/bb.tgz.sha256" 2>/dev/null | awk '{print $1}' || true)
             if [ "$served" = "$want" ]; then
-              echo "serving $served"
+              echo "$DEPLOY_URL serving $served"
               exit 0
             fi
-            echo "serving '${served:-nothing}', want $want"
+            echo "$DEPLOY_URL serving '${served:-nothing}', want $want"
             sleep 15
           done
-          echo "https://dev.bb.cz0.cz did not serve this package in 10 minutes" >&2
+          echo "$DEPLOY_URL did not serve this package in 5 minutes" >&2
           exit 1
 
       - name: Check what the deployment serves
@@ -123,11 +143,36 @@ jobs:
           # The package and its checksum are the only two names a command of the page
           # asks the origin for.
           for path in bb.tgz bb.tgz.sha256; do
-            code=$(curl -fsSL -o /dev/null -w '%{http_code}' "https://dev.bb.cz0.cz/$path")
+            code=$(curl -fsSL -o /dev/null -w '%{http_code}' "$DEPLOY_URL/$path")
             echo "$path -> $code"
             [ "$code" = "200" ] || exit 1
           done
 
       - name: Run the installation tests against the deployment
-        run: ./test-install.sh --live https://dev.bb.cz0.cz --code vN-y_5uA
+        run: |
+          set -euo pipefail
+          timeout 30s ./test-install.sh --live "$DEPLOY_URL" --code vN-y_5uA
+
+      - name: Say where the deployment answers
+        # Not a check: the name of the project is attached to it, but its record in
+        # the zone of cz0.cz is not, and writing the zone needs a token this workflow
+        # does not have. So the workflow says what answers where, and a missing name
+        # is a line in the log and a warning rather than ten minutes of waiting for
+        # something no push can bring about. Add the record - a proxied CNAME of
+        # dev.bb.cz0.cz at betterbash-dev.pages.dev - and this step reports it ready.
+        run: |
+          set -euo pipefail
+          name=https://dev.bb.cz0.cz
+          code=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 10 "$name/bb.tgz.sha256" || true)
+          if [ "$code" = "200" ]; then
+            served=$(curl -fsSL "$name/bb.tgz.sha256" | awk '{print $1}')
+            want='${{ needs.build.outputs.package_sha }}'
+            if [ "$served" = "$want" ]; then
+              echo "$name answers with this deployment ($served)"
+            else
+              echo "::warning::$name answers another package: served $served, this one is $want"
+            fi
+          else
+            echo "::warning::$name answers nothing (HTTP ${code:-nothing}); the deployment is at $DEPLOY_URL until its DNS record is added"
+          fi
 
