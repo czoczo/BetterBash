@@ -158,10 +158,18 @@ origin that served this page*, which is what production does), `VITE_BB_TLS_BASE
 
 `.github/workflows/pages_deploy.yaml` builds the page, stages `bb.tgz` next to it,
 deploys to GitHub Pages, then waits for the new artifact and installs
-from it. `develop` is published the same way on Cloudflare Pages, at
-`https://dev.bb.cz0.cz`: the same artifact built the same way, so the domain is a
-rehearsal of a production deployment. `deploy/cloudflare-pages.mjs` provisions it
-(`check`, `ensure`, `deploy`) and needs the secrets `CLOUDFLARE_API_TOKEN` and
+from it. Publishing belongs to `main`: dispatched from a branch the workflow builds,
+stages and checks the artifact and publishes nothing.
+
+`develop` is published the same way on Cloudflare Pages - the same artifact built the
+same way, so a deployment there rehearses a production one. Every deployment answers
+at its own address of the project, `https://<deployment>.betterbash-dev.pages.dev`,
+which is what its smoke job installs from. The name `https://dev.bb.cz0.cz` is
+attached to that project and is what the commands of the page point at, but it answers
+nothing yet: the `cz0.cz` zone has no record for it, a token that may not write the
+zone cannot add one, and `deploy/cloudflare-pages.mjs` never writes DNS - it reports
+the record instead. `deploy/cloudflare-pages.mjs` provisions the rest (`check`,
+`ensure`, `deploy`) and needs the secrets `CLOUDFLARE_API_TOKEN` and
 `CLOUDFLARE_ACCOUNT_ID`.
 
 The old "download one file at a time, pipe it into a shell" installer (`getbb.sh`) and

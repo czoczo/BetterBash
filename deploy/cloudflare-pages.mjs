@@ -232,6 +232,12 @@ async function check() {
   for (const why of seen.blind) console.log(`blind    ${why}`);
   const ours = seen.mine && (seen.byProject.get(PROJECT) ?? []).some((d) => d.name === HOST);
   console.log(`${ours ? 'ready' : 'not ready'}: https://${HOST} as Pages project ${PROJECT} [${BRANCH}]`);
+  // A project that owns the name and a zone that does not point at it are two things,
+  // and only the second of them makes the address answer. Of the record, its absence
+  // says:
+  if (ours && !seen.records.length) {
+    console.log(`         and not answered yet - ${dnsBlind ? 'no DNS record of the zone is readable with this token' : `the zone has no record of ${HOST}`}; a proxied CNAME ${HOST} -> ${PROJECT}.pages.dev is what serves it`);
+  }
   return seen;
 }
 
@@ -290,6 +296,15 @@ async function ensure() {
       : `no record of ${after.zone?.name ?? 'the zone'} for ${HOST} yet`}`);
   for (const rival of after.claimed.filter((c) => !c.startsWith(`Pages project ${PROJECT}`))) {
     console.log(`claimed  ${rival}`);
+  }
+  // Attached is not answered. A name of a zone this token cannot write stays a name
+  // nothing resolves to until somebody who can writes the zone, and a smoke test that
+  // waits for it would wait for something no push can bring about - so the record is
+  // spelled out here, with the address it has to point at, rather than left to be
+  // worked out from a host that answers nowhere.
+  if (!after.records.length) {
+    console.log(`record   no record of ${HOST} in the zone ${after.zone?.name ?? 'of the host'}${after.blind.length ? ' as far as this token can see' : ''}; add a proxied CNAME`);
+    console.log(`         ${HOST} -> ${PROJECT}.pages.dev, and https://${HOST} answers`);
   }
   console.log(`https://${HOST} belongs to Pages project ${PROJECT} [${BRANCH}]`);
 }
