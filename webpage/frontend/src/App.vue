@@ -16,7 +16,7 @@ import {
   encode as writeThemeCode,
   randomRequest,
 } from './theme-code';
-import { ELEMENTS as PROMPT_ELEMENTS, SAMPLE, SAMPLE_ROOT, bitsOfFlags, flagsOf, topLine } from './preview';
+import { ELEMENTS as PROMPT_ELEMENTS, SAMPLE, SAMPLE_ROOT, bitsOfFlags, flagsOf, lineText, topLine } from './preview';
 // default theme vN-y_5uA
 
 // Surfaced so a development build cannot be mistaken for the published one.
@@ -534,6 +534,42 @@ watchEffect(() => {
   applyAccentPalette(accentPalette.value);
 });
 
+// --- The font size of the preview ------------------------------------------------
+// One font size for the whole preview (so terminal columns keep lining up), and that
+// size is whatever the longest line of it fits in. The width of that line in ems is not
+// the same from one machine to another: the box drawing of a frame comes from a fallback
+// font of the machine and the webfont of the page arrives late or not at all, so a ratio
+// worked out of an assumed 0.6em glyph filled 96% of the black box on one machine and
+// 104% - a line broken in two - on another. It is measured here, on the machine looking
+// at the preview, and handed over as --preview-em (see .ps1-line in style.css).
+const terminalEl = ref(null);
+let probe = null;
+function measurePreview(lines = previewTopLines.value) {
+  const box = terminalEl.value;
+  if (!box) return;
+  if (!probe) {
+    // A line of its own, out of the flow and out of sight, and of its own width: the
+    // width of the box, which the font size is worked out of, is never asked of the
+    // line whose width is being asked.
+    probe = document.createElement('span');
+    probe.style.cssText =
+      'position:absolute;visibility:hidden;white-space:pre;width:max-content;font-size:100px';
+    box.append(probe);
+  }
+  const widest = Math.max(
+    ...lines.map((segments) => {
+      probe.textContent = lineText(segments);
+      return probe.getBoundingClientRect().width / 100;
+    })
+  );
+  // A measurement of nothing would make the calc() of the sheet invalid and leave the
+  // preview no font size at all, so the sheet keeps to its own ratio instead.
+  if (widest > 0) box.style.setProperty('--preview-em', widest.toFixed(3));
+}
+
+// Every box of the page unticked, and every hostname typed in, makes another line.
+watchEffect(() => measurePreview(previewTopLines.value));
+
 function onHashChange() {
   const hash = window.location.hash;
   if (!hash || hash.length <= 1) return;
@@ -543,6 +579,10 @@ function onHashChange() {
 
 onMounted(() => {
   window.addEventListener('hashchange', onHashChange);
+  measurePreview();
+  // What is measured before the webfont of the page is in is the width of the font
+  // standing in for it, so measure again once the fonts have arrived.
+  document.fonts?.ready.then(() => measurePreview());
 });
 
 onBeforeUnmount(() => {

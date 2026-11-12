@@ -390,7 +390,7 @@ const succeeding = drawShell(true, ['120:0:42'])[0];
 // src/preview.js, and compared with the shell below instead of with the markup.
 function previewPromptLines() {
   const tpl = readFileSync(templateFile, 'utf8');
-  const start = tpl.indexOf('<div class="terminal">');
+  const start = tpl.indexOf('<div class="terminal"');
   const end = tpl.indexOf('<div class="share-section">', start);
   const chunks = [...tpl.slice(start, end).matchAll(/<div class="ps1-line">([\s\S]*?)<\/div>\n/g)].map(
     (m) => m[1]
@@ -790,12 +790,42 @@ printf '%s\\x1f%s\\x1f%s\\x1f%s\\x1f%s' "\${PS1@P}" "$HOSTNAM" "$cur_tty" "\${PR
     );
 }
 
+// The box of the preview scales its font to the longest line it holds, so the ratio the
+// sheet scales by and the width of that line belong together. They did not: the line grew
+// wider twice over and the ratio was left behind, and the line came out of the box - on
+// the machines drawing the frame in a true 0.6em monospace only, which is how it stayed
+// unnoticed. The sheet is held to the width of the longest line at the widest the
+// elements make it (the filled one) and at a monospace glyph of 0.6em, which is both the
+// fallback the sheet assumes and the least a machine can be asked to draw with; what the
+// machine draws instead is measured at runtime (see src/App.vue).
+{
+  const css = readFileSync(join(repoRoot, 'webpage', 'frontend', 'src', 'style.css'), 'utf8');
+  const at = css.indexOf('.ps1-line {');
+  const rule = css.slice(at, css.indexOf('}', at));
+  const size = /font-size:\s*calc\(\s*([\d.]+)cqw\s*\/\s*var\(--preview-em,\s*([\d.]+)\)\s*\)/.exec(rule);
+  const wrong = [];
+  let fills = 'nothing';
+  if (!size) {
+    wrong.push('the font size of .ps1-line is no longer calc(<fill>cqw / var(--preview-em, <ems>))');
+  } else {
+    fills = (FILLED_PREVIEW * 0.6 * Number(size[1])) / Number(size[2]);
+    if (fills > 100)
+      wrong.push(
+        `${FILLED_PREVIEW} glyphs of 0.6em do not fit: .ps1-line assumes ${size[2]}em and fills ${fills.toFixed(1)}% of the box`
+      );
+  }
+  if (!/white-space:\s*pre;/.test(rule))
+    wrong.push('.ps1-line leaves a prompt line to be broken in two by its box');
+  if (wrong.length) wrong.forEach((what) => fail(what));
+  else ok(`the font size of the preview fits its longest line: ${FILLED_PREVIEW} glyphs, ${fills.toFixed(1)}% of the box`);
+}
+
 // The markup paints the model, and holds no line of a prompt of its own: a top line
 // written by hand in the template would be a frame that no box of the page can
 // change, and no test of the shell can reach.
 {
   const tpl = readFileSync(templateFile, 'utf8');
-  const start = tpl.indexOf('<div class="terminal">');
+  const start = tpl.indexOf('<div class="terminal"');
   const end = tpl.indexOf('<div class="share-section">', start);
   const painted = [...tpl.slice(start, end).matchAll(/┌─/g)].length;
   const wrong = [];
@@ -861,7 +891,7 @@ printf '%s\\x1f%s\\x1f%s\\x1f%s\\x1f%s' "\${PS1@P}" "$HOSTNAM" "$cur_tty" "\${PR
 // preview is (see .ps1-comment in src/style.css).
 {
   const tpl = readFileSync(templateFile, 'utf8');
-  const start = tpl.indexOf('<div class="terminal">');
+  const start = tpl.indexOf('<div class="terminal"');
   const end = tpl.indexOf('<div class="share-section">', start);
   const painted = [...tpl.slice(start, end).matchAll(/<div class="ps1-line( ps1-comment)?">([\s\S]*?)<\/div>\n/g)].map(
     (m) => ({ comment: m[1] === ' ps1-comment', text: m[2].replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ') })
